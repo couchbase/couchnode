@@ -1364,7 +1364,7 @@ struct js_to_cbpp_t<
         couchbase::core::topology::collections_manifest::collection cppObj;
         js_to_cbpp<std::uint64_t>(cppObj.uid, jsObj.Get("uid"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
-        js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
+        js_to_cbpp<std::int32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
         js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
         return cppObj;
     }
@@ -1377,7 +1377,7 @@ struct js_to_cbpp_t<
         resObj.Set("uid", cbpp_to_js<std::uint64_t>(env, cppObj.uid));
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
         resObj.Set("max_expiry",
-                   cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
+                   cbpp_to_js<std::int32_t>(env, cppObj.max_expiry));
         resObj.Set("history",
                    cbpp_to_js<std::optional<bool>>(env, cppObj.history));
         return resObj;
@@ -5252,7 +5252,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
-        js_to_cbpp<std::uint32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
+        js_to_cbpp<std::int32_t>(cppObj.max_expiry, jsObj.Get("max_expiry"));
         js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
@@ -5273,7 +5273,7 @@ struct js_to_cbpp_t<
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
         resObj.Set("max_expiry",
-                   cbpp_to_js<std::uint32_t>(env, cppObj.max_expiry));
+                   cbpp_to_js<std::int32_t>(env, cppObj.max_expiry));
         resObj.Set("history",
                    cbpp_to_js<std::optional<bool>>(env, cppObj.history));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
@@ -7102,8 +7102,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.scope_name, jsObj.Get("scope_name"));
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
-        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.max_expiry,
-                                                 jsObj.Get("max_expiry"));
+        js_to_cbpp<std::optional<std::int32_t>>(cppObj.max_expiry,
+                                                jsObj.Get("max_expiry"));
         js_to_cbpp<std::optional<bool>>(cppObj.history, jsObj.Get("history"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
@@ -7123,7 +7123,7 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.scope_name));
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
-        resObj.Set("max_expiry", cbpp_to_js<std::optional<std::uint32_t>>(
+        resObj.Set("max_expiry", cbpp_to_js<std::optional<std::int32_t>>(
                                      env, cppObj.max_expiry));
         resObj.Set("history",
                    cbpp_to_js<std::optional<bool>>(env, cppObj.history));

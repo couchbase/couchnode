@@ -19,6 +19,16 @@ describe('#collectionmanager', function () {
 
   after(async function () {
     if (typeof testCluster !== 'undefined') {
+      var bmgr = testCluster.buckets()
+      /* eslint no-empty: ["error", { "allowEmptyCatch": true }] */
+      try {
+        await bmgr.dropBucket(magmaTestBucket)
+      } catch (_) {}
+      await H.consistencyUtils.waitUntilBucketDropped(magmaTestBucket)
+      try {
+        await bmgr.dropBucket(couchstoreTestBucket)
+      } catch (_) {}
+      await H.consistencyUtils.waitUntilBucketDropped(couchstoreTestBucket)
       await testCluster.close()
     }
   })
@@ -307,6 +317,127 @@ describe('#collectionmanager', function () {
     const foundColl = foundScope.collections.find((v) => v.name === testColl)
     assert.isOk(foundColl)
     assert.strictEqual(foundColl.maxExpiry, 1)
+  })
+
+  it('should successfully create a collection with default max expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    const localTestColl = H.genTestKey()
+    await cmgr.createCollection(localTestColl, testScope, {})
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      localTestColl
+    )
+    const scopes = await cmgr.getAllScopes()
+
+    const foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    const foundColl = foundScope.collections.find(
+      (v) => v.name === localTestColl
+    )
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, 0)
+  })
+
+  it('should successfully create a collection with no expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    const localTestColl = H.genTestKey()
+    await cmgr.createCollection(localTestColl, testScope, { maxExpiry: -1 })
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      localTestColl
+    )
+    const scopes = await cmgr.getAllScopes()
+
+    const foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    const foundColl = foundScope.collections.find(
+      (v) => v.name === localTestColl
+    )
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, -1)
+  })
+
+  it('should fail to create a collection with invalid expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    const localTestColl = H.genTestKey()
+    await H.throwsHelper(async () => {
+      await cmgr.createCollection(localTestColl, testScope, { maxExpiry: -20 })
+    }, H.lib.InvalidArgumentError)
+  })
+
+  it('should successfully update a collection with default max expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    const localTestColl = H.genTestKey()
+    await cmgr.createCollection(localTestColl, testScope, { maxExpiry: 5 })
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      localTestColl
+    )
+    let scopes = await cmgr.getAllScopes()
+
+    let foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    let foundColl = foundScope.collections.find((v) => v.name === localTestColl)
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, 5)
+
+    await cmgr.updateCollection(localTestColl, testScope, { maxExpiry: 0 })
+    scopes = await cmgr.getAllScopes()
+
+    foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    foundColl = foundScope.collections.find((v) => v.name === localTestColl)
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, 0)
+  })
+
+  it('should successfully update a collection with no expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    const localTestColl = H.genTestKey()
+    await cmgr.createCollection(localTestColl, testScope, {})
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      localTestColl
+    )
+    let scopes = await cmgr.getAllScopes()
+
+    let foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    let foundColl = foundScope.collections.find((v) => v.name === localTestColl)
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, 0)
+
+    await cmgr.updateCollection(localTestColl, testScope, { maxExpiry: -1 })
+    scopes = await cmgr.getAllScopes()
+
+    foundScope = scopes.find((v) => v.name === testScope)
+    assert.isOk(foundScope)
+
+    foundColl = foundScope.collections.find((v) => v.name === localTestColl)
+    assert.isOk(foundColl)
+    assert.strictEqual(foundColl.maxExpiry, -1)
+  })
+
+  it('should fail to update a collection with invalid expiry', async function () {
+    H.skipIfMissingFeature(this, H.Features.NegativeCollectionMaxExpiry)
+    var cmgr = H.b.collections()
+    await H.throwsHelper(async () => {
+      await cmgr.updateCollection(testColl, testScope, { maxExpiry: -20 })
+    }, H.lib.InvalidArgumentError)
   })
 
   it('should successfully drop a scope', async function () {

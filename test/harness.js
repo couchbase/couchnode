@@ -39,6 +39,7 @@ const ServerFeatures = {
   SubdocReadReplica: 'subdoc_read_replica',
   BucketDedup: 'bucket_dedup',
   UpdateCollectionMaxExpiry: 'update_collection_max_expiry',
+  NegativeCollectionMaxExpiry: 'negative_collection_max_expiry',
   StorageBackend: 'storage_backend',
   NotLockedKVStatus: 'kv_not_locked',
 }
@@ -289,7 +290,9 @@ class Harness {
 
   async initializeConsistencyUtils() {
     const auth = `${this.connOpts.username}:${this.connOpts.password}`
-    const hostname = this._usingMock ? "" : new URL(this.connStr).hostname.split(',')[0]
+    const hostname = this._usingMock
+      ? ''
+      : new URL(this.connStr).hostname.split(',')[0]
     const utils = new consistencyutil(hostname, auth)
     await utils.waitForConfig(this._usingMock)
     return utils
@@ -389,6 +392,8 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(7, 2, 0)
       case ServerFeatures.UpdateCollectionMaxExpiry:
         return !this._version.isMock && this._version.isAtLeast(7, 5, 0)
+      case ServerFeatures.NegativeCollectionMaxExpiry:
+        return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
       case ServerFeatures.NotLockedKVStatus:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
     }
