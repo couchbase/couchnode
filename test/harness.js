@@ -42,6 +42,7 @@ const ServerFeatures = {
   NegativeCollectionMaxExpiry: 'negative_collection_max_expiry',
   StorageBackend: 'storage_backend',
   NotLockedKVStatus: 'kv_not_locked',
+  VectorSearch: 'vector_search',
 }
 
 class ServerVersion {
@@ -395,6 +396,8 @@ class Harness {
       case ServerFeatures.NegativeCollectionMaxExpiry:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
       case ServerFeatures.NotLockedKVStatus:
+        return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
+      case ServerFeatures.VectorSearch:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
     }
 

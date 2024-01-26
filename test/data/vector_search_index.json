@@ -1,0 +1,75 @@
+{
+    "doc_config": {
+        "docid_prefix_delim": "_",
+        "docid_regexp": "",
+        "mode": "docid_prefix",
+        "type_field": "type"
+    },
+    "mapping": {
+        "default_analyzer": "standard",
+        "default_datetime_parser": "dateTimeOptional",
+        "default_field": "_all",
+        "default_mapping": {
+            "dynamic": true,
+            "enabled": false
+        },
+        "default_type": "_default",
+        "docvalues_dynamic": false,
+        "index_dynamic": true,
+        "store_dynamic": false,
+        "type_field": "_type",
+        "types": {
+            "testIndexUUID": {
+                "dynamic": false,
+                "enabled": true,
+                "properties": {
+                    "text": {
+                        "enabled": true,
+                        "dynamic": false,
+                        "fields": [
+                            {
+                                "index": true,
+                                "name": "text",
+                                "store": true,
+                                "type": "text"
+                            }
+                        ]
+                    },
+                    "vector_field": {
+                        "enabled": true,
+                        "dynamic": false,
+                        "fields": [
+                            {
+                                "dims": 1536,
+                                "index": true,
+                                "name": "vector_field",
+                                "similarity": "l2_norm",
+                                "store": true,
+                                "type": "vector"
+                            }
+                        ]
+                    },
+                    "testUid": {
+                        "enabled": true,
+                        "dynamic": false,
+                        "fields": [
+                            {
+                                "docvalues": true,
+                                "include_in_all": true,
+                                "include_term_vectors": true,
+                                "index": true,
+                                "name": "testUid",
+                                "store": true,
+                                "type": "text"
+                            }
+                        ]
+                    }
+                }
+            }
+        }
+    },
+    "store": {
+        "indexType": "scorch",
+        "segmentVersion": 16
+    }
+}

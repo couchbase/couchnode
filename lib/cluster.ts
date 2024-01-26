@@ -33,6 +33,7 @@ import { SearchQuery } from './searchquery'
 import {
   SearchMetaData,
   SearchQueryOptions,
+  SearchRequest,
   SearchResult,
   SearchRow,
 } from './searchtypes'
@@ -574,6 +575,39 @@ export class Cluster {
     const options_ = options
     return PromiseHelper.wrapAsync(
       () => exec.query(indexName, query, options_),
+      callback
+    )
+  }
+
+  /**
+   * Executes a search query against the cluster.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   * @param indexName The name of the index to query.
+   * @param request The SearchRequest describing the search to execute.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  search(
+    indexName: string,
+    request: SearchRequest,
+    options?: SearchQueryOptions,
+    callback?: NodeCallback<SearchResult>
+  ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const exec = new SearchExecutor(this)
+
+    const options_ = options
+    return PromiseHelper.wrapAsync(
+      () => exec.query(indexName, request, options_),
       callback
     )
   }

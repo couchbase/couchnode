@@ -3874,6 +3874,13 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<couchbase::core::json_string>(cppObj.query,
                                                  jsObj.Get("query"));
+        js_to_cbpp<std::optional<bool>>(cppObj.show_request,
+                                        jsObj.Get("show_request"));
+        js_to_cbpp<std::optional<couchbase::core::json_string>>(
+            cppObj.vector_search, jsObj.Get("vector_search"));
+        js_to_cbpp<std::optional<couchbase::core::vector_query_combination>>(
+            cppObj.vector_query_combination,
+            jsObj.Get("vector_query_combination"));
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.limit,
                                                  jsObj.Get("limit"));
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.skip,
@@ -3918,6 +3925,16 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("query",
                    cbpp_to_js<couchbase::core::json_string>(env, cppObj.query));
+        resObj.Set("show_request",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.show_request));
+        resObj.Set("vector_search",
+                   cbpp_to_js<std::optional<couchbase::core::json_string>>(
+                       env, cppObj.vector_search));
+        resObj.Set(
+            "vector_query_combination",
+            cbpp_to_js<
+                std::optional<couchbase::core::vector_query_combination>>(
+                env, cppObj.vector_query_combination));
         resObj.Set("limit",
                    cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.limit));
         resObj.Set("skip",

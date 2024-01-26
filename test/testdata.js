@@ -31,7 +31,27 @@ async function upsertTestData(target, testUid) {
   return await Promise.all(promises)
 }
 
+async function upsertTestDataFromList(target, testUid, docList) {
+  var promises = []
+
+  for (var i = 0; i < docList.length; ++i) {
+    promises.push(
+      (async () => {
+        var testDocKey = testUid + '::' + i
+        var testDoc = docList[i]
+        testDoc.testUid = testUid
+
+        await target.upsert(testDocKey, testDoc)
+        return testDocKey
+      })()
+    )
+  }
+
+  return await Promise.all(promises)
+}
+
 module.exports.upsertData = upsertTestData
+module.exports.upserDataFromList = upsertTestDataFromList
 
 async function removeTestData(target, testDocs) {
   if (!testDocs) {

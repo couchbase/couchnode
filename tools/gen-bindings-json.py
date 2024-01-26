@@ -72,6 +72,7 @@ fileList = [
     "core/scan_options.hxx",
     "core/range_scan_orchestrator_options.hxx",
     "core/query_context.hxx",
+    "core/vector_query_combination.hxx",
 ]
 
 typeList = [
@@ -165,6 +166,7 @@ typeList = [
     "couchbase::core::range_scan_continue_result",
     "couchbase::core::range_scan_cancel_result",
     "couchbase::core::query_context",
+    "couchbase::core::vector_query_combination",
 ]
 
 # end of configurable part

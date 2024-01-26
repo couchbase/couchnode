@@ -110,6 +110,7 @@ export enum CppImplSubdocOpcode {}
 export enum CppStoreSemantics {}
 export enum CppPersistTo {}
 export enum CppReplicateTo {}
+export enum CppVectorQueryCombination {}
 
 export interface CppManagementAnalyticsDataset {
   name: string
@@ -880,6 +881,9 @@ export interface CppSearchResponseSearchFacetNumericRangeFacet {
 export interface CppSearchRequest {
   index_name: string
   query: CppJsonString
+  show_request?: boolean
+  vector_search?: CppJsonString
+  vector_query_combination?: CppVectorQueryCombination
   limit?: number
   skip?: number
   explain?: boolean
@@ -3112,6 +3116,10 @@ export interface CppBindingAutogen {
     one: CppReplicateTo
     two: CppReplicateTo
     three: CppReplicateTo
+  }
+  vector_query_combination: {
+    combination_and: CppVectorQueryCombination
+    combination_or: CppVectorQueryCombination
   }
 }
 
