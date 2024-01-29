@@ -10,18 +10,19 @@ const { VectorQuery, VectorSearch } = require('../lib/vectorsearch')
 
 const H = require('./harness')
 
-describe('#search', function () {
+function genericTests(connFn, collFn) {
   let testUid, idxName
   let testDocs
   let indexParams
 
+  /* eslint-disable-next-line mocha/no-top-level-hooks */
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Search)
 
     testUid = H.genTestKey()
     idxName = 's_' + H.genTestKey() // prefix with a letter
 
-    testDocs = await testdata.upsertData(H.dco, testUid)
+    testDocs = await testdata.upsertData(collFn(), testUid)
     const indexPath = path.join(
       process.cwd(),
       'test',
@@ -36,12 +37,13 @@ describe('#search', function () {
     delete indexParams.mapping.types['testIndexUUID']
   })
 
+  /* eslint-disable-next-line mocha/no-top-level-hooks */
   after(async function () {
-    await testdata.removeTestData(H.dco, testDocs)
+    await testdata.removeTestData(collFn(), testDocs)
   })
 
   it('should successfully create an index', async function () {
-    await H.c.searchIndexes().upsertIndex({
+    await connFn().searchIndexes().upsertIndex({
       name: idxName,
       sourceName: H.b.name,
       sourceType: 'couchbase',
@@ -51,12 +53,12 @@ describe('#search', function () {
   })
 
   it('should successfully get all indexes', async function () {
-    const idxs = await H.c.searchIndexes().getAllIndexes()
+    const idxs = await connFn().searchIndexes().getAllIndexes()
     assert.isAtLeast(idxs.length, 1)
   })
 
   it('should successfully get an index', async function () {
-    const idx = await H.c.searchIndexes().getIndex(idxName)
+    const idx = await connFn().searchIndexes().getIndex(idxName)
     assert.equal(idx.name, idxName)
   })
 
@@ -65,16 +67,30 @@ describe('#search', function () {
     while (true) {
       var res = null
       try {
-        res = await H.c.searchQuery(
-          idxName,
-          H.lib.SearchQuery.term(testUid).field('testUid'),
-          {
-            explain: true,
-            fields: ['name'],
-            includeLocations: true,
-            highlight: { style: HighlightStyle.HTML },
-          }
-        )
+        res =
+          connFn() instanceof H.lib.Scope
+            ? await connFn().search(
+                idxName,
+                SearchRequest.create(
+                  H.lib.SearchQuery.term(testUid).field('testUid')
+                ),
+                {
+                  explain: true,
+                  fields: ['name'],
+                  includeLocations: true,
+                  highlight: { style: HighlightStyle.HTML },
+                }
+              )
+            : await connFn().searchQuery(
+                idxName,
+                H.lib.SearchQuery.term(testUid).field('testUid'),
+                {
+                  explain: true,
+                  fields: ['name'],
+                  includeLocations: true,
+                  highlight: { style: HighlightStyle.HTML },
+                }
+              )
       } catch (e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length !== testdata.docCount()) {
@@ -112,14 +128,36 @@ describe('#search', function () {
   }).timeout(60000)
 
   it('should successfully drop an index', async function () {
-    await H.c.searchIndexes().dropIndex(idxName)
+    await connFn().searchIndexes().dropIndex(idxName)
   })
 
   it('should fail to drop a missing index', async function () {
     await H.throwsHelper(async () => {
-      await H.c.searchIndexes().dropIndex(idxName)
+      await connFn().searchIndexes().dropIndex(idxName)
     }, H.lib.SearchIndexNotFoundError)
   })
+}
+
+describe('#search', function () {
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(
+    () => H.c,
+    () => H.dco
+  )
+})
+
+describe('#scopesearch', function () {
+  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
+  before(function () {
+    H.skipIfMissingFeature(this, H.Features.Collections)
+    H.skipIfMissingFeature(this, H.Features.ScopeSearch)
+    H.skipIfMissingFeature(this, H.Features.ScopeSearchIndexManagement)
+  })
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(
+    () => H.s,
+    () => H.dco
+  )
 })
 
 describe('#vectorsearch', function () {

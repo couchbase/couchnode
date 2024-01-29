@@ -24,12 +24,16 @@ import { CppSearchRequest } from './binding'
  */
 export class SearchExecutor {
   private _cluster: Cluster
+  private _bucketName: string | undefined
+  private _scopeName: string | undefined
 
   /**
    * @internal
    */
-  constructor(cluster: Cluster) {
+  constructor(cluster: Cluster, bucketName?: string, scopeName?: string) {
     this._cluster = cluster
+    this._bucketName = bucketName
+    this._scopeName = scopeName
   }
 
   /**
@@ -102,12 +106,20 @@ export class SearchExecutor {
       request.show_request = false
       if (query.vectorSearch) {
         request.vector_search = JSON.stringify(query.vectorSearch.queries)
-        if (query.vectorSearch.options && query.vectorSearch.options.vectorQueryCombination) {
+        if (
+          query.vectorSearch.options &&
+          query.vectorSearch.options.vectorQueryCombination
+        ) {
           request.vector_query_combination = vectorQueryCombinationToCpp(
             query.vectorSearch.options.vectorQueryCombination
           )
         }
       }
+    }
+
+    if (this._bucketName && this._scopeName) {
+      request.bucket_name = this._bucketName
+      request.scope_name = this._scopeName
     }
 
     this._cluster.conn.search(request, (cppErr, resp) => {

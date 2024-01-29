@@ -881,6 +881,8 @@ export interface CppSearchResponseSearchFacetNumericRangeFacet {
 export interface CppSearchRequest {
   index_name: string
   query: CppJsonString
+  bucket_name?: string
+  scope_name?: string
   show_request?: boolean
   vector_search?: CppJsonString
   vector_query_combination?: CppVectorQueryCombination
@@ -1257,6 +1259,8 @@ export interface CppManagementSearchIndexGetAllResponse {
   indexes: CppManagementSearchIndex[]
 }
 export interface CppManagementSearchIndexGetAllRequest {
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1269,6 +1273,8 @@ export interface CppManagementSearchIndexAnalyzeDocumentResponse {
 export interface CppManagementSearchIndexAnalyzeDocumentRequest {
   index_name: string
   encoded_document: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1360,6 +1366,8 @@ export interface CppManagementSearchIndexUpsertResponse {
 }
 export interface CppManagementSearchIndexUpsertRequest {
   index: CppManagementSearchIndex
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1707,6 +1715,8 @@ export interface CppManagementSearchIndexDropResponse {
 }
 export interface CppManagementSearchIndexDropRequest {
   index_name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1718,6 +1728,8 @@ export interface CppManagementSearchIndexControlPlanFreezeResponse {
 export interface CppManagementSearchIndexControlPlanFreezeRequest {
   index_name: string
   freeze: boolean
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1757,6 +1769,8 @@ export interface CppManagementSearchIndexControlQueryResponse {
 export interface CppManagementSearchIndexControlQueryRequest {
   index_name: string
   allow: boolean
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1817,6 +1831,8 @@ export interface CppManagementSearchIndexControlIngestResponse {
 export interface CppManagementSearchIndexControlIngestRequest {
   index_name: string
   pause: boolean
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1886,6 +1902,8 @@ export interface CppManagementSearchIndexGetResponse {
 }
 export interface CppManagementSearchIndexGetRequest {
   index_name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1937,6 +1955,8 @@ export interface CppManagementSearchIndexGetDocumentsCountResponse {
 }
 export interface CppManagementSearchIndexGetDocumentsCountRequest {
   index_name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }

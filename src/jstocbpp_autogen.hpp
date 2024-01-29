@@ -3874,6 +3874,10 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<couchbase::core::json_string>(cppObj.query,
                                                  jsObj.Get("query"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<bool>>(cppObj.show_request,
                                         jsObj.Get("show_request"));
         js_to_cbpp<std::optional<couchbase::core::json_string>>(
@@ -3925,6 +3929,10 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("query",
                    cbpp_to_js<couchbase::core::json_string>(env, cppObj.query));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("show_request",
                    cbpp_to_js<std::optional<bool>>(env, cppObj.show_request));
         resObj.Set("vector_search",
@@ -5807,6 +5815,10 @@ struct js_to_cbpp_t<
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::management::search_index_get_all_request
             cppObj;
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5818,6 +5830,10 @@ struct js_to_cbpp_t<
                              search_index_get_all_request &cppObj)
     {
         auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -5869,6 +5885,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<std::string>(cppObj.encoded_document,
                                 jsObj.Get("encoded_document"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5884,6 +5904,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("encoded_document",
                    cbpp_to_js<std::string>(env, cppObj.encoded_document));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -6388,6 +6412,10 @@ struct js_to_cbpp_t<
             cppObj;
         js_to_cbpp<couchbase::core::management::search::index>(
             cppObj.index, jsObj.Get("index"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -6402,6 +6430,10 @@ struct js_to_cbpp_t<
         resObj.Set("index",
                    cbpp_to_js<couchbase::core::management::search::index>(
                        env, cppObj.index));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -8618,6 +8650,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::search_index_drop_request
             cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -8632,6 +8668,10 @@ struct js_to_cbpp_t<
         auto resObj = Napi::Object::New(env);
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -8680,6 +8720,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
             search_index_control_plan_freeze_request cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<bool>(cppObj.freeze, jsObj.Get("freeze"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -8694,6 +8738,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("freeze", cbpp_to_js<bool>(env, cppObj.freeze));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -8928,6 +8976,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
             search_index_control_query_request cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<bool>(cppObj.allow, jsObj.Get("allow"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -8942,6 +8994,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("allow", cbpp_to_js<bool>(env, cppObj.allow));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -9319,6 +9375,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
             search_index_control_ingest_request cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<bool>(cppObj.pause, jsObj.Get("pause"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -9333,6 +9393,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("pause", cbpp_to_js<bool>(env, cppObj.pause));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -9766,6 +9830,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::search_index_get_request
             cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -9780,6 +9848,10 @@ struct js_to_cbpp_t<
         auto resObj = Napi::Object::New(env);
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -10073,6 +10145,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         couchbase::core::operations::management::
             search_index_get_documents_count_request cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -10086,6 +10162,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         auto resObj = Napi::Object::New(env);
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",

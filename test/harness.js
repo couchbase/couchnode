@@ -43,6 +43,8 @@ const ServerFeatures = {
   StorageBackend: 'storage_backend',
   NotLockedKVStatus: 'kv_not_locked',
   VectorSearch: 'vector_search',
+  ScopeSearch: 'scope_search',
+  ScopeSearchIndexManagement: 'scope_search_index_management',
 }
 
 class ServerVersion {
@@ -398,6 +400,8 @@ class Harness {
       case ServerFeatures.NotLockedKVStatus:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
       case ServerFeatures.VectorSearch:
+      case ServerFeatures.ScopeSearch:
+      case ServerFeatures.ScopeSearchIndexManagement:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
     }
 

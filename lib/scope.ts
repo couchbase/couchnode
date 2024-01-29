@@ -10,6 +10,15 @@ import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { QueryExecutor } from './queryexecutor'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
+import { SearchExecutor } from './searchexecutor'
+import { ScopeSearchIndexManager } from './scopesearchindexmanager'
+import {
+  SearchMetaData,
+  SearchQueryOptions,
+  SearchRequest,
+  SearchResult,
+  SearchRow,
+} from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
 import { NodeCallback, PromiseHelper } from './utilities'
@@ -86,6 +95,21 @@ export class Scope {
   }
 
   /**
+   * Returns a SearchIndexManager which can be used to manage the search
+   * indexes of this scope.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   */
+  searchIndexes(): ScopeSearchIndexManager {
+    return new ScopeSearchIndexManager(
+      this.cluster,
+      this.bucket.name,
+      this._name
+    )
+  }
+
+  /**
    * Executes a N1QL query against the cluster scoped to this scope.
    *
    * @param statement The N1QL statement to execute.
@@ -149,6 +173,39 @@ export class Scope {
           ...options_,
           queryContext: `${bucket.name}.${this.name}`,
         }),
+      callback
+    )
+  }
+
+  /**
+   * Executes a search query against the scope.
+   *
+   * Volatile: This API is subject to change at any time.
+   *
+   * @param indexName The name of the index to query.
+   * @param request The SearchRequest describing the search to execute.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  search(
+    indexName: string,
+    request: SearchRequest,
+    options?: SearchQueryOptions,
+    callback?: NodeCallback<SearchResult>
+  ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const exec = new SearchExecutor(this.cluster, this._bucket.name, this._name)
+
+    const options_ = options
+    return PromiseHelper.wrapAsync(
+      () => exec.query(indexName, request, options_),
       callback
     )
   }
