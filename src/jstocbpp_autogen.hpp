@@ -6316,8 +6316,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::string>(cppObj.collection_name,
                                 jsObj.Get("collection_name"));
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
-        js_to_cbpp<std::vector<std::string>>(cppObj.fields,
-                                             jsObj.Get("fields"));
+        js_to_cbpp<std::vector<std::string>>(cppObj.keys, jsObj.Get("keys"));
         js_to_cbpp<couchbase::core::query_context>(cppObj.query_ctx,
                                                    jsObj.Get("query_ctx"));
         js_to_cbpp<bool>(cppObj.is_primary, jsObj.Get("is_primary"));
@@ -6347,8 +6346,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
-        resObj.Set("fields",
-                   cbpp_to_js<std::vector<std::string>>(env, cppObj.fields));
+        resObj.Set("keys",
+                   cbpp_to_js<std::vector<std::string>>(env, cppObj.keys));
         resObj.Set("query_ctx", cbpp_to_js<couchbase::core::query_context>(
                                     env, cppObj.query_ctx));
         resObj.Set("is_primary", cbpp_to_js<bool>(env, cppObj.is_primary));

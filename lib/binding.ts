@@ -1347,7 +1347,7 @@ export interface CppManagementQueryIndexCreateRequest {
   scope_name: string
   collection_name: string
   index_name: string
-  fields: string[]
+  keys: string[]
   query_ctx: CppQueryContext
   is_primary: boolean
   ignore_if_exists: boolean
