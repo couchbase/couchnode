@@ -3,7 +3,9 @@
 const assert = require('chai').assert
 const { DurabilityLevel } = require('../lib/generaltypes')
 const { DefaultTranscoder } = require('../lib/transcoders')
+const { SdUtils } = require('../lib/sdutils')
 const H = require('./harness')
+const testdata = require('./testdata')
 
 const errorTranscoder = {
   encode: () => {
@@ -1575,6 +1577,266 @@ function genericTests(collFn) {
       }, H.lib.CasMismatchError)
     })
   })
+
+  /* eslint-disable mocha/no-setup-in-describe */
+  describe('subdoc lookup-in macros', function () {
+    let testKeySd
+    const macros = [
+      H.lib.LookupInMacro.Cas,
+      H.lib.LookupInMacro.Document,
+      H.lib.LookupInMacro.Expiry,
+      H.lib.LookupInMacro.IsDeleted,
+      H.lib.LookupInMacro.LastModified,
+      H.lib.LookupInMacro.RevId,
+      H.lib.LookupInMacro.SeqNo,
+      H.lib.LookupInMacro.ValueSizeBytes,
+    ]
+
+    before(async function () {
+      H.skipIfMissingFeature(this, H.Features.Xattr)
+      testKeySd = H.genTestKey()
+
+      await collFn().insert(testKeySd, {
+        foo: 14,
+        bar: 2,
+        baz: 'hello',
+        arr: [1, 2, 3],
+      })
+    })
+
+    after(async function () {
+      try {
+        await collFn().remove(testKeySd)
+      } catch (e) {
+        // nothing
+      }
+    })
+
+    macros.forEach((macro) => {
+      it(`correctly executes ${macro._value} lookup-in macro`, async function () {
+        const res = await collFn().lookupIn(testKeySd, [
+          H.lib.LookupInSpec.get(macro, { xattr: true }),
+        ])
+        const documentRes = (
+          await collFn().lookupIn(testKeySd, [
+            H.lib.LookupInSpec.get(H.lib.LookupInMacro.Document, {
+              xattr: true,
+            }),
+          ])
+        ).content[0].value
+        const macroKey = macro._value.replace('$document.', '')
+        const macroRes = res.content[0].value
+
+        if (macroKey === '$document') {
+          assert.deepStrictEqual(macroRes, documentRes)
+        } else {
+          assert.strictEqual(macroRes, documentRes[macroKey])
+          if (
+            ['CAS', 'seqno', 'vbucket_uuid', 'value_crc32c'].includes(macroKey)
+          ) {
+            assert.isTrue(macroRes.startsWith('0x'))
+          }
+        }
+      })
+    })
+  })
+
+  describe('subdoc mutate-in macros', function () {
+    let testUid
+    let testDocs
+    let docIdx
+    const xattrPath = 'xattr-macro'
+
+    const macros = [
+      H.lib.MutateInMacro.Cas,
+      H.lib.MutateInMacro.SeqNo,
+      H.lib.MutateInMacro.ValueCrc32c,
+    ]
+
+    before(async function () {
+      H.skipIfMissingFeature(this, H.Features.Xattr)
+      docIdx = 0
+      testUid = H.genTestKey()
+      testDocs = await testdata.upsertData(collFn(), testUid)
+    })
+
+    after(async function () {
+      try {
+        await testdata.removeTestData(collFn(), testDocs)
+      } catch (e) {
+        // nothing
+      }
+    })
+
+    it('correctly executes arrayaddunique mutate-in macros', async function () {
+      const testKey = testDocs[docIdx++]
+      // BUG JSCBC-1235: Server raises invalid argument when using
+      // mutate-in macro w/ arrayaddunique.  Update test if associated MB
+      // is addressed in the future.
+      await H.throwsHelper(async () => {
+        await collFn().mutateIn(testKey, [
+          H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
+          H.lib.MutateInSpec.arrayAddUnique(xattrPath, H.lib.MutateInMacro.Cas),
+          H.lib.MutateInSpec.arrayAddUnique(
+            xattrPath,
+            H.lib.MutateInMacro.SeqNo
+          ),
+          H.lib.MutateInSpec.arrayAddUnique(
+            xattrPath,
+            H.lib.MutateInMacro.ValueCrc32c
+          ),
+        ])
+      }, H.lib.InvalidArgumentError)
+    })
+
+    it('correctly executes arrayappend mutate-in macros', async function () {
+      const testKey = testDocs[docIdx++]
+      const mutateInRes = await collFn().mutateIn(testKey, [
+        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
+          createPath: true,
+        }),
+        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.SeqNo),
+        H.lib.MutateInSpec.arrayAppend(
+          xattrPath,
+          H.lib.MutateInMacro.ValueCrc32c
+        ),
+      ])
+      const res = (
+        await collFn().lookupIn(testKey, [
+          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        ])
+      ).content[0].value
+      assert.equal(
+        BigInt(SdUtils.convertMacroCasToCas(res[0])),
+        BigInt(mutateInRes.cas.toString())
+      )
+      assert.isString(res[0])
+      assert.isString(res[1])
+      assert.isString(res[2])
+      assert.isTrue(res[0].startsWith('0x'))
+      assert.isTrue(res[1].startsWith('0x'))
+      assert.isTrue(res[2].startsWith('0x'))
+    })
+
+    it('correctly executes arrayinsert mutate-in macros', async function () {
+      const testKey = testDocs[docIdx++]
+      const mutateInRes = await collFn().mutateIn(testKey, [
+        H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
+        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
+          createPath: true,
+        }),
+        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.SeqNo),
+        H.lib.MutateInSpec.arrayAppend(
+          xattrPath,
+          H.lib.MutateInMacro.ValueCrc32c
+        ),
+      ])
+      const res = (
+        await collFn().lookupIn(testKey, [
+          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        ])
+      ).content[0].value
+      assert.equal(
+        BigInt(SdUtils.convertMacroCasToCas(res[0])),
+        BigInt(mutateInRes.cas.toString())
+      )
+      assert.isString(res[0])
+      assert.isString(res[1])
+      assert.isString(res[2])
+      assert.isTrue(res[0].startsWith('0x'))
+      assert.isTrue(res[1].startsWith('0x'))
+      assert.isTrue(res[2].startsWith('0x'))
+    })
+
+    it('correctly executes arrayprepend mutate-in macros', async function () {
+      const testKey = testDocs[docIdx++]
+      const mutateInRes = await collFn().mutateIn(testKey, [
+        H.lib.MutateInSpec.arrayPrepend(xattrPath, H.lib.MutateInMacro.Cas, {
+          createPath: true,
+        }),
+        H.lib.MutateInSpec.arrayPrepend(xattrPath, H.lib.MutateInMacro.SeqNo),
+        H.lib.MutateInSpec.arrayPrepend(
+          xattrPath,
+          H.lib.MutateInMacro.ValueCrc32c
+        ),
+      ])
+      const res = (
+        await collFn().lookupIn(testKey, [
+          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        ])
+      ).content[0].value
+      assert.equal(
+        BigInt(SdUtils.convertMacroCasToCas(res[2])),
+        BigInt(mutateInRes.cas.toString())
+      )
+      assert.isString(res[0])
+      assert.isString(res[1])
+      assert.isString(res[2])
+      assert.isTrue(res[0].startsWith('0x'))
+      assert.isTrue(res[1].startsWith('0x'))
+      assert.isTrue(res[2].startsWith('0x'))
+    })
+
+    macros.forEach((macro) => {
+      it(`correctly executes ${macro._value} mutate-in macro`, async function () {
+        const testKey = testDocs[docIdx++]
+        let mutateInRes = await collFn().mutateIn(testKey, [
+          H.lib.MutateInSpec.insert(xattrPath, macro),
+        ])
+        let res = (
+          await collFn().lookupIn(testKey, [
+            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+          ])
+        ).content[0].value
+
+        assert.isString(res)
+        assert.isTrue(res.startsWith('0x'))
+        if (macro._value.includes('CAS')) {
+          assert.equal(
+            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(mutateInRes.cas.toString())
+          )
+        }
+
+        mutateInRes = await collFn().mutateIn(testKey, [
+          H.lib.MutateInSpec.upsert(xattrPath, macro),
+        ])
+        res = (
+          await collFn().lookupIn(testKey, [
+            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+          ])
+        ).content[0].value
+
+        assert.isString(res)
+        assert.isTrue(res.startsWith('0x'))
+        if (macro._value.includes('CAS')) {
+          assert.equal(
+            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(mutateInRes.cas.toString())
+          )
+        }
+
+        mutateInRes = await collFn().mutateIn(testKey, [
+          H.lib.MutateInSpec.replace(xattrPath, macro),
+        ])
+        res = (
+          await collFn().lookupIn(testKey, [
+            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+          ])
+        ).content[0].value
+
+        assert.isString(res)
+        assert.isTrue(res.startsWith('0x'))
+        if (macro._value.includes('CAS')) {
+          assert.equal(
+            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(mutateInRes.cas.toString())
+          )
+        }
+      })
+    })
+  })
+  /* eslint-enable mocha/no-setup-in-describe */
 
   describe('subdoc replica', function () {
     let testKeySd

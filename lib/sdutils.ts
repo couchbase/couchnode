@@ -131,4 +131,9 @@ export class SdUtils {
     const parts = this._parsePath(path)
     return this._getByPath(value, parts)
   }
+
+  static convertMacroCasToCas(cas: string): string {
+    const buf = Buffer.from(cas.startsWith('0x') ? cas.slice(2) : cas, 'hex')
+    return `0x${buf.reverse().toString('hex')}`
+  }
 }
