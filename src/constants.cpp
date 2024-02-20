@@ -865,6 +865,7 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                  couchbase::key_value_status_code::opaque_no_match},
                 {"locked", couchbase::key_value_status_code::locked},
                 {"not_locked", couchbase::key_value_status_code::not_locked},
+                {"config_only", couchbase::key_value_status_code::config_only},
                 {"auth_stale", couchbase::key_value_status_code::auth_stale},
                 {"auth_error", couchbase::key_value_status_code::auth_error},
                 {"auth_continue",

@@ -185,7 +185,7 @@ export interface CppManagementClusterBucketSettingsNode {
   ports: { [key: string /*string*/]: number }
 }
 export interface CppManagementViewsDesignDocument {
-  rev: string
+  rev?: string
   name: string
   ns: CppDesignDocumentNamespace
   views: { [key: string /*string*/]: CppManagementViewsDesignDocumentView }
@@ -983,6 +983,7 @@ export interface CppDocumentViewRequest {
   group_level?: number
   debug: boolean
   raw: { [key: string /*string*/]: string }
+  full_set?: boolean
   order?: CppViewSortOrder
   on_error?: CppViewOnError
   query_string: string[]
@@ -3038,6 +3039,7 @@ export interface CppBindingAutogen {
     opaque_no_match: CppKeyValueStatusCode
     locked: CppKeyValueStatusCode
     not_locked: CppKeyValueStatusCode
+    config_only: CppKeyValueStatusCode
     auth_stale: CppKeyValueStatusCode
     auth_error: CppKeyValueStatusCode
     auth_continue: CppKeyValueStatusCode

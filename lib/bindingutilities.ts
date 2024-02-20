@@ -2,6 +2,7 @@ import { AnalyticsScanConsistency, AnalyticsStatus } from './analyticstypes'
 import binding, {
   CppAnalyticsResponseAnalyticsStatus,
   CppAnalyticsScanConsistency,
+  CppDesignDocumentNamespace,
   CppDiagEndpointState,
   CppDiagPingState,
   CppDurabilityLevel,
@@ -48,7 +49,11 @@ import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
 import { HighlightStyle, SearchScanConsistency } from './searchtypes'
 import { nsServerStrToDuraLevel } from './utilities'
 import { VectorQueryCombination } from './vectorsearch'
-import { ViewOrdering, ViewScanConsistency } from './viewtypes'
+import {
+  DesignDocumentNamespace,
+  ViewOrdering,
+  ViewScanConsistency,
+} from './viewtypes'
 
 /**
  * @internal
@@ -1113,5 +1118,41 @@ export function vectorQueryCombinationToCpp(
     return binding.vector_query_combination.combination_or
   }
 
-  throw new errs.InvalidArgumentError(new Error('Unrecognized VectorQueryCombination.'))
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized VectorQueryCombination.')
+  )
+}
+
+/**
+ * @internal
+ */
+export function designDocumentNamespaceFromCpp(
+  namespace: CppDesignDocumentNamespace
+): DesignDocumentNamespace {
+  if (namespace === binding.design_document_namespace.production) {
+    return DesignDocumentNamespace.Production
+  } else if (namespace === binding.design_document_namespace.development) {
+    return DesignDocumentNamespace.Development
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized DesignDocumentNamespace.')
+  )
+}
+
+/**
+ * @internal
+ */
+export function designDocumentNamespaceToCpp(
+  namespace: DesignDocumentNamespace
+): CppDesignDocumentNamespace {
+  if (namespace === DesignDocumentNamespace.Production) {
+    return binding.design_document_namespace.production
+  } else if (namespace === DesignDocumentNamespace.Development) {
+    return binding.design_document_namespace.development
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized DesignDocumentNamespace.')
+  )
 }

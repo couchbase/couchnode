@@ -360,7 +360,6 @@ class Harness {
       case ServerFeatures.Ssl:
       case ServerFeatures.SpatialViews:
       case ServerFeatures.Subdoc:
-      case ServerFeatures.Views:
       case ServerFeatures.Replicas:
         return true
       case ServerFeatures.Search:
@@ -368,6 +367,7 @@ class Harness {
       case ServerFeatures.BucketManagement:
       case ServerFeatures.Xattr:
       case ServerFeatures.GetMeta:
+      case ServerFeatures.Views:
         // supported on all versions except the mock
         return !this._version.isMock
       case ServerFeatures.Analytics:

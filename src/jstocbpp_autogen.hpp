@@ -411,7 +411,7 @@ struct js_to_cbpp_t<couchbase::core::management::views::design_document> {
     {
         auto jsObj = jsVal.ToObject();
         couchbase::core::management::views::design_document cppObj;
-        js_to_cbpp<std::string>(cppObj.rev, jsObj.Get("rev"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.rev, jsObj.Get("rev"));
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<couchbase::core::design_document_namespace>(cppObj.ns,
                                                                jsObj.Get("ns"));
@@ -425,7 +425,8 @@ struct js_to_cbpp_t<couchbase::core::management::views::design_document> {
           const couchbase::core::management::views::design_document &cppObj)
     {
         auto resObj = Napi::Object::New(env);
-        resObj.Set("rev", cbpp_to_js<std::string>(env, cppObj.rev));
+        resObj.Set("rev",
+                   cbpp_to_js<std::optional<std::string>>(env, cppObj.rev));
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
         resObj.Set("ns", cbpp_to_js<couchbase::core::design_document_namespace>(
                              env, cppObj.ns));
@@ -4323,6 +4324,7 @@ struct js_to_cbpp_t<couchbase::core::operations::document_view_request> {
         js_to_cbpp<bool>(cppObj.debug, jsObj.Get("debug"));
         js_to_cbpp<std::map<std::string, std::string>>(cppObj.raw,
                                                        jsObj.Get("raw"));
+        js_to_cbpp<std::optional<bool>>(cppObj.full_set, jsObj.Get("full_set"));
         js_to_cbpp<std::optional<couchbase::core::view_sort_order>>(
             cppObj.order, jsObj.Get("order"));
         js_to_cbpp<std::optional<couchbase::core::view_on_error>>(
@@ -4379,6 +4381,8 @@ struct js_to_cbpp_t<couchbase::core::operations::document_view_request> {
         resObj.Set("debug", cbpp_to_js<bool>(env, cppObj.debug));
         resObj.Set("raw", cbpp_to_js<std::map<std::string, std::string>>(
                               env, cppObj.raw));
+        resObj.Set("full_set",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.full_set));
         resObj.Set("order",
                    cbpp_to_js<std::optional<couchbase::core::view_sort_order>>(
                        env, cppObj.order));

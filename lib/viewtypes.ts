@@ -90,6 +90,23 @@ export class ViewRow<TValue = any, TKey = any> {
 }
 
 /**
+ * Specifies the namespace for the associated Design Document.
+ *
+ * @category Views
+ */
+export enum DesignDocumentNamespace {
+  /**
+   * Indicates that the Design Document namespace is within the development environment.
+   */
+  Development = 'development',
+
+  /**
+   * Indicates that the Design Document namespace is within the producion environment.
+   */
+  Production = 'production',
+}
+
+/**
  * Represents the various scan consistency options that are available when
  * querying against the views service.
  *
