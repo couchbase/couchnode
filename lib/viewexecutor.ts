@@ -1,6 +1,6 @@
 /* eslint jsdoc/require-jsdoc: off */
-import binding from './binding'
 import {
+  designDocumentNamespaceToCpp,
   errorFromCpp,
   viewOrderingToCpp,
   viewScanConsistencyToCpp,
@@ -9,6 +9,7 @@ import { Bucket } from './bucket'
 import { Cluster } from './cluster'
 import { StreamableRowPromise } from './streamablepromises'
 import {
+  DesignDocumentNamespace,
   ViewMetaData,
   ViewQueryOptions,
   ViewResult,
@@ -59,6 +60,12 @@ export class ViewExecutor {
     })
 
     const timeout = options.timeout || this._cluster.viewTimeout
+    const raw = options.raw || {}
+    const ns = options.namespace ?? DesignDocumentNamespace.Production
+    let fullSet = options.full_set
+    if (typeof options.fullSet !== 'undefined') {
+      fullSet = options.fullSet
+    }
 
     this._cluster.conn.documentView(
       {
@@ -66,7 +73,7 @@ export class ViewExecutor {
         bucket_name: this._bucket.name,
         document_name: designDoc,
         view_name: viewName,
-        ns: binding.design_document_namespace.production,
+        ns: designDocumentNamespaceToCpp(ns),
         limit: options.limit,
         skip: options.skip,
         consistency: viewScanConsistencyToCpp(options.scanConsistency),
@@ -83,11 +90,11 @@ export class ViewExecutor {
         inclusive_end: options.range ? options.range.inclusiveEnd : undefined,
         start_key_doc_id:
           options.idRange && options.idRange.start
-            ? JSON.stringify(options.idRange.start)
+            ? options.idRange.start
             : undefined,
         end_key_doc_id:
           options.idRange && options.idRange.end
-            ? JSON.stringify(options.idRange.end)
+            ? options.idRange.end
             : undefined,
         reduce: options.reduce,
         group: options.group,
@@ -95,7 +102,8 @@ export class ViewExecutor {
         order: viewOrderingToCpp(options.order),
         debug: false,
         query_string: [],
-        raw: {},
+        raw: raw,
+        full_set: fullSet,
       },
       (cppErr, resp) => {
         const err = errorFromCpp(cppErr)
@@ -111,7 +119,7 @@ export class ViewExecutor {
             new ViewRow<TValue, TKey>({
               value: JSON.parse(row.value),
               id: row.id,
-              key: row.key,
+              key: JSON.parse(row.key),
             })
           )
         })

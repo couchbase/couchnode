@@ -203,20 +203,20 @@ export function viewScanConsistencyToCpp(
  * @internal
  */
 export function viewOrderingToCpp(
-  mode: ViewOrdering | undefined
+  ordering: ViewOrdering | undefined
 ): CppViewSortOrder | undefined {
-  // Unspecified is allowed, and means no sync durability.
-  if (mode === null || mode === undefined) {
+  // Unspecified is allowed, and means default ordering.
+  if (ordering === null || ordering === undefined) {
     return undefined
   }
 
-  if (mode === ViewOrdering.Ascending) {
+  if (ordering === ViewOrdering.Ascending) {
     return binding.view_sort_order.ascending
-  } else if (mode === ViewOrdering.Descending) {
+  } else if (ordering === ViewOrdering.Descending) {
     return binding.view_sort_order.descending
   }
 
-  throw new errs.InvalidArgumentError()
+  throw new errs.InvalidArgumentError(new Error('Unrecognized view ordering.'))
 }
 
 /**
