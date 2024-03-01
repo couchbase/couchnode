@@ -19,7 +19,6 @@
 #include <core/operations/management/user.hxx>
 #include <core/operations/management/view.hxx>
 #include <core/range_scan_orchestrator_options.hxx>
-#include <core/scan_options.hxx>
 
 namespace couchnode
 {
