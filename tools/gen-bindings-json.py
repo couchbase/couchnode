@@ -69,7 +69,6 @@ fileList = [
     "couchbase/persist_to.hxx",
     "couchbase/replicate_to.hxx",
     "core/range_scan_options.hxx",
-    "core/scan_options.hxx",
     "core/range_scan_orchestrator_options.hxx",
     "core/query_context.hxx",
     "core/vector_query_combination.hxx",

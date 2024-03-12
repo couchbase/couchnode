@@ -903,6 +903,8 @@ export interface CppSearchRequest {
   // row_callback
   client_context_id?: string
   timeout?: CppMilliseconds
+  log_request?: boolean
+  log_response?: boolean
   body_str: string
   // parent_span
 }

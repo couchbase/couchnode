@@ -3916,6 +3916,10 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        js_to_cbpp<std::optional<bool>>(cppObj.log_request,
+                                        jsObj.Get("log_request"));
+        js_to_cbpp<std::optional<bool>>(cppObj.log_response,
+                                        jsObj.Get("log_response"));
         js_to_cbpp<std::string>(cppObj.body_str, jsObj.Get("body_str"));
         // parent_span
         return cppObj;
@@ -3984,6 +3988,10 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        resObj.Set("log_request",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.log_request));
+        resObj.Set("log_response",
+                   cbpp_to_js<std::optional<bool>>(env, cppObj.log_response));
         resObj.Set("body_str", cbpp_to_js<std::string>(env, cppObj.body_str));
         // parent_span
         return resObj;
