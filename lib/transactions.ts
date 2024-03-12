@@ -1,4 +1,5 @@
 import {
+  CppGenericError,
   CppTransactions,
   CppTransaction,
   CppTransactionGetResult,
@@ -12,6 +13,7 @@ import {
   errorFromCpp,
   queryProfileToCpp,
   queryScanConsistencyToCpp,
+  transactionKeyspaceToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
@@ -62,6 +64,28 @@ export class DocumentId {
    * The key of the docuemnt.
    */
   key: string
+}
+
+/**
+ * Specifies the configuration options for a Transaction Keyspace.
+ *
+ * @category Transactions
+ */
+export interface TransactionKeyspace {
+  /**
+   * The name of the bucket for the Keyspace.
+   */
+  bucket: string
+
+  /**
+   * The name of the scope for the Keyspace.
+   */
+  scope?: string
+
+  /**
+   * The name of the collection for the Keyspace.
+   */
+  collection?: string
 }
 
 /**
@@ -130,6 +154,11 @@ export interface TransactionsConfig {
    * Specifies the configuration for the cleanup system.
    */
   cleanupConfig?: TransactionsCleanupConfig
+
+  /**
+   * Specifies the Keyspace (bucket, scope & collection) for the transaction metadata.
+   */
+  metadataCollection?: TransactionKeyspace
 }
 
 /**
@@ -631,20 +660,27 @@ export class Transactions {
     }
 
     const connImpl = cluster.conn
-    const txnsImpl = new binding.Transactions(connImpl, {
-      durability_level: durabilityToCpp(config.durabilityLevel),
-      timeout: config.timeout,
-      query_scan_consistency: queryScanConsistencyToCpp(
-        config.queryConfig.scanConsistency
-      ),
-      cleanup_window: config.cleanupConfig.cleanupWindow,
-      cleanup_lost_attempts: !config.cleanupConfig.disableLostAttemptCleanup,
-      cleanup_client_attempts:
-        !config.cleanupConfig.disableClientAttemptCleanup,
-    })
+    try {
+      const txnsImpl = new binding.Transactions(connImpl, {
+        durability_level: durabilityToCpp(config.durabilityLevel),
+        timeout: config.timeout,
+        query_scan_consistency: queryScanConsistencyToCpp(
+          config.queryConfig.scanConsistency
+        ),
+        cleanup_window: config.cleanupConfig.cleanupWindow,
+        cleanup_lost_attempts: !config.cleanupConfig.disableLostAttemptCleanup,
+        cleanup_client_attempts:
+          !config.cleanupConfig.disableClientAttemptCleanup,
+        metadata_collection: transactionKeyspaceToCpp(
+          config.metadataCollection
+        ),
+      })
 
-    this._cluster = cluster
-    this._impl = txnsImpl
+      this._cluster = cluster
+      this._impl = txnsImpl
+    } catch (err) {
+      throw errorFromCpp(err as CppGenericError)
+    }
   }
 
   /**

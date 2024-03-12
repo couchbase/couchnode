@@ -3386,6 +3386,12 @@ export interface CppConnection extends CppConnectionAutogen {
   ): { cppErr: CppError | null; result: CppScanIterator }
 }
 
+export interface CppTransactionKeyspace {
+  bucket_name: string
+  scope_name?: string
+  collection_name?: string
+}
+
 export interface CppTransactionsConfig {
   durability_level?: CppDurabilityLevel
   timeout?: CppMilliseconds
@@ -3393,6 +3399,7 @@ export interface CppTransactionsConfig {
   cleanup_window?: CppMilliseconds
   cleanup_lost_attempts?: boolean
   cleanup_client_attempts?: boolean
+  metadata_collection?: CppTransactionKeyspace
 }
 
 export interface CppTransactionOptions {

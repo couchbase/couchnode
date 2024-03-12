@@ -47,7 +47,8 @@ struct js_to_cbpp_t<cbtxns::transactions_config> {
             cppObj.durability_level(durability_level.value());
         }
 
-        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(jsObj.Get("timeout"));
+        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            jsObj.Get("timeout"));
         if (timeout.has_value()) {
             cppObj.timeout(timeout.value());
         }
@@ -81,6 +82,12 @@ struct js_to_cbpp_t<cbtxns::transactions_config> {
                 cleanup_client_attempts.value());
         }
 
+        auto keyspace = js_to_cbpp<std::optional<cbtxns::transaction_keyspace>>(
+            jsObj.Get("metadata_collection"));
+        if (keyspace.has_value()) {
+            cppObj.metadata_collection(keyspace.value());
+        }
+
         return cppObj;
     }
 };
@@ -99,7 +106,8 @@ struct js_to_cbpp_t<cbtxns::transaction_options> {
             cppObj.durability_level(durability_level.value());
         }
 
-        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(jsObj.Get("timeout"));
+        auto timeout = js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            jsObj.Get("timeout"));
         if (timeout.has_value()) {
             cppObj.timeout(timeout.value());
         }
@@ -193,6 +201,34 @@ struct js_to_cbpp_t<cbcoretxns::document_metadata> {
         resObj.Set("revid", cbpp_to_js(env, res.revid()));
         resObj.Set("exptime", cbpp_to_js(env, res.exptime()));
         resObj.Set("crc32", cbpp_to_js(env, res.crc32()));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<cbtxns::transaction_keyspace> {
+    static inline cbtxns::transaction_keyspace from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        auto bucket_name = js_to_cbpp<std::string>(jsObj.Get("bucket_name"));
+        auto scope_name =
+            js_to_cbpp<std::optional<std::string>>(jsObj.Get("scope_name"));
+        auto collection_name = js_to_cbpp<std::optional<std::string>>(
+            jsObj.Get("collection_name"));
+        if (scope_name.has_value() && collection_name.has_value()) {
+            return cbtxns::transaction_keyspace(bucket_name, scope_name.value(),
+                                                collection_name.value());
+        }
+        return cbtxns::transaction_keyspace(bucket_name);
+    }
+
+    static inline Napi::Value to_js(Napi::Env env,
+                                    const cbtxns::transaction_keyspace &res)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket", cbpp_to_js(env, res.bucket));
+        resObj.Set("scope", cbpp_to_js(env, res.scope));
+        resObj.Set("collection", cbpp_to_js(env, res.collection));
         return resObj;
     }
 };
@@ -387,7 +423,8 @@ struct js_to_cbpp_t<cbcoretxns::op_exception> {
                                     const cbcoretxns::op_exception &err)
     {
         Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
-        jsErr.Set("ctxtype", Napi::String::New(env, "transaction_op_exception"));
+        jsErr.Set("ctxtype",
+                  Napi::String::New(env, "transaction_op_exception"));
         jsErr.Set("ctx", cbpp_to_js(env, err.ctx()));
         jsErr.Set("cause", cbpp_to_js(env, err.cause()));
         return jsErr.Value();

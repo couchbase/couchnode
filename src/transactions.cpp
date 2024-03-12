@@ -32,7 +32,18 @@ Transactions::Transactions(const Napi::CallbackInfo &info)
     auto cluster = Connection::Unwrap(clusterJsObj)->cluster();
 
     auto txnsConfig = jsToCbpp<cbtxns::transactions_config>(configJsObj);
-    _impl.reset(new cbcoretxns::transactions(cluster, txnsConfig));
+    std::future<
+        std::pair<std::error_code, std::shared_ptr<cbcoretxns::transactions>>>
+        future = cbcoretxns::transactions::create(cluster, txnsConfig);
+    std::pair<std::error_code, std::shared_ptr<cbcoretxns::transactions>>
+        result = future.get();
+    if (result.first.value()) {
+        Napi::Error err = Napi::Error::New(info.Env(), result.first.message());
+        err.Set("code", Napi::Number::New(info.Env(), result.first.value()));
+        throw err;
+    }
+    _impl.reset();
+    _impl = std::move(result.second);
 }
 
 Transactions::~Transactions()

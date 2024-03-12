@@ -459,4 +459,32 @@ describe('#transactions', function () {
     }
     assert.equal(numAttempts, 1)
   })
+
+  it('should raise BucketNotFound if metadata collection bucket does not exist', async function () {
+    const { username, password } = H.connOpts
+    var cluster = await H.lib.Cluster.connect(H.connStr, {
+      username: username,
+      password: password,
+      transactions: {
+        metadataCollection: {bucket: 'no-bucket', scope: '_default', collection:'_default'},
+      }
+    })
+    var bucket = cluster.bucket(H.bucketName)
+    var coll = bucket.defaultCollection()
+
+    try {
+      await cluster.transactions().run(
+        async (attempt) => {
+          // this doesn't matter as we should raise the BucketNotFoundError when we create the 
+          // transactions object
+          await attempt.get(coll, 'not-a-key')
+        },
+        { timeout: 2000 }
+      )
+    } catch (err) {
+      assert.instanceOf(err, H.lib.BucketNotFoundError)
+    } finally {
+      await cluster.close()
+    }
+  })
 })

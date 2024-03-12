@@ -25,6 +25,7 @@ import binding, {
   CppSearchScanConsistency,
   CppServiceType,
   CppStoreSemantics,
+  CppTransactionKeyspace,
   CppTxnExternalException,
   CppTxnOpException,
   CppVectorQueryCombination,
@@ -47,6 +48,7 @@ import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
 import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
 import { HighlightStyle, SearchScanConsistency } from './searchtypes'
+import { TransactionKeyspace } from './transactions'
 import { nsServerStrToDuraLevel } from './utilities'
 import { VectorQueryCombination } from './vectorsearch'
 import {
@@ -1155,4 +1157,19 @@ export function designDocumentNamespaceToCpp(
   throw new errs.InvalidArgumentError(
     new Error('Unrecognized DesignDocumentNamespace.')
   )
+}
+
+/**
+ * @internal
+ */
+export function transactionKeyspaceToCpp(
+  keyspace?: TransactionKeyspace
+): CppTransactionKeyspace | undefined {
+  if (!keyspace) return undefined
+
+  return {
+    bucket_name: keyspace.bucket,
+    scope_name: keyspace.scope ?? '_default',
+    collection_name: keyspace.collection ?? '_default',
+  }
 }
