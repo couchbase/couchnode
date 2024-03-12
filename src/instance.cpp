@@ -6,7 +6,17 @@ namespace couchnode
 Instance::Instance()
     : _cluster(couchbase::core::cluster(_io))
 {
-    _ioThread = std::thread([this]() { _io.run(); });
+    _ioThread = std::thread([this]() {
+        try {
+            _io.run();
+        } catch (const std::exception &e) {
+            CB_LOG_ERROR(e.what());
+            throw;
+        } catch (...) {
+            CB_LOG_ERROR("Unknown exception");
+            throw;
+        }
+    });
 }
 
 Instance::~Instance()

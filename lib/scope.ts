@@ -97,9 +97,6 @@ export class Scope {
   /**
    * Returns a SearchIndexManager which can be used to manage the search
    * indexes of this scope.
-   *
-   * Volatile: This API is subject to change at any time.
-   *
    */
   searchIndexes(): ScopeSearchIndexManager {
     return new ScopeSearchIndexManager(
@@ -180,7 +177,7 @@ export class Scope {
   /**
    * Executes a search query against the scope.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param indexName The name of the index to query.
    * @param request The SearchRequest describing the search to execute.

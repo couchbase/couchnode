@@ -100,10 +100,12 @@ export class SearchExecutor {
           )
         : {},
       body_str: '',
+      show_request: options.showRequest || false,
+      log_request: options.logRequest || false,
+      log_response: options.logResponse || false,
     }
 
     if (query instanceof SearchRequest) {
-      request.show_request = false
       if (query.vectorSearch) {
         request.vector_search = JSON.stringify(query.vectorSearch.queries)
         if (

@@ -3,7 +3,7 @@ import { InvalidArgumentError } from './errors'
 /**
  * Specifies how multiple vector searches are combined.
  *
- * Volatile: This API is subject to change at any time.
+ * Uncommitted: This API is subject to change in the future.
  *
  * @category Full Text Search
  */
@@ -20,7 +20,7 @@ export enum VectorQueryCombination {
 }
 
 /**
- * Volatile: This API is subject to change at any time.
+ * Uncommitted: This API is subject to change in the future.
  *
  * @category Full Text Search
  */
@@ -34,7 +34,7 @@ export interface VectorSearchOptions {
 /**
  * Represents a vector query.
  *
- * Volatile: This API is subject to change at any time.
+ * Uncommitted: This API is subject to change in the future.
  *
  * @category Full Text Search
  */
@@ -72,7 +72,7 @@ export class VectorQuery {
   /**
    * Adds boost option to vector query.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param boost A floating point value.
    */
@@ -84,7 +84,7 @@ export class VectorQuery {
   /**
    * Adds numCandidates option to vector query. Value must be >= 1.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param numCandidates An integer value.
    */
@@ -101,7 +101,7 @@ export class VectorQuery {
   /**
    * Creates a vector query.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param fieldName The name of the field in the JSON document that holds the vector.
    * @param vector List of floating point values that represent the vector.
@@ -114,7 +114,7 @@ export class VectorQuery {
 /**
  * Represents a vector search.
  *
- * Volatile: This API is subject to change at any time.
+ * Uncommitted: This API is subject to change in the future.
  *
  * @category Full Text Search
  */
@@ -154,7 +154,7 @@ export class VectorSearch {
   /**
    * Creates a vector search.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param query A vectory query that should be a part of the vector search.
    */

@@ -22,7 +22,6 @@ import {
  * SearchIndexManager provides an interface for managing the
  * search indexes on the cluster.
  *
- * Volatile: This API is subject to change at any time.
  *
  * @category Management
  */

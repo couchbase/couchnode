@@ -582,7 +582,7 @@ export class Cluster {
   /**
    * Executes a search query against the cluster.
    *
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    *
    * @param indexName The name of the index to query.
    * @param request The SearchRequest describing the search to execute.

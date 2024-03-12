@@ -127,6 +127,66 @@ function genericTests(connFn, collFn) {
     }
   }).timeout(60000)
 
+  it('should disable scoring', async function () {
+    /* eslint-disable-next-line no-constant-condition */
+    while (true) {
+      var res = null
+      try {
+        res =
+          connFn() instanceof H.lib.Scope
+            ? await connFn().search(
+                idxName,
+                SearchRequest.create(
+                  H.lib.SearchQuery.term(testUid).field('testUid')
+                ),
+                {
+                  disableScoring: true,
+                }
+              )
+            : await connFn().searchQuery(
+                idxName,
+                H.lib.SearchQuery.term(testUid).field('testUid'),
+                {
+                  disableScoring: true,
+                }
+              )
+      } catch (e) {} // eslint-disable-line no-empty
+
+      if (!res || res.rows.length !== testdata.docCount()) {
+        await H.sleep(100)
+        continue
+      }
+
+      assert.isArray(res.rows)
+      assert.lengthOf(res.rows, testdata.docCount())
+      assert.isObject(res.meta)
+
+      res.rows.forEach((row) => {
+        assert.isString(row.index)
+        assert.isString(row.id)
+        assert.isNumber(row.score)
+        assert.isTrue(row.score == 0)
+        if (row.locations) {
+          for (const loc of row.locations) {
+            assert.isObject(loc)
+          }
+          assert.isArray(row.locations)
+        }
+        if (row.fragments) {
+          assert.isObject(row.fragments)
+        }
+        if (row.fields) {
+          assert.isObject(row.fields)
+        }
+        if (row.explanation) {
+          assert.isObject(row.explanation)
+        }
+      })
+
+      break
+    }
+  }).timeout(10000)
+
   it('should successfully drop an index', async function () {
     await connFn().searchIndexes().dropIndex(idxName)
   })

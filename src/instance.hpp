@@ -1,6 +1,7 @@
 #pragma once
 #include <asio/io_context.hpp>
 #include <core/cluster.hxx>
+#include <core/logger/logger.hxx>
 #include <memory>
 #include <thread>
 
