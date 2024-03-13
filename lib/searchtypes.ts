@@ -188,8 +188,6 @@ export interface SearchQueryOptions {
 /**
  *  Represents a search query and/or vector search to execute via the Couchbase Full Text Search (FTS) service.
  *
- *  Uncommitted: This API is subject to change in the future.
- *
  * @category Full Text Search
  */
 export class SearchRequest {
@@ -266,8 +264,6 @@ export class SearchRequest {
 
   /**
    * Creates a search request.
-   *
-   * Uncommitted: This API is subject to change in the future.
    *
    * @param query Either a SearchQuery or VectorSearch to add to the search request.
    */

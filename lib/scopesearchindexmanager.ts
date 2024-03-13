@@ -22,7 +22,6 @@ import {
  * SearchIndexManager provides an interface for managing the
  * search indexes on the cluster.
  *
- *
  * @category Management
  */
 export class ScopeSearchIndexManager {

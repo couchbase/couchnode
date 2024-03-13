@@ -582,8 +582,6 @@ export class Cluster {
   /**
    * Executes a search query against the cluster.
    *
-   * Uncommitted: This API is subject to change in the future.
-   *
    * @param indexName The name of the index to query.
    * @param request The SearchRequest describing the search to execute.
    * @param options Optional parameters for this operation.
