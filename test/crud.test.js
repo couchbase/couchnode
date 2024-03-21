@@ -185,6 +185,61 @@ function genericTests(collFn) {
       }).timeout(3500)
     })
 
+    /* eslint-disable mocha/no-setup-in-describe */
+    describe('#expiry', function () {
+      let testKeyExp
+      const fiftyYears = 50 * 365 * 24 * 60 * 60
+      const thirtyDays = 30 * 24 * 60 * 60
+      const expiryList = [
+        fiftyYears + 1,
+        fiftyYears,
+        thirtyDays - 1,
+        thirtyDays,
+        Math.floor(Date.now() / 1000) - 1,
+        60,
+      ]
+
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.Xattr)
+        testKeyExp = H.genTestKey()
+      })
+
+      after(async function () {
+        try {
+          await collFn().remove(testKeyExp)
+        } catch (e) {
+          // nothing
+        }
+      })
+
+      it('correctly handles negative expiry', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().upsert(testKeyExp, { foo: 'bar' }, { expiry: -1 })
+        }, H.lib.InvalidArgumentError)
+      })
+
+      expiryList.forEach((expiry) => {
+        it(`correctly executes upsert w/ expiry=${expiry}`, async function () {
+          const before = Math.floor(Date.now() / 1000) - 1
+          const res = await collFn().upsert(
+            testKeyExp,
+            { foo: 'bar' },
+            { expiry: expiry }
+          )
+          assert.isObject(res.cas)
+          const expiryRes = (
+            await collFn().lookupIn(testKeyExp, [
+              H.lib.LookupInSpec.get(H.lib.LookupInMacro.Expiry, {
+                xattr: true,
+              }),
+            ])
+          ).content[0].value
+          const after = Math.floor(Date.now() / 1000) + 1
+          assert.isTrue(before + expiry <= expiryRes <= expiry + after)
+        })
+      })
+    })
+
     describe('#get', function () {
       it('should perform basic gets', async function () {
         var res = await collFn().get(testKeyA)

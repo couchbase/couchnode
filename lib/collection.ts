@@ -65,7 +65,12 @@ import {
   StreamableScanPromise,
 } from './streamablepromises'
 import { Transcoder } from './transcoders'
-import { NodeCallback, PromiseHelper, CasInput } from './utilities'
+import {
+  expiryToTimestamp,
+  NodeCallback,
+  PromiseHelper,
+  CasInput,
+} from './utilities'
 
 /**
  * @category Key-Value
@@ -1027,7 +1032,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry
+    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
@@ -1044,7 +1049,7 @@ export class Collection {
           id: this._cppDocId(key),
           value: bytes,
           flags,
-          expiry: expiry || 0,
+          expiry: expiry,
           timeout,
           partition: 0,
           opaque: 0,
@@ -1113,7 +1118,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry
+    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
@@ -1131,7 +1136,7 @@ export class Collection {
           id: this._cppDocId(key),
           value: bytes,
           flags,
-          expiry: expiry || 0,
+          expiry: expiry,
           preserve_expiry: preserve_expiry || false,
           timeout,
           partition: 0,
@@ -1200,7 +1205,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry || 0
+    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
     const cas = options.cas
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
@@ -1371,7 +1376,7 @@ export class Collection {
       this._conn.getAndTouch(
         {
           id: this._cppDocId(key),
-          expiry,
+          expiry: expiryToTimestamp(expiry),
           timeout,
           partition: 0,
           opaque: 0,
@@ -1433,7 +1438,7 @@ export class Collection {
       this._conn.touch(
         {
           id: this._cppDocId(key),
-          expiry,
+          expiry: expiryToTimestamp(expiry),
           timeout,
           partition: 0,
           opaque: 0,
@@ -2039,6 +2044,8 @@ export class Collection {
       ? StoreSemantics.Upsert
       : options.storeSemantics
     const expiry = options.expiry
+      ? expiryToTimestamp(options.expiry)
+      : undefined
     const preserveExpiry = options.preserveExpiry
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
@@ -2182,7 +2189,7 @@ export class Collection {
     }
 
     const initial_value = options.initial
-    const expiry = options.expiry
+    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
@@ -2193,7 +2200,7 @@ export class Collection {
         id: this._cppDocId(key),
         delta,
         initial_value,
-        expiry: expiry || 0,
+        expiry: expiry,
         timeout,
         partition: 0,
         opaque: 0,
@@ -2257,7 +2264,7 @@ export class Collection {
     }
 
     const initial_value = options.initial
-    const expiry = options.expiry
+    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
@@ -2268,7 +2275,7 @@ export class Collection {
         id: this._cppDocId(key),
         delta,
         initial_value,
-        expiry: expiry || 0,
+        expiry: expiry,
         timeout,
         partition: 0,
         opaque: 0,

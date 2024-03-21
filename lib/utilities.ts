@@ -1,4 +1,5 @@
 import { DurabilityLevel } from './generaltypes'
+import { InvalidArgumentError } from './errors'
 import * as qs from 'querystring'
 
 /**
@@ -206,4 +207,27 @@ export function cbQsStringify(
     }
   }
   return qs.stringify(cbValues)
+}
+
+const thirtyDaysInSeconds = 30 * 24 * 60 * 60
+/**
+ * @internal
+ */
+export function expiryToTimestamp(expiry: number): number {
+  if (typeof expiry !== 'number') {
+    throw new InvalidArgumentError(new Error('Expected expiry to be a number.'))
+  }
+
+  if (expiry < 0) {
+    throw new InvalidArgumentError(
+      new Error(
+        `Expected expiry to be either zero (for no expiry) or greater but got ${expiry}.`
+      )
+    )
+  }
+
+  if (expiry < thirtyDaysInSeconds) {
+    return expiry
+  }
+  return expiry + Math.floor(Date.now() / 1000)
 }
