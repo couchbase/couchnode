@@ -789,51 +789,6 @@ struct js_to_cbpp_t<
 
 template <>
 struct js_to_cbpp_t<
-    couchbase::core::management::eventing::function_url_binding> {
-    static inline couchbase::core::management::eventing::function_url_binding
-    from_js(Napi::Value jsVal)
-    {
-        auto jsObj = jsVal.ToObject();
-        couchbase::core::management::eventing::function_url_binding cppObj;
-        js_to_cbpp<std::string>(cppObj.alias, jsObj.Get("alias"));
-        js_to_cbpp<std::string>(cppObj.hostname, jsObj.Get("hostname"));
-        js_to_cbpp<bool>(cppObj.allow_cookies, jsObj.Get("allow_cookies"));
-        js_to_cbpp<bool>(cppObj.validate_ssl_certificate,
-                         jsObj.Get("validate_ssl_certificate"));
-        js_to_cbpp<std::variant<
-            couchbase::core::management::eventing::function_url_no_auth,
-            couchbase::core::management::eventing::function_url_auth_basic,
-            couchbase::core::management::eventing::function_url_auth_digest,
-            couchbase::core::management::eventing::function_url_auth_bearer>>(
-            cppObj.auth, jsObj.Get("auth"));
-        return cppObj;
-    }
-    static inline Napi::Value
-    to_js(Napi::Env env,
-          const couchbase::core::management::eventing::function_url_binding
-              &cppObj)
-    {
-        auto resObj = Napi::Object::New(env);
-        resObj.Set("alias", cbpp_to_js<std::string>(env, cppObj.alias));
-        resObj.Set("hostname", cbpp_to_js<std::string>(env, cppObj.hostname));
-        resObj.Set("allow_cookies",
-                   cbpp_to_js<bool>(env, cppObj.allow_cookies));
-        resObj.Set("validate_ssl_certificate",
-                   cbpp_to_js<bool>(env, cppObj.validate_ssl_certificate));
-        resObj.Set(
-            "auth",
-            cbpp_to_js<std::variant<
-                couchbase::core::management::eventing::function_url_no_auth,
-                couchbase::core::management::eventing::function_url_auth_basic,
-                couchbase::core::management::eventing::function_url_auth_digest,
-                couchbase::core::management::eventing::
-                    function_url_auth_bearer>>(env, cppObj.auth));
-        return resObj;
-    }
-};
-
-template <>
-struct js_to_cbpp_t<
     couchbase::core::management::eventing::function_constant_binding> {
     static inline couchbase::core::management::eventing::
         function_constant_binding

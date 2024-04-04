@@ -7,6 +7,7 @@ const CustomDefinedTypes = [
   'couchbase::mutation_token',
   'couchbase::retry_strategy',
   'couchbase::core::query_context',
+  'couchbase::core::management::eventing::function_url_binding'
 ]
 
 const handleJsVariant = {

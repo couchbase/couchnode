@@ -473,7 +473,7 @@ export class Cluster {
   /**
    * Returns a EventingFunctionManager which can be used to manage the eventing
    * functions of this cluster.
-   * Volatile: This API is subject to change at any time.
+   * Uncommitted: This API is subject to change in the future.
    */
   eventingFunctions(): EventingFunctionManager {
     return new EventingFunctionManager(this)

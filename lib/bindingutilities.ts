@@ -12,6 +12,13 @@ import binding, {
   CppManagementClusterBucketEvictionPolicy,
   CppManagementClusterBucketStorageBackend,
   CppManagementClusterBucketType,
+  CppManagementEventingFunctionBucketAccess,
+  CppManagementEventingFunctionDcpBoundary,
+  CppManagementEventingFunctionDeploymentStatus,
+  CppManagementEventingFunctionLanguageCompatibility,
+  CppManagementEventingFunctionLogLevel,
+  CppManagementEventingFunctionProcessingStatus,
+  CppManagementEventingFunctionStatus,
   CppMutationState,
   CppMutationToken,
   CppPersistTo,
@@ -56,6 +63,15 @@ import {
   ViewOrdering,
   ViewScanConsistency,
 } from './viewtypes'
+import {
+  EventingFunctionBucketAccess,
+  EventingFunctionDcpBoundary,
+  EventingFunctionDeploymentStatus,
+  EventingFunctionLanguageCompatibility,
+  EventingFunctionLogLevel,
+  EventingFunctionProcessingStatus,
+  EventingFunctionStatus,
+} from './eventingfunctionmanager'
 
 /**
  * @internal
@@ -236,6 +252,23 @@ export function queryScanConsistencyToCpp(
     return binding.query_scan_consistency.not_bounded
   } else if (mode === QueryScanConsistency.RequestPlus) {
     return binding.query_scan_consistency.request_plus
+  }
+
+  throw new errs.InvalidArgumentError()
+}
+
+/**
+ * @internal
+ */
+export function queryScanConsistencyFromCpp(
+  mode: CppQueryScanConsistency | undefined
+): QueryScanConsistency | undefined {
+  if (!mode) return undefined
+
+  if (mode === binding.query_scan_consistency.not_bounded) {
+    return QueryScanConsistency.NotBounded
+  } else if (mode === binding.query_scan_consistency.request_plus) {
+    return QueryScanConsistency.RequestPlus
   }
 
   throw new errs.InvalidArgumentError()
@@ -1172,4 +1205,349 @@ export function transactionKeyspaceToCpp(
     scope_name: keyspace.scope ?? '_default',
     collection_name: keyspace.collection ?? '_default',
   }
+}
+
+/**
+ * @internal
+ */
+export function eventingBucketBindingAccessToCpp(
+  access: EventingFunctionBucketAccess
+): CppManagementEventingFunctionBucketAccess {
+  if (access === EventingFunctionBucketAccess.ReadOnly) {
+    return binding.management_eventing_function_bucket_access.read_only
+  }
+
+  if (access === EventingFunctionBucketAccess.ReadWrite) {
+    return binding.management_eventing_function_bucket_access.read_write
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionBucketAccess')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingBucketBindingAccessFromCpp(
+  access: CppManagementEventingFunctionBucketAccess
+): EventingFunctionBucketAccess {
+  if (access === binding.management_eventing_function_bucket_access.read_only) {
+    return EventingFunctionBucketAccess.ReadOnly
+  }
+  if (
+    access === binding.management_eventing_function_bucket_access.read_write
+  ) {
+    return EventingFunctionBucketAccess.ReadWrite
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionBucketAccess')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionDcpBoundaryToCpp(
+  boundary: EventingFunctionDcpBoundary | undefined
+): CppManagementEventingFunctionDcpBoundary | undefined {
+  if (!boundary) return undefined
+
+  if (boundary === EventingFunctionDcpBoundary.Everything) {
+    return binding.management_eventing_function_dcp_boundary.everything
+  }
+
+  if (boundary === EventingFunctionDcpBoundary.FromNow) {
+    return binding.management_eventing_function_dcp_boundary.from_now
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionDcpBoundary')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionDcpBoundaryFromCpp(
+  boundary: CppManagementEventingFunctionDcpBoundary | undefined
+): EventingFunctionDcpBoundary | undefined {
+  if (!boundary) return undefined
+
+  if (
+    boundary === binding.management_eventing_function_dcp_boundary.everything
+  ) {
+    return EventingFunctionDcpBoundary.Everything
+  }
+
+  if (boundary === binding.management_eventing_function_dcp_boundary.from_now) {
+    return EventingFunctionDcpBoundary.FromNow
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionDcpBoundary')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionDeploymentStatusToCpp(
+  status: EventingFunctionDeploymentStatus | undefined
+): CppManagementEventingFunctionDeploymentStatus | undefined {
+  if (!status) return undefined
+
+  if (status === EventingFunctionDeploymentStatus.Deployed) {
+    return binding.management_eventing_function_deployment_status.deployed
+  }
+
+  if (status === EventingFunctionDeploymentStatus.Undeployed) {
+    return binding.management_eventing_function_deployment_status.undeployed
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionDeploymentStatus')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionDeploymentStatusFromCpp(
+  status: CppManagementEventingFunctionDeploymentStatus | undefined
+): EventingFunctionDeploymentStatus | undefined {
+  if (!status) return undefined
+
+  if (
+    status === binding.management_eventing_function_deployment_status.deployed
+  ) {
+    return EventingFunctionDeploymentStatus.Deployed
+  }
+
+  if (
+    status === binding.management_eventing_function_deployment_status.undeployed
+  ) {
+    return EventingFunctionDeploymentStatus.Undeployed
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionDeploymentStatus')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionProcessingStatusToCpp(
+  status: EventingFunctionProcessingStatus | undefined
+): CppManagementEventingFunctionProcessingStatus | undefined {
+  if (!status) return undefined
+
+  if (status === EventingFunctionProcessingStatus.Running) {
+    return binding.management_eventing_function_processing_status.running
+  }
+
+  if (status === EventingFunctionProcessingStatus.Paused) {
+    return binding.management_eventing_function_processing_status.paused
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionProcessingStatus')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionProcessingStatusFromCpp(
+  status: CppManagementEventingFunctionProcessingStatus | undefined
+): EventingFunctionProcessingStatus | undefined {
+  if (!status) return undefined
+
+  if (
+    status === binding.management_eventing_function_processing_status.running
+  ) {
+    return EventingFunctionProcessingStatus.Running
+  }
+
+  if (
+    status === binding.management_eventing_function_processing_status.paused
+  ) {
+    return EventingFunctionProcessingStatus.Paused
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionProcessingStatus')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionLogLevelToCpp(
+  level: EventingFunctionLogLevel | undefined
+): CppManagementEventingFunctionLogLevel | undefined {
+  if (!level) return undefined
+
+  if (level === EventingFunctionLogLevel.Debug) {
+    return binding.management_eventing_function_log_level.debug
+  }
+
+  if (level === EventingFunctionLogLevel.Error) {
+    return binding.management_eventing_function_log_level.error
+  }
+
+  if (level === EventingFunctionLogLevel.Info) {
+    return binding.management_eventing_function_log_level.info
+  }
+
+  if (level === EventingFunctionLogLevel.Trace) {
+    return binding.management_eventing_function_log_level.trace
+  }
+
+  if (level === EventingFunctionLogLevel.Warning) {
+    return binding.management_eventing_function_log_level.warning
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionLogLevel')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionLogLevelFromCpp(
+  level: CppManagementEventingFunctionLogLevel | undefined
+): EventingFunctionLogLevel | undefined {
+  if (!level) return undefined
+
+  if (level === binding.management_eventing_function_log_level.debug) {
+    return EventingFunctionLogLevel.Debug
+  }
+
+  if (level === binding.management_eventing_function_log_level.error) {
+    return EventingFunctionLogLevel.Error
+  }
+
+  if (level === binding.management_eventing_function_log_level.info) {
+    return EventingFunctionLogLevel.Info
+  }
+
+  if (level === binding.management_eventing_function_log_level.trace) {
+    return EventingFunctionLogLevel.Trace
+  }
+
+  if (level === binding.management_eventing_function_log_level.warning) {
+    return EventingFunctionLogLevel.Warning
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionLogLevel')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionLanguageCompatibilityToCpp(
+  compatibility: EventingFunctionLanguageCompatibility | undefined
+): CppManagementEventingFunctionLanguageCompatibility | undefined {
+  if (!compatibility) return undefined
+
+  if (compatibility === EventingFunctionLanguageCompatibility.Version_6_0_0) {
+    return binding.management_eventing_function_language_compatibility
+      .version_6_0_0
+  }
+
+  if (compatibility === EventingFunctionLanguageCompatibility.Version_6_5_0) {
+    return binding.management_eventing_function_language_compatibility
+      .version_6_5_0
+  }
+
+  if (compatibility === EventingFunctionLanguageCompatibility.Version_6_6_2) {
+    return binding.management_eventing_function_language_compatibility
+      .version_6_6_2
+  }
+
+  if (compatibility === EventingFunctionLanguageCompatibility.Version_7_2_0) {
+    return binding.management_eventing_function_language_compatibility
+      .version_7_2_0
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionLanguageCompatibility')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionLanguageCompatibilityFromCpp(
+  compatibility: CppManagementEventingFunctionLanguageCompatibility | undefined
+): EventingFunctionLanguageCompatibility | undefined {
+  if (!compatibility) return undefined
+
+  if (
+    compatibility ===
+    binding.management_eventing_function_language_compatibility.version_6_0_0
+  ) {
+    return EventingFunctionLanguageCompatibility.Version_6_0_0
+  }
+
+  if (
+    compatibility ===
+    binding.management_eventing_function_language_compatibility.version_6_5_0
+  ) {
+    return EventingFunctionLanguageCompatibility.Version_6_5_0
+  }
+
+  if (
+    compatibility ===
+    binding.management_eventing_function_language_compatibility.version_6_6_2
+  ) {
+    return EventingFunctionLanguageCompatibility.Version_6_6_2
+  }
+
+  if (
+    compatibility ===
+    binding.management_eventing_function_language_compatibility.version_7_2_0
+  ) {
+    return EventingFunctionLanguageCompatibility.Version_7_2_0
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionLanguageCompatibility')
+  )
+}
+
+/**
+ * @internal
+ */
+export function eventingFunctionStatusFromCpp(
+  status: CppManagementEventingFunctionStatus
+): EventingFunctionStatus {
+  if (status === binding.management_eventing_function_status.undeployed) {
+    return EventingFunctionStatus.Undeployed
+  }
+  if (status === binding.management_eventing_function_status.deploying) {
+    return EventingFunctionStatus.Deploying
+  }
+  if (status === binding.management_eventing_function_status.deployed) {
+    return EventingFunctionStatus.Deployed
+  }
+  if (status === binding.management_eventing_function_status.undeploying) {
+    return EventingFunctionStatus.Undeploying
+  }
+  if (status === binding.management_eventing_function_status.paused) {
+    return EventingFunctionStatus.Paused
+  }
+  if (status === binding.management_eventing_function_status.pausing) {
+    return EventingFunctionStatus.Pausing
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized EventingFunctionStatus')
+  )
 }

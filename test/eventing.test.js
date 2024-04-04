@@ -5,9 +5,10 @@ const testdata = require('./testdata')
 
 const H = require('./harness')
 
-describe('#eventing', function () {
+function genericTests(connFn) {
   let testScope, testFn
 
+  /* eslint-disable-next-line mocha/no-top-level-hooks */
   before(async function () {
     this.timeout(30000)
 
@@ -24,13 +25,21 @@ describe('#eventing', function () {
       name: 'source',
       scopeName: testScope,
     })
-    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, 'source')
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      'source'
+    )
 
     await H.b.collections().createCollection({
       name: 'meta',
       scopeName: testScope,
     })
-    await H.consistencyUtils.waitUntilCollectionPresent(H.bucketName, testScope, 'meta')
+    await H.consistencyUtils.waitUntilCollectionPresent(
+      H.bucketName,
+      testScope,
+      'meta'
+    )
 
     await H.sleep(2500)
 
@@ -39,6 +48,7 @@ describe('#eventing', function () {
     await testdata.upsertData(H.b.scope(testScope).collection('source'), 'docs')
   })
 
+  /* eslint-disable-next-line mocha/no-top-level-hooks */
   after(async function () {
     this.timeout(30000)
 
@@ -48,70 +58,72 @@ describe('#eventing', function () {
   })
 
   it('should upsert successfully', async function () {
-    await H.c.eventingFunctions().upsertFunction({
-      name: testFn,
-      code: `
+    await connFn()
+      .eventingFunctions()
+      .upsertFunction({
+        name: testFn,
+        code: `
       function OnUpdate(doc, meta) {
         log('data:', doc, meta)
       }
       `,
-      bucketBindings: [
-        new H.lib.EventingFunctionBucketBinding({
-          name: new H.lib.EventingFunctionKeyspace({
-            bucket: H.bucketName,
-            scope: H.scopeName,
-            collection: H.collName,
+        bucketBindings: [
+          new H.lib.EventingFunctionBucketBinding({
+            name: new H.lib.EventingFunctionKeyspace({
+              bucket: H.bucketName,
+              scope: H.scopeName,
+              collection: H.collName,
+            }),
+            alias: 'bucketbinding1',
+            access: H.lib.EventingFunctionBucketAccess.ReadWrite,
           }),
-          alias: 'bucketbinding1',
-          access: H.lib.EventingFunctionBucketAccess.ReadWrite,
-        }),
-      ],
-      urlBindings: [
-        new H.lib.EventingFunctionUrlBinding({
-          hostname: 'http://127.0.0.1',
-          alias: 'urlbinding1',
-          auth: new H.lib.EventingFunctionUrlAuthBasic({
-            username: 'username',
-            password: 'password',
+        ],
+        urlBindings: [
+          new H.lib.EventingFunctionUrlBinding({
+            hostname: 'http://127.0.0.1',
+            alias: 'urlbinding1',
+            auth: new H.lib.EventingFunctionUrlAuthBasic({
+              username: 'username',
+              password: 'password',
+            }),
+            allowCookies: false,
+            validateSslCertificate: false,
           }),
-          allowCookies: false,
-          validateSslCertificate: false,
+        ],
+        constantBindings: [
+          {
+            alias: 'someconstant',
+            literal: 'someliteral',
+          },
+        ],
+        metadataKeyspace: new H.lib.EventingFunctionKeyspace({
+          bucket: H.bucketName,
+          scope: testScope,
+          collection: 'meta',
         }),
-      ],
-      constantBindings: [
-        {
-          alias: 'someconstant',
-          literal: 'someliteral',
+        sourceKeyspace: {
+          bucket: H.bucketName,
+          scope: testScope,
+          collection: 'source',
         },
-      ],
-      metadataKeyspace: new H.lib.EventingFunctionKeyspace({
-        bucket: H.bucketName,
-        scope: testScope,
-        collection: 'meta',
-      }),
-      sourceKeyspace: {
-        bucket: H.bucketName,
-        scope: testScope,
-        collection: 'source',
-      },
-    })
+      })
   }).timeout(15000)
 
   it('should find the upserted function', async function () {
-    const funcs = await H.c.eventingFunctions().getAllFunctions()
+    const funcs = await connFn().eventingFunctions().getAllFunctions()
     const func = funcs.find((f) => f.name === testFn)
     assert.isNotNull(func)
   })
 
   it('should get function statuses', async function () {
-    const statuses = await H.c.eventingFunctions().functionsStatus()
+    const statuses = await connFn().eventingFunctions().functionsStatus()
     const status = statuses.functions.find((f) => f.name === testFn)
     assert.isNotNull(status)
   })
 
   async function waitForState(state) {
     for (var i = 0; i < 60000 / 500; ++i) {
-      const statuses = await H.c.eventingFunctions().functionsStatus()
+      const statuses = await connFn().eventingFunctions().functionsStatus()
       const status = statuses.functions.find((f) => f.name === testFn)
 
       if (status.status === state) {
@@ -129,26 +141,40 @@ describe('#eventing', function () {
   }).timeout(15000)
 
   it('should successfully deploy the function', async function () {
-    await H.c.eventingFunctions().deployFunction(testFn)
+    await connFn().eventingFunctions().deployFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Deployed)
   }).timeout(30000)
 
   it('should successfully pause the function', async function () {
-    await H.c.eventingFunctions().pauseFunction(testFn)
+    await connFn().eventingFunctions().pauseFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Paused)
   }).timeout(30000)
 
   it('should successfully resume the function', async function () {
-    await H.c.eventingFunctions().resumeFunction(testFn)
+    await connFn().eventingFunctions().resumeFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Deployed)
   }).timeout(30000)
 
   it('should successfully undeploy the function', async function () {
-    await H.c.eventingFunctions().undeployFunction(testFn)
+    await connFn().eventingFunctions().undeployFunction(testFn)
     await waitForState(H.lib.EventingFunctionStatus.Undeployed)
   }).timeout(30000)
 
   it('should successfully drop the function', async function () {
-    await H.c.eventingFunctions().dropFunction(testFn)
+    await connFn().eventingFunctions().dropFunction(testFn)
   }).timeout(15000)
+}
+
+describe('#eventing', function () {
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(() => H.c)
+})
+
+describe('#scopeeventing', function () {
+  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
+  before(function () {
+    H.skipIfMissingFeature(this, H.Features.ScopeEventingFunctionManagement)
+  })
+  /* eslint-disable-next-line mocha/no-setup-in-describe */
+  genericTests(() => H.s)
 })

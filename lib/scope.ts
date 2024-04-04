@@ -22,6 +22,7 @@ import {
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
 import { NodeCallback, PromiseHelper } from './utilities'
+import { ScopeEventingFunctionManager } from './scopeeventingfunctionmanager'
 
 /**
  * Exposes the operations which are available to be performed against a scope.
@@ -102,6 +103,19 @@ export class Scope {
     return new ScopeSearchIndexManager(
       this.cluster,
       this.bucket.name,
+      this._name
+    )
+  }
+
+  /**
+   * Returns a ScopeEventingFunctionManager which can be used to manage the eventing
+   * functions of this scope.
+   * Uncommitted: This API is subject to change in the future.
+   */
+  eventingFunctions(): ScopeEventingFunctionManager {
+    return new ScopeEventingFunctionManager(
+      this.cluster,
+      this._bucket.name,
       this._name
     )
   }

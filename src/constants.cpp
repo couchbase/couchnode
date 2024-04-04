@@ -283,6 +283,9 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                      {"version_6_6_2",
                       couchbase::core::management::eventing::
                           function_language_compatibility::version_6_6_2},
+                     {"version_7_2_0",
+                      couchbase::core::management::eventing::
+                          function_language_compatibility::version_7_2_0},
                  }));
 
     exports.Set(

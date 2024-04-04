@@ -45,6 +45,7 @@ const ServerFeatures = {
   VectorSearch: 'vector_search',
   ScopeSearch: 'scope_search',
   ScopeSearchIndexManagement: 'scope_search_index_management',
+  ScopeEventingFunctionManagement: 'scope_eventing_function_management',
 }
 
 class ServerVersion {
@@ -402,6 +403,7 @@ class Harness {
       case ServerFeatures.VectorSearch:
       case ServerFeatures.ScopeSearch:
       case ServerFeatures.ScopeSearchIndexManagement:
+      case ServerFeatures.ScopeEventingFunctionManagement:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
     }
 
