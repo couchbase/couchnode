@@ -889,6 +889,7 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function> {
             cppObj.constant_bindings, jsObj.Get("constant_bindings"));
         js_to_cbpp<couchbase::core::management::eventing::function_settings>(
             cppObj.settings, jsObj.Get("settings"));
+        // internal
         return cppObj;
     }
     static inline Napi::Value
@@ -937,6 +938,7 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function> {
             cbpp_to_js<
                 couchbase::core::management::eventing::function_settings>(
                 env, cppObj.settings));
+        // internal
         return resObj;
     }
 };
@@ -963,6 +965,7 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function_state> {
             cppObj.processing_status, jsObj.Get("processing_status"));
         js_to_cbpp<std::optional<bool>>(cppObj.redeploy_required,
                                         jsObj.Get("redeploy_required"));
+        // internal
         return cppObj;
     }
     static inline Napi::Value
@@ -990,6 +993,7 @@ struct js_to_cbpp_t<couchbase::core::management::eventing::function_state> {
                        env, cppObj.processing_status));
         resObj.Set("redeploy_required", cbpp_to_js<std::optional<bool>>(
                                             env, cppObj.redeploy_required));
+        // internal
         return resObj;
     }
 };
@@ -2465,8 +2469,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
-        js_to_cbpp<couchbase::query_profile>(cppObj.profile,
-                                             jsObj.Get("profile"));
+        js_to_cbpp<std::optional<couchbase::query_profile>>(
+            cppObj.profile, jsObj.Get("profile"));
         js_to_cbpp<
             std::map<std::string, couchbase::core::json_string, std::less<>>>(
             cppObj.raw, jsObj.Get("raw"));
@@ -2523,7 +2527,8 @@ struct js_to_cbpp_t<couchbase::core::operations::query_request> {
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         resObj.Set("profile",
-                   cbpp_to_js<couchbase::query_profile>(env, cppObj.profile));
+                   cbpp_to_js<std::optional<couchbase::query_profile>>(
+                       env, cppObj.profile));
         resObj.Set(
             "raw",
             cbpp_to_js<std::map<std::string, couchbase::core::json_string,
@@ -5154,6 +5159,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::eventing_pause_function_request
             cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5166,6 +5175,10 @@ struct js_to_cbpp_t<
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -5363,6 +5376,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::
             eventing_resume_function_request cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5375,6 +5392,10 @@ struct js_to_cbpp_t<
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -7346,6 +7367,10 @@ struct js_to_cbpp_t<
             eventing_upsert_function_request cppObj;
         js_to_cbpp<couchbase::core::management::eventing::function>(
             cppObj.function, jsObj.Get("function"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -7360,6 +7385,10 @@ struct js_to_cbpp_t<
         resObj.Set("function",
                    cbpp_to_js<couchbase::core::management::eventing::function>(
                        env, cppObj.function));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -7978,6 +8007,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::eventing_get_function_request
             cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -7990,6 +8023,10 @@ struct js_to_cbpp_t<
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -8330,6 +8367,10 @@ struct js_to_cbpp_t<
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::management::eventing_get_status_request
             cppObj;
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -8341,6 +8382,10 @@ struct js_to_cbpp_t<
                              eventing_get_status_request &cppObj)
     {
         auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -8399,6 +8444,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::management::
             eventing_get_all_functions_request cppObj;
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -8410,6 +8459,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                              eventing_get_all_functions_request &cppObj)
     {
         auto resObj = Napi::Object::New(env);
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -9235,6 +9288,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::eventing_drop_function_request
             cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -9247,6 +9304,10 @@ struct js_to_cbpp_t<
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -9458,6 +9519,10 @@ struct js_to_cbpp_t<
         couchbase::core::operations::management::
             eventing_deploy_function_request cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -9470,6 +9535,10 @@ struct js_to_cbpp_t<
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",
@@ -10094,6 +10163,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         couchbase::core::operations::management::
             eventing_undeploy_function_request cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket_name,
+                                               jsObj.Get("bucket_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope_name,
+                                               jsObj.Get("scope_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -10106,6 +10179,10 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket_name", cbpp_to_js<std::optional<std::string>>(
+                                      env, cppObj.bucket_name));
+        resObj.Set("scope_name", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.scope_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",

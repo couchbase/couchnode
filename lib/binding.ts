@@ -278,6 +278,7 @@ export interface CppManagementEventingFunction {
   url_bindings: CppManagementEventingFunctionUrlBinding[]
   constant_bindings: CppManagementEventingFunctionConstantBinding[]
   settings: CppManagementEventingFunctionSettings
+  // internal
 }
 export interface CppManagementEventingFunctionState {
   name: string
@@ -287,6 +288,7 @@ export interface CppManagementEventingFunctionState {
   deployment_status: CppManagementEventingFunctionDeploymentStatus
   processing_status: CppManagementEventingFunctionProcessingStatus
   redeploy_required?: boolean
+  // internal
 }
 export interface CppManagementEventingStatus {
   num_eventing_nodes: number
@@ -598,7 +600,7 @@ export interface CppQueryRequest {
   query_context?: string
   client_context_id?: string
   timeout?: CppMilliseconds
-  profile: CppQueryProfile
+  profile?: CppQueryProfile
   raw: { [key: string /*string*/]: CppJsonString }
   positional_parameters: CppJsonString[]
   named_parameters: { [key: string /*string*/]: CppJsonString }
@@ -1157,6 +1159,8 @@ export interface CppManagementEventingPauseFunctionResponse {
 }
 export interface CppManagementEventingPauseFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1192,6 +1196,8 @@ export interface CppManagementEventingResumeFunctionResponse {
 }
 export interface CppManagementEventingResumeFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1515,6 +1521,8 @@ export interface CppManagementEventingUpsertFunctionResponse {
 }
 export interface CppManagementEventingUpsertFunctionRequest {
   function: CppManagementEventingFunction
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1615,6 +1623,8 @@ export interface CppManagementEventingGetFunctionResponse {
 }
 export interface CppManagementEventingGetFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1668,6 +1678,8 @@ export interface CppManagementEventingGetStatusResponse {
   error?: CppManagementEventingProblem
 }
 export interface CppManagementEventingGetStatusRequest {
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1677,6 +1689,8 @@ export interface CppManagementEventingGetAllFunctionsResponse {
   error?: CppManagementEventingProblem
 }
 export interface CppManagementEventingGetAllFunctionsRequest {
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1810,6 +1824,8 @@ export interface CppManagementEventingDropFunctionResponse {
 }
 export interface CppManagementEventingDropFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1847,6 +1863,8 @@ export interface CppManagementEventingDeployFunctionResponse {
 }
 export interface CppManagementEventingDeployFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -1949,6 +1967,8 @@ export interface CppManagementEventingUndeployFunctionResponse {
 }
 export interface CppManagementEventingUndeployFunctionRequest {
   name: string
+  bucket_name?: string
+  scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
