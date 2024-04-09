@@ -789,6 +789,89 @@ struct js_to_cbpp_t<
 
 template <>
 struct js_to_cbpp_t<
+    couchbase::core::management::eventing::function_url_binding> {
+    static inline couchbase::core::management::eventing::function_url_binding
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        auto auth_name = jsToCbpp<std::string>(jsObj.Get("auth_name"));
+        std::variant<
+            couchbase::core::management::eventing::function_url_no_auth,
+            couchbase::core::management::eventing::function_url_auth_basic,
+            couchbase::core::management::eventing::function_url_auth_digest,
+            couchbase::core::management::eventing::function_url_auth_bearer>
+            auth;
+        if (auth_name.compare("function_url_no_auth") == 0) {
+            auth = js_to_cbpp<
+                couchbase::core::management::eventing::function_url_no_auth>(
+                jsObj.Get("auth_value"));
+        } else if (auth_name.compare("function_url_auth_basic") == 0) {
+            auth = js_to_cbpp<
+                couchbase::core::management::eventing::function_url_auth_basic>(
+                jsObj.Get("auth_value"));
+        } else if (auth_name.compare("function_url_auth_digest") == 0) {
+            auth = js_to_cbpp<couchbase::core::management::eventing::
+                                  function_url_auth_digest>(
+                jsObj.Get("auth_value"));
+        } else {
+            auth = js_to_cbpp<couchbase::core::management::eventing::
+                                  function_url_auth_bearer>(
+                jsObj.Get("auth_value"));
+        }
+        couchbase::core::management::eventing::function_url_binding cppObj;
+        js_to_cbpp<std::string>(cppObj.alias, jsObj.Get("alias"));
+        js_to_cbpp<std::string>(cppObj.hostname, jsObj.Get("hostname"));
+        js_to_cbpp<bool>(cppObj.allow_cookies, jsObj.Get("allow_cookies"));
+        js_to_cbpp<bool>(cppObj.validate_ssl_certificate,
+                         jsObj.Get("validate_ssl_certificate"));
+        cppObj.auth = auth;
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::management::eventing::function_url_binding
+              &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        if (std::holds_alternative<
+                couchbase::core::management::eventing::function_url_no_auth>(
+                cppObj.auth)) {
+            resObj.Set("auth_name",
+                       cbpp_to_js<std::string>(env, "function_url_no_auth"));
+        } else if (std::holds_alternative<
+                       couchbase::core::management::eventing::
+                           function_url_auth_basic>(cppObj.auth)) {
+            resObj.Set("auth_name",
+                       cbpp_to_js<std::string>(env, "function_url_auth_basic"));
+        } else if (std::holds_alternative<
+                       couchbase::core::management::eventing::
+                           function_url_auth_digest>(cppObj.auth)) {
+            resObj.Set("auth_name", cbpp_to_js<std::string>(
+                                        env, "function_url_auth_digest"));
+        } else {
+            resObj.Set("auth_name", cbpp_to_js<std::string>(
+                                        env, "function_url_auth_bearer"));
+        }
+        resObj.Set("alias", cbpp_to_js<std::string>(env, cppObj.alias));
+        resObj.Set("hostname", cbpp_to_js<std::string>(env, cppObj.hostname));
+        resObj.Set("allow_cookies",
+                   cbpp_to_js<bool>(env, cppObj.allow_cookies));
+        resObj.Set("validate_ssl_certificate",
+                   cbpp_to_js<bool>(env, cppObj.validate_ssl_certificate));
+        resObj.Set(
+            "auth_value",
+            cbpp_to_js<std::variant<
+                couchbase::core::management::eventing::function_url_no_auth,
+                couchbase::core::management::eventing::function_url_auth_basic,
+                couchbase::core::management::eventing::function_url_auth_digest,
+                couchbase::core::management::eventing::
+                    function_url_auth_bearer>>(env, cppObj.auth));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
     couchbase::core::management::eventing::function_constant_binding> {
     static inline couchbase::core::management::eventing::
         function_constant_binding
@@ -10528,12 +10611,25 @@ struct js_to_cbpp_t<couchbase::core::range_scan_create_options> {
           const couchbase::core::range_scan_create_options &cppObj)
     {
         auto resObj = Napi::Object::New(env);
+        if (std::holds_alternative<couchbase::core::range_scan>(
+                cppObj.scan_type)) {
+            resObj.Set("scan_type_name",
+                       cbpp_to_js<std::string>(env, "range_scan"));
+        } else if (std::holds_alternative<couchbase::core::prefix_scan>(
+                       cppObj.scan_type)) {
+            resObj.Set("scan_type_name",
+                       cbpp_to_js<std::string>(env, "prefix_scan"));
+        } else if (std::holds_alternative<couchbase::core::sampling_scan>(
+                       cppObj.scan_type)) {
+            resObj.Set("scan_type_name",
+                       cbpp_to_js<std::string>(env, "sampling_scan"));
+        }
         resObj.Set("scope_name",
                    cbpp_to_js<std::string>(env, cppObj.scope_name));
         resObj.Set("collection_name",
                    cbpp_to_js<std::string>(env, cppObj.collection_name));
         resObj.Set(
-            "scan_type",
+            "scan_type_value",
             cbpp_to_js<std::variant<std::monostate, couchbase::core::range_scan,
                                     couchbase::core::prefix_scan,
                                     couchbase::core::sampling_scan>>(

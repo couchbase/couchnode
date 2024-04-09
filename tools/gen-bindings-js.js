@@ -7,12 +7,14 @@ const CustomDefinedTypes = [
   'couchbase::mutation_token',
   'couchbase::retry_strategy',
   'couchbase::core::query_context',
-  'couchbase::core::management::eventing::function_url_binding'
 ]
 
 const handleJsVariant = {
-  names: ['couchbase::core::range_scan_create_options'],
-  fields: ['scan_type'],
+  names: [
+    'couchbase::core::range_scan_create_options',
+    'couchbase::core::management::eventing::function_url_binding',
+  ],
+  fields: ['scan_type', 'auth'],
 }
 
 function getTsType(type, typeDb) {
@@ -594,10 +596,13 @@ async function go() {
         `        auto ${field.name}_name = jsToCbpp<std::string>(jsObj.Get("${field.name}_name"));`
       )
       const ofTypes = field.type.of.filter((f) => !f.name.includes('monostate'))
+      const includeMonostate = field.type.of.find((f) =>
+        f.name.includes('monostate')
+      )
       outCppStructDefs.write(
-        `        std::variant<std::monostate, ${ofTypes
-          .map((x) => getCppType(x))
-          .join(', ')}> ${field.name};`
+        `        std::variant<${
+          includeMonostate ? 'std::monostate,' : ''
+        }${ofTypes.map((x) => getCppType(x)).join(', ')}> ${field.name};`
       )
       for (let i = 0; i < ofTypes.length; i++) {
         if (i == field.type.of.length - 1) {
@@ -642,14 +647,44 @@ async function go() {
     outCppStructDefs.write(`    to_js(Napi::Env env, const ${st.name} &cppObj)`)
     outCppStructDefs.write(`    {`)
     outCppStructDefs.write(`        auto resObj = Napi::Object::New(env);`)
+    variantFields.forEach((field) => {
+      const ofTypes = field.type.of.filter((f) => !f.name.includes('monostate'))
+      for (let i = 0; i < ofTypes.length; i++) {
+        const nameTokens = ofTypes[i].name.split('::')
+        if (i == field.type.of.length - 1) {
+          outCppStructDefs.write(`        else {`)
+        } else {
+          const ifStatement = i > 0 ? 'else if(' : 'if('
+          outCppStructDefs.write(
+            `        ${ifStatement} std::holds_alternative<${ofTypes[i].name}>(cppObj.${field.name})) {`
+          )
+        }
+        outCppStructDefs.write(
+          `            resObj.Set("${
+            field.name
+          }_name", cbpp_to_js<std::string>(env, "${
+            nameTokens[nameTokens.length - 1]
+          }"));`
+        )
+        outCppStructDefs.write(`        }`)
+      }
+      return
+    })
     st.fields.forEach((field) => {
       if (isIgnoredField(st, field.name)) {
         outCppStructDefs.write(`        // ${field.name}`)
         return
       }
+      let fieldName = field.name
+      if (
+        handleJsVariant.names.includes(st.name) &&
+        handleJsVariant.fields.includes(field.name)
+      ) {
+        fieldName = `${fieldName}_value`
+      }
       const fieldType = getCppType(field.type)
       outCppStructDefs.write(
-        `        resObj.Set("${field.name}", cbpp_to_js<${fieldType}>(env, cppObj.${field.name}));`
+        `        resObj.Set("${fieldName}", cbpp_to_js<${fieldType}>(env, cppObj.${field.name}));`
       )
     })
     outCppStructDefs.write(`        return resObj;`)
