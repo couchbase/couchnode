@@ -369,12 +369,18 @@ function translateGetResult(
     return null
   }
 
+  let content
+  if (cppRes.content && cppRes.content.length > 0) {
+    try {
+      content = JSON.parse(cppRes.content.toString('utf8'))
+    } catch (e) {
+      content = cppRes.content
+    }
+  }
+
   return new TransactionGetResult({
     id: cppRes.id,
-    content:
-      cppRes.content && cppRes.content.length > 0
-        ? JSON.parse(cppRes.content.toString('utf8'))
-        : undefined,
+    content: content,
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,

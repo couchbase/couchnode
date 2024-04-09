@@ -466,8 +466,12 @@ describe('#transactions', function () {
       username: username,
       password: password,
       transactions: {
-        metadataCollection: {bucket: 'no-bucket', scope: '_default', collection:'_default'},
-      }
+        metadataCollection: {
+          bucket: 'no-bucket',
+          scope: '_default',
+          collection: '_default',
+        },
+      },
     })
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
@@ -475,7 +479,7 @@ describe('#transactions', function () {
     try {
       await cluster.transactions().run(
         async (attempt) => {
-          // this doesn't matter as we should raise the BucketNotFoundError when we create the 
+          // this doesn't matter as we should raise the BucketNotFoundError when we create the
           // transactions object
           await attempt.get(coll, 'not-a-key')
         },
@@ -487,4 +491,24 @@ describe('#transactions', function () {
       await cluster.close()
     }
   })
+
+  it('should not fail to parse binary doc w/in lambda', async function () {
+    // JSCBC-1243:  Although we do not support binary docs (at least until we add ExtBinarySupport),
+    // we should not crash if a user happens to attempt a get on a binary doc w/in a txn lambda.
+    const testkey = H.genTestKey()
+    var testBinVal = Buffer.from(
+      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+      'hex'
+    )
+
+    await H.co.insert(testkey, testBinVal)
+
+    await H.c.transactions().run(
+      async (attempt) => {
+        const getDoc = await attempt.get(H.co, testkey)
+        assert.deepEqual(getDoc.content, testBinVal)
+      },
+      { timeout: 5000 }
+    )
+  }).timeout(15000)
 })
