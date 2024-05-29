@@ -1056,6 +1056,19 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                          }));
 
     exports.Set(
+        "read_preference",
+        cbppEnumToJs<couchbase::read_preference>(
+            env,
+            {
+                {"no_preference", couchbase::read_preference::no_preference},
+                {"selected_server_group",
+                 couchbase::read_preference::selected_server_group},
+                {"selected_server_group_or_all_available",
+                 couchbase::read_preference::
+                     selected_server_group_or_all_available},
+            }));
+
+    exports.Set(
         "vector_query_combination",
         cbppEnumToJs<couchbase::core::vector_query_combination>(
             env,

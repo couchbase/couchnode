@@ -231,6 +231,7 @@ function isIgnoredField(st, fieldName) {
     fieldName === 'parent_span' ||
     fieldName === 'retry_strategy' ||
     fieldName === 'internal' ||
+    fieldName === 'read_preference' ||
     (fieldName.endsWith('_') &&
       !StructsWithAllowedPrivateField.includes(st.name))
   ) {

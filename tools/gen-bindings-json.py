@@ -22,6 +22,7 @@ cxx_deps_include_paths = {
     'json': ['-I{0}/json/{1}/json/include',
              '-I{0}/json/{1}/json/external/PEGTL/include'
              ],
+    'spdlog': ['-I{0}/spdlog/{1}/spdlog/include'],
 }
 
 fileList = [
@@ -68,6 +69,7 @@ fileList = [
     "couchbase/store_semantics.hxx",
     "couchbase/persist_to.hxx",
     "couchbase/replicate_to.hxx",
+    "couchbase/read_preference.hxx",
     "core/range_scan_options.hxx",
     "core/range_scan_orchestrator_options.hxx",
     "core/query_context.hxx",
@@ -166,6 +168,7 @@ typeList = [
     "couchbase::core::range_scan_cancel_result",
     "couchbase::core::query_context",
     "couchbase::core::vector_query_combination",
+    "couchbase::read_preference"
 ]
 
 # end of configurable part

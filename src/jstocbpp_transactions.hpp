@@ -439,7 +439,8 @@ struct js_to_cbpp_t<couchbase::transaction_op_error_context> {
         auto resObj = Napi::Object::New(env);
         resObj.Set("code", cbpp_to_js(env, res.ec()));
         resObj.Set("cause",
-                   cbpp_to_js<std::variant<couchbase::key_value_error_context,
+                   cbpp_to_js<std::variant<std::monostate,
+                                           couchbase::key_value_error_context,
                                            couchbase::query_error_context>>(
                        env, res.cause()));
         return resObj;
