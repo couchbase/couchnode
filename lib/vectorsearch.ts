@@ -40,18 +40,34 @@ export interface VectorSearchOptions {
  */
 export class VectorQuery {
   private _fieldName: string
-  private _vector: number[]
+  private _vector: number[] | undefined
+  private _vectorBase64: string | undefined
   private _numCandidates: number | undefined
   private _boost: number | undefined
 
-  constructor(fieldName: string, vector: number[]) {
+  constructor(fieldName: string, vector: number[] | string) {
     this._fieldName = fieldName
-    if (!Array.isArray(vector) || vector.length == 0) {
+    if (!vector) {
       throw new InvalidArgumentError(
-        new Error('Provided vector must be an array and cannot be empty.')
+        new Error('Provided vector cannot be empty.')
       )
     }
-    this._vector = vector
+    if (Array.isArray(vector)) {
+      if (vector.length == 0) {
+        throw new InvalidArgumentError(
+          new Error('Provided vector cannot be empty.')
+        )
+      }
+      this._vector = vector
+    } else if (typeof vector === 'string') {
+      this._vectorBase64 = vector
+    } else {
+      throw new InvalidArgumentError(
+        new Error(
+          'Provided vector must be either a number[] or base64 encoded string.'
+        )
+      )
+    }
   }
 
   /**
@@ -60,8 +76,12 @@ export class VectorQuery {
   toJSON(): any {
     const output: { [key: string]: any } = {
       field: this._fieldName,
-      vector: this._vector,
       k: this._numCandidates ?? 3,
+    }
+    if (this._vector) {
+      output['vector'] = this._vector
+    } else {
+      output['vector_base64'] = this._vectorBase64
     }
     if (this._boost) {
       output['boost'] = this._boost
@@ -106,7 +126,7 @@ export class VectorQuery {
    * @param fieldName The name of the field in the JSON document that holds the vector.
    * @param vector List of floating point values that represent the vector.
    */
-  static create(fieldName: string, vector: number[]): VectorQuery {
+  static create(fieldName: string, vector: number[] | string): VectorQuery {
     return new VectorQuery(fieldName, vector)
   }
 }
