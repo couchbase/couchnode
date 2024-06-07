@@ -46,6 +46,11 @@ export class VectorQuery {
   private _boost: number | undefined
 
   constructor(fieldName: string, vector: number[] | string) {
+    if (!fieldName) {
+      throw new InvalidArgumentError(
+        new Error('Must provide a field name.')
+      )
+    }
     this._fieldName = fieldName
     if (!vector) {
       throw new InvalidArgumentError(

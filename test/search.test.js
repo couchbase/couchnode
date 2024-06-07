@@ -343,6 +343,15 @@ describe('#vectorsearch', function () {
       const vQuery = new VectorQuery('vector_field', testVector)
       vQuery.numCandidates(-1)
     }, H.lib.InvalidArgumentError)
+    assert.throws(() => {
+      new VectorQuery('', testVector)
+    }, H.lib.InvalidArgumentError)
+    assert.throws(() => {
+      new VectorQuery(null, testVector)
+    }, H.lib.InvalidArgumentError)
+    assert.throws(() => {
+      new VectorQuery(undefined, testVector)
+    }, H.lib.InvalidArgumentError)
   })
 
   it('should successfully create an index', async function () {
