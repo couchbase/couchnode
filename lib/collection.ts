@@ -598,7 +598,6 @@ export class Collection {
     callback: (err: Error | null, bytes: Buffer, flags: number) => void
   ): void {
     try {
-      // BUG(JSCBC-1054): We should avoid doing buffer conversion.
       const [bytesBuf, flagsOut] = transcoder.encode(value)
       callback(null, bytesBuf, flagsOut)
     } catch (e) {

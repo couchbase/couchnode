@@ -10,6 +10,7 @@
 #include <core/json_string.hxx>
 #include <core/management/eventing_function.hxx>
 #include <core/query_context.hxx>
+#include <couchbase/codec/encoded_value.hxx>
 
 namespace couchnode
 {
@@ -131,6 +132,28 @@ struct js_to_cbpp_t<couchbase::core::query_context> {
             return couchbase::core::query_context(bucket_name, scope_name);
         }
         return couchbase::core::query_context();
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::codec::encoded_value> {
+    static inline Napi::Value to_js(Napi::Env env,
+                                    couchbase::codec::encoded_value cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("data",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.data));
+        resObj.Set("flags", cbpp_to_js(env, cppObj.flags));
+        return resObj;
+    }
+
+    static inline couchbase::codec::encoded_value from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        auto cppObj = couchbase::codec::encoded_value{
+            js_to_cbpp<std::vector<std::byte>>(jsObj.Get("data")),
+            js_to_cbpp<std::uint32_t>(jsObj.Get("flags"))};
+        return cppObj;
     }
 };
 

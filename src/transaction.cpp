@@ -74,7 +74,8 @@ Transaction::~Transaction()
 Napi::Value Transaction::jsNewAttempt(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
 
     _impl->new_attempt_context(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
@@ -126,7 +127,8 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
 
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
-    auto content = jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
+    auto content =
+        jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
     _impl->insert(
         docId, content,
@@ -150,7 +152,8 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
 
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
-    auto content = jsToCbpp<std::vector<std::byte>>(optsJsObj.Get("content"));
+    auto content =
+        jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
     _impl->replace(
         doc, content,
@@ -240,7 +243,8 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsRollback(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
 
     _impl->rollback(
         [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {

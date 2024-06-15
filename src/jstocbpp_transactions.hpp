@@ -141,8 +141,9 @@ struct js_to_cbpp_t<cbcoretxns::transaction_links> {
                 jsObj.Get("staged_attempt_id")),
             js_to_cbpp<std::optional<std::string>>(
                 jsObj.Get("staged_operation_id")),
-            js_to_cbpp<std::optional<std::vector<std::byte>>>(
+            js_to_cbpp<std::optional<couchbase::codec::encoded_value>>(
                 jsObj.Get("staged_content")),
+            {},
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("cas_pre_txn")),
             js_to_cbpp<std::optional<std::string>>(jsObj.Get("revid_pre_txn")),
             js_to_cbpp<std::optional<uint32_t>>(jsObj.Get("exptime_pre_txn")),
@@ -169,7 +170,8 @@ struct js_to_cbpp_t<cbcoretxns::transaction_links> {
                    cbpp_to_js(env, res.staged_attempt_id()));
         resObj.Set("staged_operation_id",
                    cbpp_to_js(env, res.staged_operation_id()));
-        resObj.Set("staged_content", cbpp_to_js(env, res.staged_content()));
+        resObj.Set("staged_content",
+                   cbpp_to_js(env, res.staged_content_json()));
         resObj.Set("cas_pre_txn", cbpp_to_js(env, res.cas_pre_txn()));
         resObj.Set("revid_pre_txn", cbpp_to_js(env, res.revid_pre_txn()));
         resObj.Set("exptime_pre_txn", cbpp_to_js(env, res.exptime_pre_txn()));
@@ -240,7 +242,7 @@ struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
         auto jsObj = jsVal.ToObject();
         return cbcoretxns::transaction_get_result(
             js_to_cbpp<couchbase::core::document_id>(jsObj.Get("id")),
-            js_to_cbpp<std::vector<std::byte>>(jsObj.Get("content")),
+            js_to_cbpp<couchbase::codec::encoded_value>(jsObj.Get("content")),
             js_to_cbpp<couchbase::cas>(jsObj.Get("cas")).value(),
             js_to_cbpp<cbcoretxns::transaction_links>(jsObj.Get("links")),
             js_to_cbpp<std::optional<cbcoretxns::document_metadata>>(
@@ -253,7 +255,7 @@ struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js(env, res.id()));
         resObj.Set("content",
-                   cbpp_to_js<std::vector<std::byte>>(env, res.content()));
+                   cbpp_to_js<std::vector<std::byte>>(env, res.content().data));
         resObj.Set("cas", cbpp_to_js(env, couchbase::cas{res.cas()}));
         resObj.Set("links", cbpp_to_js(env, res.links()));
         resObj.Set("metadata", cbpp_to_js(env, res.metadata()));
@@ -438,11 +440,12 @@ struct js_to_cbpp_t<couchbase::transaction_op_error_context> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("code", cbpp_to_js(env, res.ec()));
-        resObj.Set("cause",
-                   cbpp_to_js<std::variant<std::monostate,
-                                           couchbase::key_value_error_context,
-                                           couchbase::query_error_context>>(
-                       env, res.cause()));
+        resObj.Set(
+            "cause",
+            cbpp_to_js<
+                std::variant<std::monostate, couchbase::key_value_error_context,
+                             couchbase::query_error_context>>(env,
+                                                              res.cause()));
         return resObj;
     }
 };
