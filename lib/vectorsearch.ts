@@ -3,8 +3,6 @@ import { InvalidArgumentError } from './errors'
 /**
  * Specifies how multiple vector searches are combined.
  *
- * Uncommitted: This API is subject to change in the future.
- *
  * @category Full Text Search
  */
 export enum VectorQueryCombination {
@@ -20,8 +18,6 @@ export enum VectorQueryCombination {
 }
 
 /**
- * Uncommitted: This API is subject to change in the future.
- *
  * @category Full Text Search
  */
 export interface VectorSearchOptions {
@@ -34,8 +30,6 @@ export interface VectorSearchOptions {
 /**
  * Represents a vector query.
  *
- * Uncommitted: This API is subject to change in the future.
- *
  * @category Full Text Search
  */
 export class VectorQuery {
@@ -47,9 +41,7 @@ export class VectorQuery {
 
   constructor(fieldName: string, vector: number[] | string) {
     if (!fieldName) {
-      throw new InvalidArgumentError(
-        new Error('Must provide a field name.')
-      )
+      throw new InvalidArgumentError(new Error('Must provide a field name.'))
     }
     this._fieldName = fieldName
     if (!vector) {
@@ -97,8 +89,6 @@ export class VectorQuery {
   /**
    * Adds boost option to vector query.
    *
-   * Uncommitted: This API is subject to change in the future.
-   *
    * @param boost A floating point value.
    */
   boost(boost: number): VectorQuery {
@@ -108,8 +98,6 @@ export class VectorQuery {
 
   /**
    * Adds numCandidates option to vector query. Value must be >= 1.
-   *
-   * Uncommitted: This API is subject to change in the future.
    *
    * @param numCandidates An integer value.
    */
@@ -126,8 +114,6 @@ export class VectorQuery {
   /**
    * Creates a vector query.
    *
-   * Uncommitted: This API is subject to change in the future.
-   *
    * @param fieldName The name of the field in the JSON document that holds the vector.
    * @param vector List of floating point values that represent the vector.
    */
@@ -138,8 +124,6 @@ export class VectorQuery {
 
 /**
  * Represents a vector search.
- *
- * Uncommitted: This API is subject to change in the future.
  *
  * @category Full Text Search
  */
@@ -177,9 +161,7 @@ export class VectorSearch {
   }
 
   /**
-   * Creates a vector search.
-   *
-   * Uncommitted: This API is subject to change in the future.
+   * Creates a vector search from a single VectorQuery.
    *
    * @param query A vectory query that should be a part of the vector search.
    */

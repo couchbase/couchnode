@@ -225,8 +225,6 @@ export class SearchRequest {
   /**
    * Adds a search query to the request if the request does not already have a search query.
    *
-   * Uncommitted: This API is subject to change in the future.
-   *
    * @param query A SearchQuery to add to the request.
    */
   withSearchQuery(query: SearchQuery): SearchRequest {
@@ -244,8 +242,6 @@ export class SearchRequest {
 
   /**
    * Adds a vector search to the request if the request does not already have a vector search.
-   *
-   * Uncommitted: This API is subject to change in the future.
    *
    * @param search A VectorSearch to add to the request.
    */
