@@ -64,7 +64,8 @@ Transaction::Transaction(const Napi::CallbackInfo &info)
     auto &transactions = Transactions::Unwrap(txnsJsObj)->transactions();
 
     auto txnConfig = jsToCbpp<cbtxns::transaction_options>(configJsObj);
-    _impl.reset(new cbcoretxns::transaction_context(transactions, txnConfig));
+    _impl.reset();
+    _impl = cbcoretxns::transaction_context::create(transactions, txnConfig);
 }
 
 Transaction::~Transaction()

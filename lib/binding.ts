@@ -1107,6 +1107,7 @@ export interface CppMutateInRequest {
   // retries
   preserve_expiry: boolean
   // parent_span
+  flags?: number
 }
 export interface CppMutateInWithLegacyDurabilityRequest {
   id: CppDocumentId
@@ -1122,6 +1123,7 @@ export interface CppMutateInWithLegacyDurabilityRequest {
   // retries
   preserve_expiry: boolean
   // parent_span
+  flags?: number
   persist_to: CppPersistTo
   replicate_to: CppReplicateTo
 }

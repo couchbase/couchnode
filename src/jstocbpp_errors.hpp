@@ -6,7 +6,7 @@
 
 #include <core/cluster.hxx>
 #include <core/operations/management/error_utils.hxx>
-#include <couchbase/query_error_context.hxx>
+#include <core/error_context/query_error_context.hxx>
 
 namespace couchnode
 {
@@ -41,9 +41,9 @@ struct js_to_cbpp_t<std::error_code> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::key_value_extended_error_info> {
+struct js_to_cbpp_t<couchbase::core::key_value_extended_error_info> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::key_value_extended_error_info &cppObj)
+    to_js(Napi::Env env, const couchbase::core::key_value_extended_error_info &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("reference", cbpp_to_js(env, cppObj.reference()));
@@ -53,9 +53,9 @@ struct js_to_cbpp_t<couchbase::key_value_extended_error_info> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::key_value_error_context> {
+struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::key_value_error_context &ctx)
+    to_js(Napi::Env env, const couchbase::core::key_value_error_context &ctx)
     {
         if (!ctx.ec()) {
             return env.Null();
@@ -81,9 +81,9 @@ struct js_to_cbpp_t<couchbase::key_value_error_context> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::subdocument_error_context> {
+struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::subdocument_error_context &ctx)
+    to_js(Napi::Env env, const couchbase::core::subdocument_error_context &ctx)
     {
         if (!ctx.ec()) {
             return env.Null();
@@ -189,9 +189,9 @@ struct js_to_cbpp_t<couchbase::core::error_context::query> {
 };
 
 template <>
-struct js_to_cbpp_t<couchbase::query_error_context> {
+struct js_to_cbpp_t<couchbase::core::query_error_context> {
     static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::query_error_context &ctx)
+                                    const couchbase::core::query_error_context &ctx)
     {
         if (!ctx.ec()) {
             return env.Null();

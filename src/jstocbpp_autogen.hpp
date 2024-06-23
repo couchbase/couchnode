@@ -3050,8 +3050,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<bool>(cppObj.exists, jsObj.Get("exists"));
         js_to_cbpp<couchbase::core::protocol::subdoc_opcode>(
             cppObj.opcode, jsObj.Get("opcode"));
-        js_to_cbpp<couchbase::key_value_status_code>(cppObj.status,
-                                                     jsObj.Get("status"));
+        js_to_cbpp<couchbase::core::key_value_status_code>(cppObj.status,
+                                                           jsObj.Get("status"));
         js_to_cbpp<std::error_code>(cppObj.ec, jsObj.Get("ec"));
         return cppObj;
     }
@@ -3070,7 +3070,7 @@ struct js_to_cbpp_t<
         resObj.Set("opcode",
                    cbpp_to_js<couchbase::core::protocol::subdoc_opcode>(
                        env, cppObj.opcode));
-        resObj.Set("status", cbpp_to_js<couchbase::key_value_status_code>(
+        resObj.Set("status", cbpp_to_js<couchbase::core::key_value_status_code>(
                                  env, cppObj.status));
         resObj.Set("ec", cbpp_to_js<std::error_code>(env, cppObj.ec));
         return resObj;
@@ -4151,8 +4151,8 @@ struct js_to_cbpp_t<couchbase::core::operations::lookup_in_response::entry> {
         js_to_cbpp<bool>(cppObj.exists, jsObj.Get("exists"));
         js_to_cbpp<couchbase::core::protocol::subdoc_opcode>(
             cppObj.opcode, jsObj.Get("opcode"));
-        js_to_cbpp<couchbase::key_value_status_code>(cppObj.status,
-                                                     jsObj.Get("status"));
+        js_to_cbpp<couchbase::core::key_value_status_code>(cppObj.status,
+                                                           jsObj.Get("status"));
         js_to_cbpp<std::error_code>(cppObj.ec, jsObj.Get("ec"));
         return cppObj;
     }
@@ -4170,7 +4170,7 @@ struct js_to_cbpp_t<couchbase::core::operations::lookup_in_response::entry> {
         resObj.Set("opcode",
                    cbpp_to_js<couchbase::core::protocol::subdoc_opcode>(
                        env, cppObj.opcode));
-        resObj.Set("status", cbpp_to_js<couchbase::key_value_status_code>(
+        resObj.Set("status", cbpp_to_js<couchbase::core::key_value_status_code>(
                                  env, cppObj.status));
         resObj.Set("ec", cbpp_to_js<std::error_code>(env, cppObj.ec));
         return resObj;
@@ -4701,8 +4701,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<bool>(cppObj.exists, jsObj.Get("exists"));
         js_to_cbpp<couchbase::core::protocol::subdoc_opcode>(
             cppObj.opcode, jsObj.Get("opcode"));
-        js_to_cbpp<couchbase::key_value_status_code>(cppObj.status,
-                                                     jsObj.Get("status"));
+        js_to_cbpp<couchbase::core::key_value_status_code>(cppObj.status,
+                                                           jsObj.Get("status"));
         js_to_cbpp<std::error_code>(cppObj.ec, jsObj.Get("ec"));
         return cppObj;
     }
@@ -4721,7 +4721,7 @@ struct js_to_cbpp_t<
         resObj.Set("opcode",
                    cbpp_to_js<couchbase::core::protocol::subdoc_opcode>(
                        env, cppObj.opcode));
-        resObj.Set("status", cbpp_to_js<couchbase::key_value_status_code>(
+        resObj.Set("status", cbpp_to_js<couchbase::core::key_value_status_code>(
                                  env, cppObj.status));
         resObj.Set("ec", cbpp_to_js<std::error_code>(env, cppObj.ec));
         return resObj;
@@ -4813,8 +4813,8 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_response::entry> {
                                 jsObj.Get("original_index"));
         js_to_cbpp<couchbase::core::protocol::subdoc_opcode>(
             cppObj.opcode, jsObj.Get("opcode"));
-        js_to_cbpp<couchbase::key_value_status_code>(cppObj.status,
-                                                     jsObj.Get("status"));
+        js_to_cbpp<couchbase::core::key_value_status_code>(cppObj.status,
+                                                           jsObj.Get("status"));
         js_to_cbpp<std::error_code>(cppObj.ec, jsObj.Get("ec"));
         return cppObj;
     }
@@ -4831,7 +4831,7 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_response::entry> {
         resObj.Set("opcode",
                    cbpp_to_js<couchbase::core::protocol::subdoc_opcode>(
                        env, cppObj.opcode));
-        resObj.Set("status", cbpp_to_js<couchbase::key_value_status_code>(
+        resObj.Set("status", cbpp_to_js<couchbase::core::key_value_status_code>(
                                  env, cppObj.status));
         resObj.Set("ec", cbpp_to_js<std::error_code>(env, cppObj.ec));
         return resObj;
@@ -4865,6 +4865,8 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_request> {
         // retries
         js_to_cbpp<bool>(cppObj.preserve_expiry, jsObj.Get("preserve_expiry"));
         // parent_span
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.flags,
+                                                 jsObj.Get("flags"));
         return cppObj;
     }
     static inline Napi::Value
@@ -4899,6 +4901,8 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_request> {
         resObj.Set("preserve_expiry",
                    cbpp_to_js<bool>(env, cppObj.preserve_expiry));
         // parent_span
+        resObj.Set("flags",
+                   cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.flags));
         return resObj;
     }
 };
@@ -4931,6 +4935,8 @@ struct js_to_cbpp_t<
         // retries
         js_to_cbpp<bool>(cppObj.preserve_expiry, jsObj.Get("preserve_expiry"));
         // parent_span
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.flags,
+                                                 jsObj.Get("flags"));
         js_to_cbpp<couchbase::persist_to>(cppObj.persist_to,
                                           jsObj.Get("persist_to"));
         js_to_cbpp<couchbase::replicate_to>(cppObj.replicate_to,
@@ -4967,6 +4973,8 @@ struct js_to_cbpp_t<
         resObj.Set("preserve_expiry",
                    cbpp_to_js<bool>(env, cppObj.preserve_expiry));
         // parent_span
+        resObj.Set("flags",
+                   cbpp_to_js<std::optional<std::uint32_t>>(env, cppObj.flags));
         resObj.Set("persist_to",
                    cbpp_to_js<couchbase::persist_to>(env, cppObj.persist_to));
         resObj.Set("replicate_to", cbpp_to_js<couchbase::replicate_to>(
