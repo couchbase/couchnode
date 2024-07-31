@@ -304,7 +304,8 @@ function getSupportedPlatformPackages(packageName) {
   supportedPlatforms.forEach((plat) => {
     supportedArches.forEach((arch) => {
       // we don't support Windows or linuxmusl ARM atm
-      if ((plat === 'win32' || plat === 'linuxmusl') && arch === 'arm64') return
+      // UPDATE 07/2024: JSCBC-1268 adds linuxmusl + ARM support
+      if (plat === 'win32' && arch === 'arm64') return
       allowedRuntimes.forEach((rt) => {
         packageNames.push(`${packageName}-${plat}-${arch}-${rt}`)
       })
@@ -342,8 +343,8 @@ function matchingPlatformPrebuild(filename, useElectronRuntime = false) {
   const _runtime = useElectronRuntime
     ? 'electron'
     : runtime === 'node'
-    ? 'napi'
-    : runtime
+      ? 'napi'
+      : runtime
   const tokens = filename.split('-')
   // filename format:
   //   couchbase-v<pkg-version>-<runtime>-v<runtime-version>-<platform>-<arch>-<ssl-type>.node
@@ -401,8 +402,8 @@ function resolvePrebuild(
   const _runtime = useElectronRuntime
     ? 'electron'
     : runtime === 'node'
-    ? 'napi'
-    : runtime
+      ? 'napi'
+      : runtime
   try {
     const localPrebuild = getLocalPrebuild(dir)
     if (localPrebuild) {
