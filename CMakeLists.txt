@@ -146,6 +146,10 @@ endif()
 # We need to import headers globally for our dependant libraries such as couchbase-cxx-client.
 include_directories(${NODEJS_INC_DIR})
 
+set(COUCHBASE_CXX_CLIENT_BUILD_STATIC ON CACHE BOOL "" FORCE)
+set(COUCHBASE_CXX_CLIENT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+set(COUCHBASE_CXX_CLIENT_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
+set(COUCHBASE_CXX_CLIENT_BUILD_DOCS OFF CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_TESTS OFF CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_TOOLS OFF CACHE BOOL "" FORCE)
@@ -186,11 +190,13 @@ file(GLOB SOURCE_FILES "src/*.cpp")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 
 add_definitions(-DNAPI_VERSION=6)
+set(COUCHBASE_CXX_SOURCE_DIR "${PROJECT_SOURCE_DIR}/deps/couchbase-cxx-client")
 if(CMAKE_JS_VERSION VERSION_GREATER_EQUAL "7.0.0")
   target_include_directories(${PROJECT_NAME}
     PRIVATE ${NODEJS_INC_DIR}
-            "deps/couchbase-cxx-client/include"
-            "deps/couchbase-cxx-client/third_party/asio/asio/include")
+            "${COUCHBASE_CXX_SOURCE_DIR}"
+            "${COUCHBASE_CXX_SOURCE_DIR}/third_party/cxx_function"
+            "${COUCHBASE_CXX_SOURCE_DIR}/third_party/expected/include")
 else()
   execute_process(COMMAND node -p "require('node-addon-api').include"
           WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
@@ -202,17 +208,20 @@ else()
   target_include_directories(${PROJECT_NAME}
     PRIVATE ${NODEJS_INC_DIR}
             ${NODE_ADDON_API_DIR}
-            "deps/couchbase-cxx-client/include"
-            "deps/couchbase-cxx-client/third_party/asio/asio/include")
+            "${COUCHBASE_CXX_SOURCE_DIR}"
+            "${COUCHBASE_CXX_SOURCE_DIR}/third_party/cxx_function"
+            "${COUCHBASE_CXX_SOURCE_DIR}/third_party/expected/include")
 endif()
 set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 
 target_link_libraries(${PROJECT_NAME}
   ${NODEJS_LIB}
-  couchbase_cxx_client
+  couchbase_cxx_client::couchbase_cxx_client_static
   asio
   Microsoft.GSL::GSL
   taocpp::json
+  fmt::fmt
+  spdlog::spdlog
 )
 
 if(MSVC)

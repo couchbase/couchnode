@@ -111,6 +111,8 @@
     "deps/couchbase-cxx-cache/asio/*/asio/COPYING",
     "deps/couchbase-cxx-cache/asio/*/asio/asio/include/*.hpp",
     "deps/couchbase-cxx-cache/asio/*/asio/asio/include/asio/**/*.[hi]pp",
+    "deps/couchbase-cxx-cache/asio/*/asio/asio/src/asio.cpp",
+    "deps/couchbase-cxx-cache/asio/*/asio/asio/src/asio_ssl.cpp",
     "deps/couchbase-cxx-cache/boringssl/*/boringssl/**/*.{cc,h,c,asm,S}",
     "deps/couchbase-cxx-cache/boringssl/*/boringssl/**/CMakeLists.txt",
     "deps/couchbase-cxx-cache/boringssl/*/boringssl/LICENSE",
