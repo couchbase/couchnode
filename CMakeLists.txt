@@ -194,6 +194,7 @@ set(COUCHBASE_CXX_SOURCE_DIR "${PROJECT_SOURCE_DIR}/deps/couchbase-cxx-client")
 if(CMAKE_JS_VERSION VERSION_GREATER_EQUAL "7.0.0")
   target_include_directories(${PROJECT_NAME}
     PRIVATE ${NODEJS_INC_DIR}
+            "${COUCHBASE_CXX_BINARY_DIR}/generated"
             "${COUCHBASE_CXX_SOURCE_DIR}"
             "${COUCHBASE_CXX_SOURCE_DIR}/third_party/cxx_function"
             "${COUCHBASE_CXX_SOURCE_DIR}/third_party/expected/include")
@@ -208,6 +209,7 @@ else()
   target_include_directories(${PROJECT_NAME}
     PRIVATE ${NODEJS_INC_DIR}
             ${NODE_ADDON_API_DIR}
+            "${COUCHBASE_CXX_BINARY_DIR}/generated"
             "${COUCHBASE_CXX_SOURCE_DIR}"
             "${COUCHBASE_CXX_SOURCE_DIR}/third_party/cxx_function"
             "${COUCHBASE_CXX_SOURCE_DIR}/third_party/expected/include")
