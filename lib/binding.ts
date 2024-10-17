@@ -311,6 +311,10 @@ export interface CppManagementRbacRole {
 export interface CppManagementRbacRoleAndDescription {
   display_name: string
   description: string
+  name: string
+  bucket?: string
+  scope?: string
+  collection?: string
 }
 export interface CppManagementRbacOrigin {
   type: string
@@ -318,6 +322,10 @@ export interface CppManagementRbacOrigin {
 }
 export interface CppManagementRbacRoleAndOrigins {
   origins: CppManagementRbacOrigin[]
+  name: string
+  bucket?: string
+  scope?: string
+  collection?: string
 }
 export interface CppManagementRbacUser {
   username: string
@@ -331,6 +339,11 @@ export interface CppManagementRbacUserAndMetadata {
   effective_roles: CppManagementRbacRoleAndOrigins[]
   password_changed?: string
   external_groups: string[]
+  username: string
+  display_name?: string
+  groups: string[]
+  roles: CppManagementRbacRole[]
+  password?: string
 }
 export interface CppManagementRbacGroup {
   name: string
@@ -1680,6 +1693,21 @@ export interface CppManagementAnalyticsLinkReplaceResponseProblem {
   code: number
   message: string
 }
+export interface CppManagementAnalyticsLinkReplaceAzureBlobExternalLinkRequest {
+  link: CppManagementAnalyticsAzureBlobExternalLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementAnalyticsLinkReplaceCouchbaseRemoteLinkRequest {
+  link: CppManagementAnalyticsCouchbaseRemoteLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementAnalyticsLinkReplaceS3ExternalLinkRequest {
+  link: CppManagementAnalyticsS3ExternalLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
 export interface CppManagementAnalyticsLinkDisconnectResponse {
   // ctx
   status: string
@@ -1850,6 +1878,21 @@ export interface CppManagementAnalyticsLinkCreateResponse {
 export interface CppManagementAnalyticsLinkCreateResponseProblem {
   code: number
   message: string
+}
+export interface CppManagementAnalyticsLinkCreateAzureBlobExternalLinkRequest {
+  link: CppManagementAnalyticsAzureBlobExternalLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementAnalyticsLinkCreateCouchbaseRemoteLinkRequest {
+  link: CppManagementAnalyticsCouchbaseRemoteLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
+}
+export interface CppManagementAnalyticsLinkCreateS3ExternalLinkRequest {
+  link: CppManagementAnalyticsS3ExternalLink
+  client_context_id?: string
+  timeout?: CppMilliseconds
 }
 export interface CppManagementEventingDropFunctionResponse {
   // ctx
@@ -2031,9 +2074,9 @@ export interface CppManagementAnalyticsLinkGetAllResponseProblem {
   message: string
 }
 export interface CppManagementAnalyticsLinkGetAllRequest {
-  link_type: string
-  link_name: string
-  dataverse_name: string
+  link_type?: string
+  link_name?: string
+  dataverse_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
 }
@@ -2552,6 +2595,27 @@ export interface CppConnectionAutogen {
       result: CppManagementViewIndexDropResponse
     ) => void
   ): void
+  managementAnalyticsLinkReplaceAzureBlobExternalLink(
+    options: CppManagementAnalyticsLinkReplaceAzureBlobExternalLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkReplaceResponse
+    ) => void
+  ): void
+  managementAnalyticsLinkReplaceCouchbaseRemoteLink(
+    options: CppManagementAnalyticsLinkReplaceCouchbaseRemoteLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkReplaceResponse
+    ) => void
+  ): void
+  managementAnalyticsLinkReplaceS3ExternalLink(
+    options: CppManagementAnalyticsLinkReplaceS3ExternalLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkReplaceResponse
+    ) => void
+  ): void
   managementAnalyticsLinkDisconnect(
     options: CppManagementAnalyticsLinkDisconnectRequest,
     callback: (
@@ -2655,6 +2719,27 @@ export interface CppConnectionAutogen {
     callback: (
       err: CppError | null,
       result: CppManagementGroupGetAllResponse
+    ) => void
+  ): void
+  managementAnalyticsLinkCreateAzureBlobExternalLink(
+    options: CppManagementAnalyticsLinkCreateAzureBlobExternalLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkCreateResponse
+    ) => void
+  ): void
+  managementAnalyticsLinkCreateCouchbaseRemoteLink(
+    options: CppManagementAnalyticsLinkCreateCouchbaseRemoteLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkCreateResponse
+    ) => void
+  ): void
+  managementAnalyticsLinkCreateS3ExternalLink(
+    options: CppManagementAnalyticsLinkCreateS3ExternalLinkRequest,
+    callback: (
+      err: CppError | null,
+      result: CppManagementAnalyticsLinkCreateResponse
     ) => void
   ): void
   managementEventingDropFunction(

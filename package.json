@@ -85,6 +85,7 @@
     "CONTRIBUTING.md",
     "package.json",
     "README.md",
+    "BUILDING.md",
     "couchbase-sdk-nodejs-black-duck-manifest.yaml",
     "scripts/*.js",
     "src/*.{c,h}pp",

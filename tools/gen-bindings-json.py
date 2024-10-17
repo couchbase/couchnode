@@ -1,21 +1,36 @@
-import os
+#  Copyright 2016-2024. Couchbase, Inc.
+#  All Rights Reserved.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+
 import json
+import os
+import pathlib
 import re
-import clang.cindex
+import subprocess
+import sys
 
 from functools import reduce
+from typing import (Dict, List, Optional, Tuple)
 
-# configurable part
+import clang.cindex
 
-CLANG_VERSION='13.0.1'
-#   homebrew installs for llvm (brew info llvm gives details):
-#       x64: /usr/local/opt/llvm/lib
-#       arm64: /opt/homebrew/opt/llvm/lib
-llvmLibPath = "/usr/local/Cellar/llvm/13.0.1_1/lib/"
+# START CONFIGURATION
 
-cxx_client_root = "../deps/couchbase-cxx-client"
-cxx_client_cache = "../deps/couchbase-cxx-cache"
-cxx_deps_include_paths = {
+CXX_CLIENT_ROOT = os.path.join(pathlib.Path(__file__).parent.parent, 'deps', 'couchbase-cxx-client')
+CXX_CLIENT_CACHE = os.path.join(pathlib.Path(__file__).parent.parent, 'deps', 'couchbase-cxx-cache')
+
+CXX_DEPS_INCLUDE_PATHS = {
     'asio': ['-I{0}/asio/{1}/asio/asio/include'],
     'fmt': ['-I{0}/fmt/{1}/fmt/include'],
     'gsl': ['-I{0}/gsl/{1}/gsl/include'],
@@ -25,7 +40,7 @@ cxx_deps_include_paths = {
     'spdlog': ['-I{0}/spdlog/{1}/spdlog/include'],
 }
 
-fileList = [
+FILE_LIST = [
     "core/management/analytics_dataset.hxx",
     "core/management/analytics_index.hxx",
     "core/management/analytics_link_azure_blob_external.hxx",
@@ -76,7 +91,7 @@ fileList = [
     "core/vector_query_combination.hxx",
 ]
 
-typeList = [
+TYPE_LIST = [
     "couchbase::core::management::analytics::dataset",
     "couchbase::core::management::analytics::index",
     "couchbase::core::management::analytics::azure_blob_external_link",
@@ -171,331 +186,563 @@ typeList = [
     "couchbase::read_preference"
 ]
 
-# end of configurable part
-
-clang.cindex.Config.set_library_path(llvmLibPath)
-
-def set_cxx_deps_include_paths(dep, includes):
-    cpm_path = os.path.join(cxx_client_cache, dep)
-    dir_pattern = r'[0-9a-z]{40}'
-    cpm_hash_dir = next((d for d in os.listdir(cpm_path)
-                         if os.path.isdir(os.path.join(cpm_path, d)) and re.match(dir_pattern, d)),
-                         None)
-    if not cpm_hash_dir:
-        raise Exception(f'Unable to find CPM hash directory for path: {cpm_path}.')
-    return list(map(lambda p: p.format(cxx_client_cache, cpm_hash_dir), includes))
-
-def list_headers_in_dir(path):
-    # enumerates a folder but keeps the full pathing for the files returned
-    # and removes certain files we don't want (like non-hxx, _json.hxx or _fmt.hxx)
-
-    # list all the files in the folder
-    files = os.listdir(path)
-    # only include .hxx files
-    files = list(filter(lambda x: x.endswith('.hxx'), files))
-    # add the folder path back on
-    files = list(map(lambda x: path + x, files))
-    return files
-
-
-# parse through the list of files specified and expand wildcards
-fullFileList = []
-for filePath in fileList:
-    if "*" in filePath:
-        # wildcard path
-        basePath = filePath[:-1]
-        if "*" in basePath:
-            # if there is still a wildcard, we have an issue...
-            raise NotImplementedError(
-                "wildcard only supported at end of file path")
-        files = list_headers_in_dir(os.path.join(cxx_client_root, basePath))
-        fullFileList = fullFileList + files
-    else:
-        # normal path
-        fullFileList.append(os.path.join(cxx_client_root, filePath))
-
-# exclude _json.hxx files
-fullFileList = list(
-    filter(lambda x: not x.endswith('_json.hxx'), fullFileList))
-# exclude _fmt.hxx files
-fullFileList = list(
-    filter(lambda x: not x.endswith('_fmt.hxx'), fullFileList))
-
-
-# generate a list of regexps from the type list (for handling wildcards)
-typeListRe = list(map(lambda x: x.replace("*", "(.*)") + "(.*)", typeList))
-
-
-def is_included_type(name, with_durability=False):
-
-    # TODO(brett19): This should be generalized somehow...
-    if "is_compound_operation" in name:
-        return False
-
-    if "replica_context" in name:
-        return False
-
-    if with_durability is True and '_with_legacy_durability' not in name:
-        return False
-
-    for x in typeListRe:
-        if re.fullmatch(x, name):
-            return True
-    return False
-
-
-opTypes = []
-opEnums = []
-
-
-def parse_type(type):
-    typeStr = type.get_canonical().spelling
-    return parse_type_str(typeStr)
-
-std_comparator_templates = ["std::less<{0}>", "std::greater<{0}>", "std::less_equal<{0}>", "std::greater_equal<{0}>"]
+STD_COMPARATOR_TEMPLATES = ["std::less<{0}>", "std::greater<{0}>", "std::less_equal<{0}>", "std::greater_equal<{0}>"]
 # flatten the list of lists
-std_comparators = list(reduce(lambda a, b: a + b,
-                              list(map(lambda c: [c.format(s) for s in ['', 'void']], std_comparator_templates)),
+STD_COMPARATORS = list(reduce(lambda a, b: a + b,
+                              list(map(lambda c: [c.format(s) for s in ['', 'void']], STD_COMPARATOR_TEMPLATES)),
                               []))
 
-def parse_type_str(typeStr):
-    if typeStr == "std::mutex":
-        return {"name": "std::mutex"}
-    if typeStr == "std::string":
-        return {"name": "std::string"}
-    if typeStr == "std::chrono::duration<long long>":
-        return {"name": "std::chrono::seconds"}
-    if typeStr == "std::chrono::duration<long long, std::ratio<1, 1000>>":
-        return {"name": "std::chrono::milliseconds"}
-    if typeStr == "std::chrono::duration<long long, std::ratio<1, 1000000>>":
-        return {"name": "std::chrono::microseconds"}
-    if typeStr == "std::chrono::duration<long long, std::ratio<1, 1000000000>>":
-        return {"name": "std::chrono::nanoseconds"}
-    if typeStr == "std::error_code":
-        return {"name": "std::error_code"}
-    if typeStr == "std::monostate":
-        return {"name": "std::monostate"}
-    if typeStr == "std::byte":
-        return {"name": "std::byte"}
-    if typeStr == "unsigned long":
-        return {"name": "std::size_t"}
-    if typeStr == "char":
-        return {"name": "std::int8_t"}
-    if typeStr == "unsigned char":
-        return {"name": "std::uint8_t"}
-    if typeStr == "short":
-        return {"name": "std::int16_t"}
-    if typeStr == "unsigned short":
-        return {"name": "std::uint16_t"}
-    if typeStr == "int":
-        return {"name": "std::int32_t"}
-    if typeStr == "unsigned int":
-        return {"name": "std::uint32_t"}
-    if typeStr == "long long":
-        return {"name": "std::int64_t"}
-    if typeStr == "unsigned long long":
-        return {"name": "std::uint64_t"}
-    if typeStr == "bool":
-        return {"name": "std::bool"}
-    if typeStr == "float":
-        return {"name": "std::float"}
-    if typeStr == "double":
-        return {"name": "std::double"}
-    if typeStr == "std::nullptr_t":
-        return {"name": "std::nullptr_t"}
-    if typeStr in std_comparators:
-        if 'void' in typeStr:
-            return {"name": typeStr.replace("void", "")}
-        return {"name": typeStr}
-
-    tplParts = typeStr.split("<", 1)
-    if len(tplParts) > 1:
-        tplClassName = tplParts[0]
-        tplParams = tplParts[1][:-1]
-        if tplClassName == "std::function":
-            return {
-                "name": "std::function"
-            }
-        if tplClassName == "std::optional":
-            return {
-                "name": "std::optional",
-                "of": parse_type_str(tplParams)
-            }
-        if tplClassName == "std::vector":
-            return {
-                "name": "std::vector",
-                "of": parse_type_str(tplParams)
-            }
-        if tplClassName == "std::set":
-            return {
-                "name": "std::set",
-                "of": parse_type_str(tplParams)
-            }
-        if tplClassName == "std::variant":
-            variantParts = tplParams.split(", ")
-            variantTypes = []
-            for variantPart in variantParts:
-                variantTypes.append(parse_type_str(variantPart))
-            return {
-                "name": "std::variant",
-                "of": variantTypes
-            }
-        if tplClassName == "std::array":
-            variantParts = tplParams.split(", ")
-            if len(variantParts) != 2:
-                print("FAILED TO PARSE ARRAY TYPES: " + typeStr)
-                return {"name": "unknown", "str": typeStr}
-            return {
-                "name": "std::array",
-                "of": parse_type_str(variantParts[0]),
-                "size": int(variantParts[1])
-            }
-        if tplClassName == "std::map":
-            variantParts = tplParams.split(", ")
-            if len(variantParts) < 2 or len(variantParts) > 3:
-                print("FAILED TO PARSE MAP TYPES: " + typeStr)
-                return {"name": "unknown", "str": typeStr}
-
-            if len(variantParts) == 2:
-                return {
-                    "name": "std::map",
-                    "of": parse_type_str(variantParts[0]),
-                    "to": parse_type_str(variantParts[1])
-                }
-            else:
-                return {
-                    "name": "std::map",
-                    "of": parse_type_str(variantParts[0]),
-                    "to": parse_type_str(variantParts[1]),
-                    "comparator": parse_type_str(variantParts[2])
-                }
-
-        if tplClassName == "std::shared_ptr":
-            return {
-                "name": "std::shared_ptr",
-                "of": parse_type_str(tplParams)
-            }
-
-    if not typeStr.startswith("couchbase::"):
-        print("FAILED TO PARSE STRING TYPE: " + typeStr)
-        return {"name": "unknown", "str": typeStr}
-
-    if 'unnamed struct' in typeStr:
-        print("WARNING:  Found unnamed struct: " + typeStr)
-
-    return {"name": typeStr}
-
-internal_structs = []
+INTERNAL_STRUCTS = []
 UNNAMED_STRUCT_DELIM = '::(unnamed struct'
 
-def traverse(node, namespace, main_file):
-    # only scan the elements of the file we parsed
-    if node.location.file != None and node.location.file.name != main_file:
-        return
+# IMPORTANT: the templates must exist in the TYPE_LIST
+TEMPLATED_REQUESTS = {
+    'analytics_link_create_request': {
+        'template_name': 'analytics_link_type',
+        'templates': ['couchbase::core::management::analytics::azure_blob_external_link',
+                      'couchbase::core::management::analytics::couchbase_remote_link',
+                      'couchbase::core::management::analytics::s3_external_link']
+    },
+    'analytics_link_replace_request': {
+        'template_name': 'analytics_link_type',
+        'templates': ['couchbase::core::management::analytics::azure_blob_external_link',
+                      'couchbase::core::management::analytics::couchbase_remote_link',
+                      'couchbase::core::management::analytics::s3_external_link']
+    },
+}
 
-    if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
-        fullStructName = "::".join([*namespace, node.displayname])
-        if fullStructName.endswith('::') or UNNAMED_STRUCT_DELIM in fullStructName:
-            struct_name = fullStructName if fullStructName.endswith('::') else fullStructName.split(UNNAMED_STRUCT_DELIM)[0]
-            match = next((s for s in internal_structs if struct_name in s), None)
-            if match:
-                fullStructName = match
+# END - CONFIGURATION
 
-        if is_included_type(fullStructName) or fullStructName in internal_structs:
-            structFields = []
-            for child in node.get_children():
-                if child.kind == clang.cindex.CursorKind.FIELD_DECL:
-                    struct_type = parse_type(child.type)
-                    type_str = child.type.get_canonical().spelling
-                    if 'unnamed' in type_str:
-                        name_tokens = type_str.split('::')
-                        name_override = '::'.join(name_tokens[:-1] + [child.displayname])
-                        struct_type['name'] = name_override
-                        internal_structs.append(name_override)
 
-                    structFields.append({
-                        "name": child.displayname,
-                        "type": struct_type,
-                    })
-            # replica read changes introduced duplicate get requests
-            if any(map(lambda op: op['name'] == fullStructName, opTypes)):
-                return
+class BindingsGenerator:
 
-            opTypes.append({
-                "name": fullStructName,
-                "fields": structFields,
-            })
-    if node.kind == clang.cindex.CursorKind.TYPE_ALIAS_DECL:
-        fullStructName = "::".join([*namespace, node.displayname])
-        if is_included_type(fullStructName, with_durability=True):
-            type_ref = next((c for c in node.get_children() if c.kind == clang.cindex.CursorKind.TYPE_REF), None)
-            if type_ref:
-                base_request_name = type_ref.displayname.replace('struct', '').strip()
-                base_request = next((op for op in opTypes if op['name'] == base_request_name), None)
-                if base_request:
-                    new_fields = [f for f in base_request['fields'] if f['name'] != 'durability_level']
-                    new_fields.extend([
-                            {"name":"persist_to", "type":{"name":"couchbase::persist_to"}},
-                            {"name":"replicate_to", "type":{"name":"couchbase::replicate_to"}}
+    def __init__(self,
+                 llvm_clang_version: Optional[str] = None,
+                 llvm_libdir: Optional[str] = None,
+                 llvm_includedir: Optional[str] = None,
+                 system_headers: Optional[str] = None,
+                 verbose: Optional[bool] = False) -> None:
+        self._op_types = []
+        self._op_enums = []
+        self._full_file_list = []
+        # generate a list of regexps from the type list (for handling wildcards)
+        self._type_list_re = list(map(lambda x: x.replace("*", "(.*)") + "(.*)", TYPE_LIST))
+        self._verbose = verbose
+        self.configure_generator(llvm_clang_version, llvm_libdir, llvm_includedir, system_headers)
+
+    def configure_generator(self,
+                            version: Optional[str] = None,
+                            libdir: Optional[str] = None,
+                            includedir: Optional[str] = None,
+                            system_headers: Optional[str] = None) -> None:
+        if version is None:
+            version = os.environ.get('CN_LLVM_VERSION')
+        if version is None:
+            BindingsGenerator.find_llvm()
+            version = BindingsGenerator.get_llvm_version()
+        if version is None:
+            raise ValueError('Missing LLVM version.')
+
+        if includedir is None:
+            includedir = os.environ.get('CN_LLVM_INCLUDE')
+        if includedir is None:
+            includedir = BindingsGenerator.get_llvm_includedir()
+        if includedir is None:
+            raise ValueError('Missing LLVM include directory.')
+
+        if libdir is None:
+            libdir = os.environ.get('CN_LLVM_LIB')
+        if libdir is None:
+            libdir = BindingsGenerator.get_llvm_libdir()
+        if libdir is None:
+            raise ValueError('Missing LLVM lib directory.')
+
+        if system_headers is None:
+            system_headers = os.environ.get('CN_SYS_HEADERS')
+        if system_headers is None:
+            system_headers = BindingsGenerator.get_system_headers()
+        if system_headers is None:
+            raise ValueError('Missing system headers path.')
+
+        if self._verbose:
+            print(f'Using libdir={libdir}')
+        clang.cindex.Config.set_library_path(libdir)
+
+        self._include_paths = [
+            '-I/opt/homebrew/opt/llvm/include/c++/v1',
+            f'-I{CXX_CLIENT_ROOT}/',
+            f'-I/opt/homebrew/Cellar/llvm/{version}/lib/clang/{version[:2]}/include',
+            f'-I{system_headers}/usr/include'
+        ]
+
+        for dep, inc in CXX_DEPS_INCLUDE_PATHS.items():
+            self._include_paths.extend(BindingsGenerator.set_cxx_deps_include_paths(dep, inc))
+
+        if self._verbose:
+            print(f'Include paths={self._include_paths}')
+
+        self.set_file_list()
+
+    def gen_bindings(self) -> None:
+
+        for headerPath in self._full_file_list:
+            print("processing " + headerPath)
+            index = clang.cindex.Index.create()
+            if self._verbose is True:
+                args = ['-std=c++17', '-v', f'-isysroot{os.getcwd()}'] + self._include_paths
+            else:
+                args = ['-std=c++17', f'-isysroot{os.getcwd()}'] + self._include_paths
+            translation_unit = index.parse(headerPath, args=args)
+
+            # output clang compiler diagnostics information (for debugging)
+            if 1:
+                for diagnostic in translation_unit.diagnostics:
+                    diagnosticMsg = diagnostic.format()
+                    print(diagnostic)
+
+            self.traverse(translation_unit.cursor, [], headerPath)
+
+        jsonData = json.dumps({
+            'op_structs': self._op_types,
+            'op_enums': self._op_enums
+        })
+
+        f = open("bindings.json", "w")
+        f.write(jsonData)
+        f.close()
+
+    def set_file_list(self) -> None:
+        for file_path in FILE_LIST:
+            if "*" in file_path:
+                # wildcard path
+                basePath = file_path[:-1]
+                if "*" in basePath:
+                    # if there is still a wildcard, we have an issue...
+                    raise NotImplementedError(
+                        "wildcard only supported at end of file path")
+                if basePath[-1] != os.path.sep:
+                    tokens = basePath.split(os.path.sep)
+                    # filter = tokens[-1]
+                    files = BindingsGenerator.list_headers_in_dir(os.path.join(CXX_CLIENT_ROOT, *tokens[:-1]),
+                                                                  tokens[-1])
+                else:
+                    files = BindingsGenerator.list_headers_in_dir(os.path.join(CXX_CLIENT_ROOT, basePath))
+                self._full_file_list = self._full_file_list + files
+            else:
+                # normal path
+                self._full_file_list.append(os.path.join(CXX_CLIENT_ROOT, file_path))
+
+        # exclude _json.hxx files
+        self._full_file_list = list(filter(lambda x: not x.endswith('_json.hxx'), self._full_file_list))
+        # exclude _fmt.hxx files
+        self._full_file_list = list(filter(lambda x: not x.endswith('_fmt.hxx'), self._full_file_list))
+
+    def traverse(self, node, namespace, main_file) -> None:
+        # only scan the elements of the file we parsed
+        if node.location.file is not None and node.location.file.name != main_file:
+            return
+
+        if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
+            full_struct_name = "::".join([*namespace, node.displayname])
+            if full_struct_name.endswith('::') or UNNAMED_STRUCT_DELIM in full_struct_name:
+                if full_struct_name.endswith('::'):
+                    struct_name = full_struct_name
+                else:
+                    struct_name = full_struct_name.split(UNNAMED_STRUCT_DELIM)[0]
+                match = next((s for s in INTERNAL_STRUCTS if struct_name in s), None)
+                if match:
+                    full_struct_name = match
+
+            if (BindingsGenerator.is_included_type(full_struct_name, self._type_list_re)
+                    or full_struct_name in INTERNAL_STRUCTS):
+                struct_fields = []
+                parents = []
+                for child in node.get_children():
+                    if child.kind == clang.cindex.CursorKind.FIELD_DECL:
+                        struct_type = BindingsGenerator.parse_type(child.type)
+                        type_str = child.type.get_canonical().spelling
+                        if 'unnamed' in type_str:
+                            name_tokens = type_str.split('::')
+                            name_override = '::'.join(name_tokens[:-1] + [child.displayname])
+                            struct_type['name'] = name_override
+                            INTERNAL_STRUCTS.append(name_override)
+
+                        struct_fields.append({
+                            "name": child.displayname,
+                            "type": struct_type,
+                        })
+                    elif child.kind == clang.cindex.CursorKind.CXX_BASE_SPECIFIER:
+                        parents.append("::".join([*namespace, child.displayname]))
+
+                if len(parents) > 0:
+                    part_op_types = [ot for ot in self._op_types if ot['name'] in parents]
+                    print(f'{part_op_types=}')
+                    for sot in part_op_types:
+                        struct_fields.extend(sot['fields'])
+
+                # replica read changes introduced duplicate get requests
+                if any(map(lambda op: op['name'] == full_struct_name, self._op_types)):
+                    return
+
+                self._op_types.append({
+                    "name": full_struct_name,
+                    "fields": struct_fields,
+                })
+        if node.kind == clang.cindex.CursorKind.TYPE_ALIAS_DECL:
+            full_struct_name = "::".join([*namespace, node.displayname])
+            if BindingsGenerator.is_included_type(full_struct_name, self._type_list_re, with_durability=True):
+                type_ref = next((c for c in node.get_children() if c.kind == clang.cindex.CursorKind.TYPE_REF), None)
+                if type_ref:
+                    base_request_name = type_ref.displayname.replace('struct', '').strip()
+                    base_request = next((op for op in self._op_types if op['name'] == base_request_name), None)
+                    if base_request:
+                        new_fields = [f for f in base_request['fields'] if f['name'] != 'durability_level']
+                        new_fields.extend([
+                            {"name": "persist_to", "type": {"name": "couchbase::persist_to"}},
+                            {"name": "replicate_to", "type": {"name": "couchbase::replicate_to"}}
                         ])
 
-                    opTypes.append({
-                        "name": fullStructName,
-                        "fields": new_fields
+                        self._op_types.append({
+                            "name": full_struct_name,
+                            "fields": new_fields
+                        })
+        if node.kind == clang.cindex.CursorKind.ENUM_DECL:
+            full_enum_name = "::".join([*namespace, node.displayname])
+            if BindingsGenerator.is_included_type(full_enum_name, self._type_list_re):
+                enumValues = []
+
+                for child in node.get_children():
+                    if child.kind == clang.cindex.CursorKind.ENUM_CONSTANT_DECL:
+                        enumValues.append({
+                            "name": child.displayname,
+                            "value": child.enum_value,
+                        })
+                self._op_enums.append({
+                    "name": full_enum_name,
+                    "type": BindingsGenerator.parse_type(node.enum_type),
+                    "values": enumValues,
+                })
+
+        if node.kind == clang.cindex.CursorKind.NAMESPACE:
+            namespace = [*namespace, node.displayname]
+        if node.kind == clang.cindex.CursorKind.CLASS_DECL:
+            namespace = [*namespace, node.displayname]
+        if node.kind == clang.cindex.CursorKind.STRUCT_DECL:
+            namespace = [*namespace, node.displayname]
+        if node.kind == clang.cindex.CursorKind.CLASS_TEMPLATE:
+            name_tokens = node.displayname.split('<')
+            if len(name_tokens) == 2 and name_tokens[0] in TEMPLATED_REQUESTS:
+                req = TEMPLATED_REQUESTS.get(name_tokens[0])
+                full_struct_name = "::".join([*namespace, node.displayname])
+                for template in req['templates']:
+                    struct_fields = []
+                    for child in node.get_children():
+                        if child.kind == clang.cindex.CursorKind.FIELD_DECL:
+                            type_str = child.type.get_canonical().spelling
+                            if 'type-parameter' in type_str:
+                                struct_type = {
+                                    'name': 'template',
+                                    'of': {'name': template}}
+                            else:
+                                struct_type = BindingsGenerator.parse_type(child.type)
+                            # print(f'struct_type={child.type}; type.kind={child.type.kind}; {type_str=}, displayname={child.displayname}')
+                            struct_fields.append({
+                                "name": child.displayname,
+                                "type": struct_type,
+                            })
+                    self._op_types.append({
+                        "name": full_struct_name.replace(req['template_name'], template),
+                        "fields": struct_fields,
                     })
-    if node.kind == clang.cindex.CursorKind.ENUM_DECL:
-        fullEnumName = "::".join([*namespace, node.displayname])
-        if is_included_type(fullEnumName):
-            enumValues = []
+                # return
 
-            for child in node.get_children():
-                if child.kind == clang.cindex.CursorKind.ENUM_CONSTANT_DECL:
-                    enumValues.append({
-                        "name": child.displayname,
-                        "value": child.enum_value,
-                    })
-            opEnums.append({
-                "name": fullEnumName,
-                "type": parse_type(node.enum_type),
-                "values": enumValues,
-            })
+        for child in node.get_children():
+            self.traverse(child, namespace, main_file)
 
-    if node.kind == clang.cindex.CursorKind.NAMESPACE:
-        namespace = [*namespace, node.displayname]
-    if node.kind == clang.cindex.CursorKind.CLASS_DECL:
-        namespace = [*namespace, node.displayname]
-    if node.kind == clang.cindex.CursorKind.STRUCT_DECL:
-        namespace = [*namespace, node.displayname]
+    @staticmethod
+    def set_cxx_deps_include_paths(dep, includes):
+        cpm_path = os.path.join(CXX_CLIENT_CACHE, dep)
+        dir_pattern = r'[0-9a-z]{40}'
+        cpm_hash_dir = next((d for d in os.listdir(cpm_path)
+                            if os.path.isdir(os.path.join(cpm_path, d)) and re.match(dir_pattern, d)),
+                            None)
+        if not cpm_hash_dir:
+            raise Exception(f'Unable to find CPM hash directory for path: {cpm_path}.')
+        return list(map(lambda p: p.format(CXX_CLIENT_CACHE, cpm_hash_dir), includes))
 
-    for child in node.get_children():
-        traverse(child, namespace, main_file)
+    @staticmethod
+    def list_headers_in_dir(path: str, file_startswith: Optional[str] = None) -> List[str]:
+        # enumerates a folder but keeps the full pathing for the files returned
+        # and removes certain files we don't want (like non-hxx, _json.hxx or _fmt.hxx)
 
-include_paths = [
-    f'-I{cxx_client_root}/',
-    f'-I/Applications/Xcode.app/Contents/Developer/Toolchains/XcodeDefault.xctoolchain/usr/lib/clang/{CLANG_VERSION}/include',
-]
-for dep, inc in cxx_deps_include_paths.items():
-    include_paths.extend(set_cxx_deps_include_paths(dep, inc))
+        # list all the files in the folder
+        files = os.listdir(path)
 
-for headerPath in fullFileList:
-    print("processing " + headerPath)
-    index = clang.cindex.Index.create()
-    args = ['-std=c++17'] + include_paths
-    translation_unit = index.parse(headerPath, args=args)
+        if file_startswith is not None:
+            files = list(filter(lambda f: f.endswith('.hxx') and f.startswith(file_startswith), files))
+            # add the folder path back on
+            files = list(map(lambda f: os.path.join(path, f), files))
+        else:
+            # only include .hxx files
+            files = list(filter(lambda f: f.endswith('.hxx'), files))
+            # add the folder path back on
+            files = list(map(lambda f: path + f, files))
+        return files
 
-    # output clang compiler diagnostics information (for debugging)
-    if 1:
-        for diagnostic in translation_unit.diagnostics:
-            diagnosticMsg = diagnostic.format()
-            print(diagnostic)
+    @staticmethod
+    def is_included_type(name: str, type_list_re: List[str], with_durability: Optional[bool] = False) -> bool:
 
-    traverse(translation_unit.cursor, [], headerPath)
+        # TODO(brett19): This should be generalized somehow...
+        if "is_compound_operation" in name:
+            return False
 
-jsonData = json.dumps({
-    'op_structs': opTypes,
-    'op_enums': opEnums
-})
+        if "replica_context" in name:
+            return False
 
-f = open("bindings.json", "w")
-f.write(jsonData)
-f.close()
+        if with_durability is True and '_with_legacy_durability' not in name:
+            return False
+
+        for x in type_list_re:
+            if re.fullmatch(x, name):
+                return True
+        return False
+
+    @staticmethod
+    def parse_type(type_: str) -> Dict[str, str]:
+        type_str = type_.get_canonical().spelling
+        return BindingsGenerator.parse_type_str(type_str)
+
+    @staticmethod
+    def parse_type_str(type_str: str) -> Dict[str, str]:
+        if type_str == "std::mutex":
+            return {"name": "std::mutex"}
+        if type_str == "std::string":
+            return {"name": "std::string"}
+        if type_str == "std::chrono::duration<long long>":
+            return {"name": "std::chrono::seconds"}
+        if type_str == "std::chrono::duration<long long, std::ratio<1, 1000>>":
+            return {"name": "std::chrono::milliseconds"}
+        if type_str == "std::chrono::duration<long long, std::ratio<1, 1000000>>":
+            return {"name": "std::chrono::microseconds"}
+        if type_str == "std::chrono::duration<long long, std::ratio<1, 1000000000>>":
+            return {"name": "std::chrono::nanoseconds"}
+        if type_str == "std::error_code":
+            return {"name": "std::error_code"}
+        if type_str == "std::monostate":
+            return {"name": "std::monostate"}
+        if type_str == "std::byte":
+            return {"name": "std::byte"}
+        if type_str == "unsigned long":
+            return {"name": "std::size_t"}
+        if type_str == "char":
+            return {"name": "std::int8_t"}
+        if type_str == "unsigned char":
+            return {"name": "std::uint8_t"}
+        if type_str == "short":
+            return {"name": "std::int16_t"}
+        if type_str == "unsigned short":
+            return {"name": "std::uint16_t"}
+        if type_str == "int":
+            return {"name": "std::int32_t"}
+        if type_str == "unsigned int":
+            return {"name": "std::uint32_t"}
+        if type_str == "long long":
+            return {"name": "std::int64_t"}
+        if type_str == "unsigned long long":
+            return {"name": "std::uint64_t"}
+        if type_str == "bool":
+            return {"name": "std::bool"}
+        if type_str == "float":
+            return {"name": "std::float"}
+        if type_str == "double":
+            return {"name": "std::double"}
+        if type_str == "std::nullptr_t":
+            return {"name": "std::nullptr_t"}
+        if type_str in STD_COMPARATORS:
+            if 'void' in type_str:
+                return {"name": type_str.replace("void", "")}
+            return {"name": type_str}
+
+        tplParts = type_str.split("<", 1)
+        if len(tplParts) > 1:
+            tplClassName = tplParts[0]
+            tplParams = tplParts[1][:-1]
+            if tplClassName == "std::function":
+                return {
+                    "name": "std::function"
+                }
+            if tplClassName == "std::optional":
+                return {
+                    "name": "std::optional",
+                    "of": BindingsGenerator.parse_type_str(tplParams)
+                }
+            if tplClassName == "std::vector":
+                return {
+                    "name": "std::vector",
+                    "of": BindingsGenerator.parse_type_str(tplParams)
+                }
+            if tplClassName == "std::set":
+                return {
+                    "name": "std::set",
+                    "of": BindingsGenerator. parse_type_str(tplParams)
+                }
+            if tplClassName == "std::variant":
+                variantParts = tplParams.split(", ")
+                variantTypes = []
+                for variantPart in variantParts:
+                    variantTypes.append(BindingsGenerator.parse_type_str(variantPart))
+                return {
+                    "name": "std::variant",
+                    "of": variantTypes
+                }
+            if tplClassName == "std::array":
+                variantParts = tplParams.split(", ")
+                if len(variantParts) != 2:
+                    print("FAILED TO PARSE ARRAY TYPES: " + type_str)
+                    return {"name": "unknown", "str": type_str}
+                return {
+                    "name": "std::array",
+                    "of": BindingsGenerator.parse_type_str(variantParts[0]),
+                    "size": int(variantParts[1])
+                }
+            if tplClassName == "std::map":
+                variantParts = tplParams.split(", ")
+                if len(variantParts) < 2 or len(variantParts) > 3:
+                    print("FAILED TO PARSE MAP TYPES: " + type_str)
+                    return {"name": "unknown", "str": type_str}
+
+                if len(variantParts) == 2:
+                    return {
+                        "name": "std::map",
+                        "of": BindingsGenerator.parse_type_str(variantParts[0]),
+                        "to": BindingsGenerator.parse_type_str(variantParts[1])
+                    }
+                else:
+                    return {
+                        "name": "std::map",
+                        "of": BindingsGenerator.parse_type_str(variantParts[0]),
+                        "to": BindingsGenerator.parse_type_str(variantParts[1]),
+                        "comparator": BindingsGenerator.parse_type_str(variantParts[2])
+                    }
+
+            if tplClassName == "std::shared_ptr":
+                return {
+                    "name": "std::shared_ptr",
+                    "of": BindingsGenerator.parse_type_str(tplParams)
+                }
+
+        if not type_str.startswith("couchbase::"):
+            print("FAILED TO PARSE STRING TYPE: " + type_str)
+            return {"name": "unknown", "str": type_str}
+
+        if 'unnamed struct' in type_str:
+            print("WARNING:  Found unnamed struct: " + type_str)
+
+        return {"name": type_str}
+
+    @staticmethod
+    def sh(command: str, piped: Optional[bool] = False) -> Tuple[str, int]:
+        try:
+            if piped is True:
+                proc = subprocess.Popen(command,
+                                        stdin=subprocess.PIPE,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE,
+                                        shell=True)
+            else:
+                proc = subprocess.Popen(command,
+                                        stdout=subprocess.PIPE,
+                                        stderr=subprocess.PIPE,
+                                        shell=True)
+            stdout, stderr = proc.communicate()
+            stderr = stderr.decode('utf-8')
+            if stderr != '':
+                return stderr, 1
+            return stdout.decode('utf-8'), 0
+        except FileNotFoundError:
+            return "Error: Command not found.", 1
+
+    @staticmethod
+    def find_llvm() -> None:
+        if sys.platform == 'darwin':
+            output, err = BindingsGenerator.sh('which clang')
+            if err:
+                raise Exception(f'Unable to determine clang binary. Error code: {err}.')
+            if 'llvm' not in output.strip():
+                # TODO: aarch64 v. x86_64
+                os_path = os.environ.get('PATH').split(':')
+                os_path = ['/opt/homebrew/opt/llvm/bin'] + os_path
+                os.environ.update(**{'PATH': ':'.join(os_path)})
+            output, err = BindingsGenerator.sh('which clang')
+            if err:
+                raise Exception(f'Unable to determine clang binary. Error code: {err}.')
+            if 'llvm' not in output.strip():
+                raise Exception('Unable to set LLVM as default.')
+        elif sys.platform == 'linux':
+            print('Under construction')
+        else:
+            raise ValueError('Unsupported platform')
+
+    @staticmethod
+    def get_llvm_version() -> str:
+        output, err = BindingsGenerator.sh('llvm-config --version')
+        if err:
+            raise Exception(f'Unable to determine LLVM version. Error code: {err}')
+        return output.strip()
+
+    @staticmethod
+    def get_llvm_includedir() -> str:
+        output, err = BindingsGenerator.sh('llvm-config --includedir')
+        if err:
+            raise Exception(f'Unable to determine LLVM includedir. Error code: {err}')
+        return output.strip()
+
+    @staticmethod
+    def get_llvm_libdir() -> str:
+        output, err = BindingsGenerator.sh('llvm-config --libdir')
+        if err:
+            raise Exception(f'Unable to determine LLVM libdir. Error code: {err}')
+        return output.strip()
+
+    @staticmethod
+    def get_system_headers() -> str:
+        if sys.platform == 'darwin':
+            output, err = BindingsGenerator.sh('xcrun --show-sdk-path')
+            if err:
+                raise Exception(f'Unable to determine system header path. Error code: {err}.')
+            return output.strip()
+        elif sys.platform == 'linux':
+            print('Under construction')
+        else:
+            raise ValueError('Unsupported platform')
+
+
+if __name__ == '__main__':
+    from argparse import ArgumentParser
+    ap = ArgumentParser(description='Parse git version to PEP-440 version')
+    ap.add_argument('-v',
+                    '--version',
+                    help='Set CN_LLVM_VERSION, or use command: llvm-config --version')
+    ap.add_argument('-i',
+                    '--includedir',
+                    help='Set CN_LLVM_INCLUDE, or use command: llvm-config --includedir')
+    ap.add_argument('-l',
+                    '--libdir',
+                    help='Set CN_LLVM_LIB, or use command: llvm-config --libdir')
+    ap.add_argument('-s',
+                    '--system-headers',
+                    help='SET CN_SYS_HEADERS, or use command: xcrun --show-sdk-path')
+    options = ap.parse_args()
+
+    generator = BindingsGenerator(options.version,
+                                  options.libdir,
+                                  options.includedir,
+                                  options.system_headers)
+    generator.gen_bindings()
+
+
+"""
+
+https://github.com/llvm/llvm-project/issues/86009
+
+"""

@@ -1105,6 +1105,13 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::role_and_description> {
         couchbase::core::management::rbac::role_and_description cppObj;
         js_to_cbpp<std::string>(cppObj.display_name, jsObj.Get("display_name"));
         js_to_cbpp<std::string>(cppObj.description, jsObj.Get("description"));
+        js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket,
+                                               jsObj.Get("bucket"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope,
+                                               jsObj.Get("scope"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.collection,
+                                               jsObj.Get("collection"));
         return cppObj;
     }
     static inline Napi::Value
@@ -1116,6 +1123,13 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::role_and_description> {
                    cbpp_to_js<std::string>(env, cppObj.display_name));
         resObj.Set("description",
                    cbpp_to_js<std::string>(env, cppObj.description));
+        resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket",
+                   cbpp_to_js<std::optional<std::string>>(env, cppObj.bucket));
+        resObj.Set("scope",
+                   cbpp_to_js<std::optional<std::string>>(env, cppObj.scope));
+        resObj.Set("collection", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.collection));
         return resObj;
     }
 };
@@ -1152,6 +1166,13 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::role_and_origins> {
         couchbase::core::management::rbac::role_and_origins cppObj;
         js_to_cbpp<std::vector<couchbase::core::management::rbac::origin>>(
             cppObj.origins, jsObj.Get("origins"));
+        js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.bucket,
+                                               jsObj.Get("bucket"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.scope,
+                                               jsObj.Get("scope"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.collection,
+                                               jsObj.Get("collection"));
         return cppObj;
     }
     static inline Napi::Value
@@ -1163,6 +1184,13 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::role_and_origins> {
             "origins",
             cbpp_to_js<std::vector<couchbase::core::management::rbac::origin>>(
                 env, cppObj.origins));
+        resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
+        resObj.Set("bucket",
+                   cbpp_to_js<std::optional<std::string>>(env, cppObj.bucket));
+        resObj.Set("scope",
+                   cbpp_to_js<std::optional<std::string>>(env, cppObj.scope));
+        resObj.Set("collection", cbpp_to_js<std::optional<std::string>>(
+                                     env, cppObj.collection));
         return resObj;
     }
 };
@@ -1219,6 +1247,14 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::user_and_metadata> {
                                                jsObj.Get("password_changed"));
         js_to_cbpp<std::set<std::string>>(cppObj.external_groups,
                                           jsObj.Get("external_groups"));
+        js_to_cbpp<std::string>(cppObj.username, jsObj.Get("username"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.display_name,
+                                               jsObj.Get("display_name"));
+        js_to_cbpp<std::set<std::string>>(cppObj.groups, jsObj.Get("groups"));
+        js_to_cbpp<std::vector<couchbase::core::management::rbac::role>>(
+            cppObj.roles, jsObj.Get("roles"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.password,
+                                               jsObj.Get("password"));
         return cppObj;
     }
     static inline Napi::Value
@@ -1237,6 +1273,17 @@ struct js_to_cbpp_t<couchbase::core::management::rbac::user_and_metadata> {
                                            env, cppObj.password_changed));
         resObj.Set("external_groups", cbpp_to_js<std::set<std::string>>(
                                           env, cppObj.external_groups));
+        resObj.Set("username", cbpp_to_js<std::string>(env, cppObj.username));
+        resObj.Set("display_name", cbpp_to_js<std::optional<std::string>>(
+                                       env, cppObj.display_name));
+        resObj.Set("groups",
+                   cbpp_to_js<std::set<std::string>>(env, cppObj.groups));
+        resObj.Set(
+            "roles",
+            cbpp_to_js<std::vector<couchbase::core::management::rbac::role>>(
+                env, cppObj.roles));
+        resObj.Set("password", cbpp_to_js<std::optional<std::string>>(
+                                   env, cppObj.password));
         return resObj;
     }
 };
@@ -8330,6 +8377,134 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
 };
 
 template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_replace_request<
+        couchbase::core::management::analytics::azure_blob_external_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_replace_request<
+            couchbase::core::management::analytics::azure_blob_external_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_replace_request<
+            couchbase::core::management::analytics::azure_blob_external_link>
+            cppObj;
+        js_to_cbpp<
+            couchbase::core::management::analytics::azure_blob_external_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::operations::management::
+                             analytics_link_replace_request<
+                                 couchbase::core::management::analytics::
+                                     azure_blob_external_link> &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("link",
+                   cbpp_to_js<couchbase::core::management::analytics::
+                                  azure_blob_external_link>(env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_replace_request<
+        couchbase::core::management::analytics::couchbase_remote_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_replace_request<
+            couchbase::core::management::analytics::couchbase_remote_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_replace_request<
+            couchbase::core::management::analytics::couchbase_remote_link>
+            cppObj;
+        js_to_cbpp<
+            couchbase::core::management::analytics::couchbase_remote_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::management::
+              analytics_link_replace_request<
+                  couchbase::core::management::analytics::couchbase_remote_link>
+                  &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set(
+            "link",
+            cbpp_to_js<
+                couchbase::core::management::analytics::couchbase_remote_link>(
+                env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_replace_request<
+        couchbase::core::management::analytics::s3_external_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_replace_request<
+            couchbase::core::management::analytics::s3_external_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_replace_request<
+            couchbase::core::management::analytics::s3_external_link>
+            cppObj;
+        js_to_cbpp<couchbase::core::management::analytics::s3_external_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::management::
+              analytics_link_replace_request<
+                  couchbase::core::management::analytics::s3_external_link>
+                  &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set(
+            "link",
+            cbpp_to_js<
+                couchbase::core::management::analytics::s3_external_link>(
+                env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
 struct js_to_cbpp_t<couchbase::core::operations::management::
                         analytics_link_disconnect_response> {
     static inline couchbase::core::operations::management::
@@ -9411,6 +9586,134 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         auto resObj = Napi::Object::New(env);
         resObj.Set("code", cbpp_to_js<std::uint32_t>(env, cppObj.code));
         resObj.Set("message", cbpp_to_js<std::string>(env, cppObj.message));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_create_request<
+        couchbase::core::management::analytics::azure_blob_external_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_create_request<
+            couchbase::core::management::analytics::azure_blob_external_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_create_request<
+            couchbase::core::management::analytics::azure_blob_external_link>
+            cppObj;
+        js_to_cbpp<
+            couchbase::core::management::analytics::azure_blob_external_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::operations::management::
+                             analytics_link_create_request<
+                                 couchbase::core::management::analytics::
+                                     azure_blob_external_link> &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("link",
+                   cbpp_to_js<couchbase::core::management::analytics::
+                                  azure_blob_external_link>(env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_create_request<
+        couchbase::core::management::analytics::couchbase_remote_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_create_request<
+            couchbase::core::management::analytics::couchbase_remote_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_create_request<
+            couchbase::core::management::analytics::couchbase_remote_link>
+            cppObj;
+        js_to_cbpp<
+            couchbase::core::management::analytics::couchbase_remote_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::management::
+              analytics_link_create_request<
+                  couchbase::core::management::analytics::couchbase_remote_link>
+                  &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set(
+            "link",
+            cbpp_to_js<
+                couchbase::core::management::analytics::couchbase_remote_link>(
+                env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    couchbase::core::operations::management::analytics_link_create_request<
+        couchbase::core::management::analytics::s3_external_link>> {
+    static inline couchbase::core::operations::management::
+        analytics_link_create_request<
+            couchbase::core::management::analytics::s3_external_link>
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::management::analytics_link_create_request<
+            couchbase::core::management::analytics::s3_external_link>
+            cppObj;
+        js_to_cbpp<couchbase::core::management::analytics::s3_external_link>(
+            cppObj.link, jsObj.Get("link"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
+                                               jsObj.Get("client_context_id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::management::
+              analytics_link_create_request<
+                  couchbase::core::management::analytics::s3_external_link>
+                  &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set(
+            "link",
+            cbpp_to_js<
+                couchbase::core::management::analytics::s3_external_link>(
+                env, cppObj.link));
+        resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
+                                            env, cppObj.client_context_id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
         return resObj;
     }
 };
@@ -10524,10 +10827,12 @@ struct js_to_cbpp_t<
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::management::analytics_link_get_all_request
             cppObj;
-        js_to_cbpp<std::string>(cppObj.link_type, jsObj.Get("link_type"));
-        js_to_cbpp<std::string>(cppObj.link_name, jsObj.Get("link_name"));
-        js_to_cbpp<std::string>(cppObj.dataverse_name,
-                                jsObj.Get("dataverse_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.link_type,
+                                               jsObj.Get("link_type"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.link_name,
+                                               jsObj.Get("link_name"));
+        js_to_cbpp<std::optional<std::string>>(cppObj.dataverse_name,
+                                               jsObj.Get("dataverse_name"));
         js_to_cbpp<std::optional<std::string>>(cppObj.client_context_id,
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -10539,10 +10844,12 @@ struct js_to_cbpp_t<
                              analytics_link_get_all_request &cppObj)
     {
         auto resObj = Napi::Object::New(env);
-        resObj.Set("link_type", cbpp_to_js<std::string>(env, cppObj.link_type));
-        resObj.Set("link_name", cbpp_to_js<std::string>(env, cppObj.link_name));
-        resObj.Set("dataverse_name",
-                   cbpp_to_js<std::string>(env, cppObj.dataverse_name));
+        resObj.Set("link_type", cbpp_to_js<std::optional<std::string>>(
+                                    env, cppObj.link_type));
+        resObj.Set("link_name", cbpp_to_js<std::optional<std::string>>(
+                                    env, cppObj.link_name));
+        resObj.Set("dataverse_name", cbpp_to_js<std::optional<std::string>>(
+                                         env, cppObj.dataverse_name));
         resObj.Set("client_context_id", cbpp_to_js<std::optional<std::string>>(
                                             env, cppObj.client_context_id));
         resObj.Set("timeout",

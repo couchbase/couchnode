@@ -145,6 +145,8 @@ Once you have cloned the repository, you may contribute changes through our
 gerrit server. For more details see
 [CONTRIBUTING.md](https://github.com/couchbase/couchnode/blob/master/CONTRIBUTING.md).
 
+To build the client, follow the steps outlined on the [BUILDING page](https://github.com/couchbase/couchnode/blob/main/BUILDING.md)
+
 To execute our test suite, run `make test` from the root directory.
 
 To execute our code coverage, run `make cover` from the root directory.

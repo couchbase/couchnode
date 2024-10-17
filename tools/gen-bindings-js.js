@@ -138,6 +138,8 @@ function getCppType(type) {
     const ofType = getCppType(type.of)
     const sizeVal = type.size
     return `${type.name}<${ofType}, ${sizeVal}>`
+  } else if (type.name == 'template') {
+    return getCppType(type.of)
   }
 
   if (type.of) {
@@ -160,6 +162,21 @@ function getUnprefixedName(name) {
     name = name.substr(basePrefix.length)
   } else {
     throw new Error('unexpected struct name')
+  }
+
+  // handle templated names
+  if (name.includes('<')) {
+    const nameTokens = name.split('<')
+    const templateNameTokens = nameTokens[1].replace('>', '').split('::')
+    const templateName = uppercaseFirstLetter(
+      templateNameTokens[templateNameTokens.length - 1]
+    )
+    // move the _request to the end of the name
+    if (nameTokens[0].includes('_request')) {
+      name = nameTokens[0].replace('_request', '') + templateName + '_request'
+    } else {
+      name = nameTokens[0] + templateName
+    }
   }
 
   // replace all namespace separators with underscores
@@ -330,6 +347,9 @@ async function go() {
     if (opStruct.name.endsWith('_with_legacy_durability')) {
       opReqTypes.push(opStruct.name)
     }
+    if (opStruct.name.endsWith('>')) {
+      opReqTypes.push(opStruct.name.replace('_request', ''))
+    }
   })
 
   // filter out the custom types
@@ -377,6 +397,11 @@ async function go() {
         const jsFieldType = getTsType(field.type.of, ops)
 
         outJsAll.write(`  ${jsFieldName}?: ${jsFieldType}`)
+      } else if (field.type.name === 'template') {
+        const jsFieldName = field.name
+        const jsFieldType = getStructTsName(field.type.of.name)
+
+        outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
       } else {
         const jsFieldName = field.name
         const jsFieldType = getTsType(field.type, ops)
@@ -416,9 +441,15 @@ async function go() {
   opReqTypes.forEach((x) => {
     const jsOpName = getTsNiceName(x)
     const jsReqName = getStructTsName(x + '_request')
-    const jsRespName = x.endsWith('_with_legacy_durability')
-      ? getStructTsName(x.substr(0, x.length - 31) + '_response')
-      : getStructTsName(x + '_response')
+    let jsRespName
+    if (x.endsWith('_with_legacy_durability')) {
+      jsRespName = getStructTsName(x.substr(0, x.length - 31) + '_response')
+    } else if (x.endsWith('>')) {
+      const reqTokens = x.split('<')
+      jsRespName = getStructTsName(reqTokens[0] + '_response')
+    } else {
+      jsRespName = getStructTsName(x + '_response')
+    }
 
     outJsAll.write(`  ${jsOpName}(`)
     outJsAll.write(`    options: ${jsReqName},`)
@@ -498,6 +529,10 @@ async function go() {
     outCppFuncDefs.write(`    executeOp("${cppBaseOpName}",`)
     if (x.endsWith('_with_legacy_durability')) {
       outCppFuncDefs.write(`              jsToCbpp<${x}>(optsJsObj),`)
+    } else if (x.endsWith('>')) {
+      const reqTokens = x.split('<')
+      const cppReqName = reqTokens[0] + '_request<' + reqTokens[1]
+      outCppFuncDefs.write(`              jsToCbpp<${cppReqName}>(optsJsObj),`)
     } else {
       outCppFuncDefs.write(`              jsToCbpp<${x}_request>(optsJsObj),`)
     }

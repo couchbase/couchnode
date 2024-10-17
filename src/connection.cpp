@@ -171,6 +171,17 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
                 "managementEventingGetFunction"),
             InstanceMethod<&Connection::jsManagementViewIndexDrop>(
                 "managementViewIndexDrop"),
+            InstanceMethod<
+                &Connection::
+                    jsManagementAnalyticsLinkReplaceAzureBlobExternalLink>(
+                "managementAnalyticsLinkReplaceAzureBlobExternalLink"),
+            InstanceMethod<
+                &Connection::
+                    jsManagementAnalyticsLinkReplaceCouchbaseRemoteLink>(
+                "managementAnalyticsLinkReplaceCouchbaseRemoteLink"),
+            InstanceMethod<
+                &Connection::jsManagementAnalyticsLinkReplaceS3ExternalLink>(
+                "managementAnalyticsLinkReplaceS3ExternalLink"),
             InstanceMethod<&Connection::jsManagementAnalyticsLinkDisconnect>(
                 "managementAnalyticsLinkDisconnect"),
             InstanceMethod<&Connection::jsManagementUserUpsert>(
@@ -202,6 +213,17 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
                 "managementRoleGetAll"),
             InstanceMethod<&Connection::jsManagementGroupGetAll>(
                 "managementGroupGetAll"),
+            InstanceMethod<
+                &Connection::
+                    jsManagementAnalyticsLinkCreateAzureBlobExternalLink>(
+                "managementAnalyticsLinkCreateAzureBlobExternalLink"),
+            InstanceMethod<
+                &Connection::
+                    jsManagementAnalyticsLinkCreateCouchbaseRemoteLink>(
+                "managementAnalyticsLinkCreateCouchbaseRemoteLink"),
+            InstanceMethod<
+                &Connection::jsManagementAnalyticsLinkCreateS3ExternalLink>(
+                "managementAnalyticsLinkCreateS3ExternalLink"),
             InstanceMethod<&Connection::jsManagementEventingDropFunction>(
                 "managementEventingDropFunction"),
             InstanceMethod<&Connection::jsManagementCollectionDrop>(

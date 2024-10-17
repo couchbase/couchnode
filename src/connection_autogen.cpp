@@ -1046,6 +1046,56 @@ Connection::jsManagementViewIndexDrop(const Napi::CallbackInfo &info)
     return info.Env().Null();
 }
 
+Napi::Value Connection::jsManagementAnalyticsLinkReplaceAzureBlobExternalLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp("managementAnalyticsLinkReplaceAzureBlobExternalLink",
+              jsToCbpp<couchbase::core::operations::management::
+                           analytics_link_replace_request<
+                               couchbase::core::management::analytics::
+                                   azure_blob_external_link>>(optsJsObj),
+              callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsManagementAnalyticsLinkReplaceCouchbaseRemoteLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp("managementAnalyticsLinkReplaceCouchbaseRemoteLink",
+              jsToCbpp<couchbase::core::operations::management::
+                           analytics_link_replace_request<
+                               couchbase::core::management::analytics::
+                                   couchbase_remote_link>>(optsJsObj),
+              callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsManagementAnalyticsLinkReplaceS3ExternalLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "managementAnalyticsLinkReplaceS3ExternalLink",
+        jsToCbpp<
+            couchbase::core::operations::management::
+                analytics_link_replace_request<
+                    couchbase::core::management::analytics::s3_external_link>>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
 Napi::Value
 Connection::jsManagementAnalyticsLinkDisconnect(const Napi::CallbackInfo &info)
 {
@@ -1256,6 +1306,56 @@ Napi::Value Connection::jsManagementGroupGetAll(const Napi::CallbackInfo &info)
         "managementGroupGetAll",
         jsToCbpp<
             couchbase::core::operations::management::group_get_all_request>(
+            optsJsObj),
+        callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsManagementAnalyticsLinkCreateAzureBlobExternalLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp("managementAnalyticsLinkCreateAzureBlobExternalLink",
+              jsToCbpp<couchbase::core::operations::management::
+                           analytics_link_create_request<
+                               couchbase::core::management::analytics::
+                                   azure_blob_external_link>>(optsJsObj),
+              callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsManagementAnalyticsLinkCreateCouchbaseRemoteLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp("managementAnalyticsLinkCreateCouchbaseRemoteLink",
+              jsToCbpp<couchbase::core::operations::management::
+                           analytics_link_create_request<
+                               couchbase::core::management::analytics::
+                                   couchbase_remote_link>>(optsJsObj),
+              callbackJsFn);
+
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsManagementAnalyticsLinkCreateS3ExternalLink(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    executeOp(
+        "managementAnalyticsLinkCreateS3ExternalLink",
+        jsToCbpp<
+            couchbase::core::operations::management::
+                analytics_link_create_request<
+                    couchbase::core::management::analytics::s3_external_link>>(
             optsJsObj),
         callbackJsFn);
 

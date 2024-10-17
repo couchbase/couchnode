@@ -161,6 +161,12 @@ public:
     Napi::Value jsManagementScopeCreate(const Napi::CallbackInfo &info);
     Napi::Value jsManagementEventingGetFunction(const Napi::CallbackInfo &info);
     Napi::Value jsManagementViewIndexDrop(const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkReplaceAzureBlobExternalLink(
+        const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkReplaceCouchbaseRemoteLink(
+        const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkReplaceS3ExternalLink(
+        const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementAnalyticsLinkDisconnect(const Napi::CallbackInfo &info);
     Napi::Value jsManagementUserUpsert(const Napi::CallbackInfo &info);
@@ -182,6 +188,12 @@ public:
     jsManagementSearchIndexControlQuery(const Napi::CallbackInfo &info);
     Napi::Value jsManagementRoleGetAll(const Napi::CallbackInfo &info);
     Napi::Value jsManagementGroupGetAll(const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkCreateAzureBlobExternalLink(
+        const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkCreateCouchbaseRemoteLink(
+        const Napi::CallbackInfo &info);
+    Napi::Value jsManagementAnalyticsLinkCreateS3ExternalLink(
+        const Napi::CallbackInfo &info);
     Napi::Value
     jsManagementEventingDropFunction(const Napi::CallbackInfo &info);
     Napi::Value jsManagementCollectionDrop(const Napi::CallbackInfo &info);

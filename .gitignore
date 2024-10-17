@@ -38,6 +38,7 @@ config.json
 /prebuilds/
 /deps/couchbase-cxx-cache
 *.tar.gz
+/tools/bindings.json
 
 # Extra stuff
 /dist/
