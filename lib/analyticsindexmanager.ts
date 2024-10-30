@@ -1041,6 +1041,21 @@ export interface GetAllAnalyticsIndexesOptions {
  */
 export interface ConnectAnalyticsLinkOptions {
   /**
+   * Whether or not the call should attempt to force the link connection.
+   */
+  force?: boolean
+
+  /**
+   * The name of the dataverse the link belongs to.
+   */
+  dataverseName?: string
+
+  /**
+   * The name of the link to connect.
+   */
+  linkName?: string
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -1050,6 +1065,16 @@ export interface ConnectAnalyticsLinkOptions {
  * @category Management
  */
 export interface DisconnectAnalyticsLinkOptions {
+  /**
+   * The name of the dataverse the link belongs to.
+   */
+  dataverseName?: string
+
+  /**
+   * The name of the link to connect.
+   */
+  linkName?: string
+
   /**
    * The timeout for this operation, represented in milliseconds.
    */
@@ -1551,15 +1576,51 @@ export class AnalyticsIndexManager {
     }, callback)
   }
 
+  // TODO(JSCBC-1293):  Remove deprecated path
   /**
    * Connects a not yet connected link.
    *
-   * @param linkName The name of the link to connect.
+   * @param linkStr The name of the link to connect.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   * @deprecated Use the other overload instead.
+   */
+  async connectLink(
+    linkStr: string,
+    options?: ConnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void>
+  /**
+   * Connects a not yet connected link.
+   *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   async connectLink(
-    linkName: string,
+    options?: ConnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void>
+  /**
+   * @internal
+   */
+  async connectLink(): Promise<void> {
+    if (typeof arguments[0] === 'string') {
+      return this._connectLinkDeprecated(
+        arguments[0],
+        arguments[1],
+        arguments[2]
+      )
+    } else {
+      return this._connectLink(arguments[0], arguments[1])
+    }
+  }
+
+  // TODO(JSCBC-1293):  Remove deprecated path
+  /**
+   * @internal
+   */
+  async _connectLinkDeprecated(
+    linkStr: string,
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -1571,9 +1632,13 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const qs = 'CONNECT LINK ' + linkName
-
+    const force = options.force || false
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    let qs = 'CONNECT LINK ' + linkStr
+    if (force) {
+      qs += ' WITH {"force": true}'
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
@@ -1583,15 +1648,10 @@ export class AnalyticsIndexManager {
   }
 
   /**
-   * Disconnects a previously connected link.
-   *
-   * @param linkName The name of the link to disconnect.
-   * @param options Optional parameters for this operation.
-   * @param callback A node-style callback to be invoked after execution.
+   * @internal
    */
-  async disconnectLink(
-    linkName: string,
-    options?: DisconnectAnalyticsLinkOptions,
+  async _connectLink(
+    options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options instanceof Function) {
@@ -1602,9 +1662,106 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const qs = 'DISCONNECT LINK ' + linkName
-
+    const dataverseName = options.dataverseName || 'Default'
+    const linkName = options.linkName || 'Local'
+    const force = options.force || false
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    let qs = 'CONNECT LINK ' + '`' + dataverseName + '`.' + linkName
+    if (force) {
+      qs += ' WITH {"force": true}'
+    }
+
+    return PromiseHelper.wrapAsync(async () => {
+      await this._cluster.analyticsQuery(qs, {
+        timeout: timeout,
+      })
+    }, callback)
+  }
+
+  // TODO(JSCBC-1293):  Remove deprecated path
+  /**
+   * Disconnects a previously connected link.
+   *
+   * @param linkStr The name of the link to disconnect.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   * @deprecated Use the other overload instead.
+   */
+  async disconnectLink(
+    linkStr: string,
+    options?: DisconnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void>
+  /**
+   * Disconnects a previously connected link.
+   *
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  async disconnectLink(
+    options?: DisconnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void>
+  /**
+   * @internal
+   */
+  async disconnectLink(): Promise<void> {
+    if (typeof arguments[0] === 'string') {
+      return this._disconnectLinkDeprecated(
+        arguments[0],
+        arguments[1],
+        arguments[2]
+      )
+    } else {
+      return this._disconnectLink(arguments[0], arguments[1])
+    }
+  }
+
+  // TODO(JSCBC-1293):  Remove deprecated path
+  /**
+   * @internal
+   */
+  async _disconnectLinkDeprecated(
+    linkStr: string,
+    options?: DisconnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+    const qs = 'DISCONNECT LINK ' + linkStr
+    const timeout = options.timeout || this._cluster.managementTimeout
+    return PromiseHelper.wrapAsync(async () => {
+      await this._cluster.analyticsQuery(qs, {
+        timeout: timeout,
+      })
+    }, callback)
+  }
+
+  /**
+   * @internal
+   */
+  async _disconnectLink(
+    options?: DisconnectAnalyticsLinkOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+    const dataverseName = options.dataverseName || 'Default'
+    const linkName = options.linkName || 'Local'
+    const timeout = options.timeout || this._cluster.managementTimeout
+
+    const qs = 'DISCONNECT LINK ' + '`' + dataverseName + '`.' + linkName
     return PromiseHelper.wrapAsync(async () => {
       await this._cluster.analyticsQuery(qs, {
         timeout: timeout,

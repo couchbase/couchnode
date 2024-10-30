@@ -411,7 +411,8 @@ describe('#analyticslinks', function () {
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#link-connect-disconnect', function () {
-    it('should successfully connect a link w/ callback', function (done) {
+    // TODO(JSCBC-1293):  Remove deprecated path
+    it('should successfully connect a link via deprecated path w/ callback', function (done) {
       const linkStr = '`' + dvName + '`.Local'
       H.c.analyticsIndexes().connectLink(linkStr, (err) => {
         if (err) {
@@ -422,7 +423,8 @@ describe('#analyticslinks', function () {
       })
     }).timeout(10000)
 
-    it('should successfully disconnect a link w/ callback', function (done) {
+    // TODO(JSCBC-1293):  Remove deprecated path
+    it('should successfully disconnect a link via deprecated path w/ callback', function (done) {
       const linkStr = '`' + dvName + '`.Local'
       H.c.analyticsIndexes().disconnectLink(linkStr, (err) => {
         if (err) {
@@ -433,52 +435,48 @@ describe('#analyticslinks', function () {
       })
     })
 
-    //  BUG(JSCBC-1289): Analytics index management link connect/disconnect require a linkName
-    // it('should successfully connect a default link w/ callback', function (done) {
-    //   H.c.analyticsIndexes().connectLink((err) => {
-    //     if (err) {
-    //       done(err)
-    //     } else {
-    //       done()
-    //     }
-    //   })
-    // }).timeout(10000)
+    it('should successfully connect a default link w/ callback', function (done) {
+      H.c.analyticsIndexes().connectLink({}, (err) => {
+        if (err) {
+          done(err)
+        } else {
+          done()
+        }
+      })
+    }).timeout(10000)
 
-    //  BUG(JSCBC-1289): Analytics index management link connect/disconnect require a linkName
-    // it('should successfully disconnect a default link w/ callback', function (done) {
-    //   H.c.analyticsIndexes().disconnectLink((err) => {
-    //     if (err) {
-    //       done(err)
-    //     } else {
-    //       done()
-    //     }
-    //   })
-    // })
+    it('should successfully disconnect a default link w/ callback', function (done) {
+      H.c.analyticsIndexes().disconnectLink({}, (err) => {
+        if (err) {
+          done(err)
+        } else {
+          done()
+        }
+      })
+    })
 
-    //  BUG(JSCBC-1289): Analytics index management link connect/disconnect require a linkName
-    //   it('should successfully connect a link w/ callback', function (done) {
-    //     H.c
-    //       .analyticsIndexes()
-    //       .connectLink({ dataverseName: dvName, linkName: 'Local' }, (err) => {
-    //         if (err) {
-    //           done(err)
-    //         } else {
-    //           done()
-    //         }
-    //       })
-    //   }).timeout(10000)
+    it('should successfully connect a link w/ callback', function (done) {
+      H.c
+        .analyticsIndexes()
+        .connectLink({ dataverseName: dvName, linkName: 'Local' }, (err) => {
+          if (err) {
+            done(err)
+          } else {
+            done()
+          }
+        })
+    }).timeout(10000)
 
-    //  BUG(JSCBC-1289): Analytics index management link connect/disconnect require a linkName
-    //   it('should successfully disconnect a link w/ callback', function (done) {
-    //     H.c
-    //       .analyticsIndexes()
-    //       .disconnectLink({ dataverseName: dvName, linkName: 'Local' }, (err) => {
-    //         if (err) {
-    //           done(err)
-    //         } else {
-    //           done()
-    //         }
-    //       })
-    //   })
+    it('should successfully disconnect a link w/ callback', function (done) {
+      H.c
+        .analyticsIndexes()
+        .disconnectLink({ dataverseName: dvName, linkName: 'Local' }, (err) => {
+          if (err) {
+            done(err)
+          } else {
+            done()
+          }
+        })
+    })
   })
 })

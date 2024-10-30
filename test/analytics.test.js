@@ -97,9 +97,20 @@ describe('#analytics', function () {
     }, H.lib.IndexExistsError)
   }).timeout(10000)
 
-  it('should successfully connect a link', async function () {
+  // TODO(JSCBC-1293):  Remove deprecated path
+  it('should successfully connect a link via deprecated path', async function () {
     var targetName = '`' + dvName + '`.Local'
     await H.c.analyticsIndexes().connectLink(targetName)
+  }).timeout(10000)
+
+  // TODO(JSCBC-1293):  Remove deprecated path
+  it('should successfully disconnect a link via deprecated path', async function () {
+    var targetName = '`' + dvName + '`.Local'
+    await H.c.analyticsIndexes().disconnectLink(targetName)
+  })
+
+  it('should successfully connect a link', async function () {
+    await H.c.analyticsIndexes().connectLink({ dataverseName: dvName })
   }).timeout(10000)
 
   it('should successfully list all datasets', async function () {
@@ -258,8 +269,7 @@ describe('#analytics', function () {
   }).timeout(20000)
 
   it('should successfully disconnect a link', async function () {
-    var targetName = '`' + dvName + '`.Local'
-    await H.c.analyticsIndexes().disconnectLink(targetName)
+    await H.c.analyticsIndexes().disconnectLink({ dataverseName: dvName })
   })
 
   it('should successfully drop an index', async function () {
