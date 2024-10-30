@@ -1539,16 +1539,14 @@ export class AnalyticsIndexManager {
 
     return PromiseHelper.wrapAsync(async () => {
       const linkData = AnalyticsLink._toHttpData(link)
+      const { httpPath, ...linkBody } = linkData
 
       const res = await this._http.request({
         type: HttpServiceType.Analytics,
         method: HttpMethod.Post,
-        path: linkData.httpPath,
+        path: httpPath,
         contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify({
-          linkData,
-          httpPath: undefined,
-        }),
+        body: cbQsStringify(linkBody),
         timeout: timeout,
       })
 
@@ -1591,16 +1589,14 @@ export class AnalyticsIndexManager {
 
     return PromiseHelper.wrapAsync(async () => {
       const linkData = AnalyticsLink._toHttpData(link)
+      const { httpPath, ...linkBody } = linkData
 
       const res = await this._http.request({
         type: HttpServiceType.Analytics,
         method: HttpMethod.Put,
-        path: linkData.httpPath,
+        path: httpPath,
         contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify({
-          linkData,
-          httpPath: undefined,
-        }),
+        body: cbQsStringify(linkBody),
         timeout: timeout,
       })
 

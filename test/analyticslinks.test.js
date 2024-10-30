@@ -1,11 +1,10 @@
 'use strict'
 
-// BUG(JSCBC-1289, JSCBC-1290, JSCBC-1291)
-// const assert = require('chai').assert
-// const {
-//   AnalyticsLinkType,
-//   AnalyticsEncryptionLevel,
-// } = require('../lib/analyticsindexmanager')
+const assert = require('chai').assert
+const {
+  AnalyticsLinkType,
+  AnalyticsEncryptionLevel,
+} = require('../lib/analyticsindexmanager')
 const H = require('./harness')
 
 describe('#analyticslinks', function () {
@@ -250,168 +249,166 @@ describe('#analyticslinks', function () {
   //     })
   //   })
 
-  // BUG(JSCBC-1291): Analytics index management link API cannot create, replace or drop link
   /* eslint-disable mocha/no-setup-in-describe */
-  //   describe('#dataversenotfound', function () {
-  //     const links = [
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: 'notadataverse',
-  //         accountName: 'myaccount',
-  //         accountKey: 'myaccountkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'notadataverse',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: 'notadataverse',
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //     ]
+  describe('#dataversenotfound', function () {
+    const links = [
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: 'notadataverse',
+        accountName: 'myaccount',
+        accountKey: 'myaccountkey',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'notadataverse',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: 'notadataverse',
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+    ]
 
-  //     links.forEach((link) => {
-  //       it(`should fail with DataVerseNotFound error for ${link.linkType} link`, async function () {
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().createLink(link)
-  //         }, H.lib.DataverseNotFoundError)
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().replaceLink(link)
-  //         }, H.lib.DataverseNotFoundError)
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
-  //         }, H.lib.DataverseNotFoundError)
-  //       })
-  //     })
-  //   })
+    links.forEach((link) => {
+      it(`should fail with DataVerseNotFound error for ${link.linkType} link`, async function () {
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().createLink(link)
+        }, H.lib.DataverseNotFoundError)
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().replaceLink(link)
+        }, H.lib.DataverseNotFoundError)
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
+        }, H.lib.DataverseNotFoundError)
+      })
+    })
+  })
 
-  // BUG(JSCBC-1291): Analytics index management link API cannot create, replace or drop link
+  // BUG(JSCBC-1292): Analytics index management link APIs return CouchbaseError rather than LinkNotFoundError
   /* eslint-disable mocha/no-setup-in-describe */
-  //   describe('#linknotfound', function () {
-  //     const links = [
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: undefined,
-  //         accountName: 'myaccount',
-  //         accountKey: 'myaccountkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: undefined,
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: undefined,
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //     ]
-
-  //     links.forEach((link) => {
-  //       it(`should fail to replace with LinkNotFound error for ${link.linkType} link`, async function () {
-  //         // have to set the dataversname after it has been defined
-  //         link.dataverse = dvName
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().replaceLink(link)
-  //         }, H.lib.LinkNotFoundError)
-  //       })
-
-  //       it(`should fail tod drop with LinkNotFound error for ${link.linkType} link`, async function () {
-  //         // have to set the dataversname after it has been defined
-  //         link.dataverse = dvName
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
-  //         }, H.lib.LinkNotFoundError)
-  //       }).timeout(5000)
-  //     })
-  //   })
-
-  // BUG(JSCBC-1291): Analytics index management link API cannot create, replace or drop link
-  /* eslint-disable mocha/no-setup-in-describe */
-  //   describe('#link-create-replace-drop', function () {
-  //     const extraLink = {
-  //       linkType: AnalyticsLinkType.S3External,
-  //       name: 'extras3link',
+  // describe('#linknotfound', function () {
+  //   const links = [
+  //     {
+  //       linkType: AnalyticsLinkType.AzureBlobExternal,
+  //       name: 'azurebloblink',
   //       dataverse: undefined,
-  //       accessKeyId: 'extraaccesskey',
+  //       accountName: 'myaccount',
+  //       accountKey: 'myaccountkey',
+  //     },
+  //     {
+  //       linkType: AnalyticsLinkType.CouchbaseRemote,
+  //       name: 'cbremotelink',
+  //       dataverse: undefined,
+  //       hostname: 'localhost',
+  //       encryption: {
+  //         encryptionLevel: AnalyticsEncryptionLevel.None,
+  //       },
+  //       username: 'Admin',
+  //       password: 'password',
+  //     },
+  //     {
+  //       linkType: AnalyticsLinkType.S3External,
+  //       name: 's3link',
+  //       dataverse: undefined,
+  //       accessKeyId: 'accesskey',
   //       region: 'us-west-2',
   //       secretAccessKey: 'supersecretkey',
-  //     }
+  //     },
+  //   ]
 
-  //     // can only test w/ S3 (at least easily)
-  //     // have to set the dataversname after it has been defined (e.g. w/in the specific test)
-  //     const links = [
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: undefined,
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //     ]
-
-  //     links.forEach((link) => {
-  //       it(`should create link for ${link.linkType} link`, async function () {
-  //         link.dataverse = dvName
-  //         extraLink.dataverse = dvName
-  //         await H.c.analyticsIndexes().createLink(link)
-  //         await H.c.analyticsIndexes().createLink(extraLink)
-  //       }).timeout(5000)
-
-  //       it(`should fail to create with LinkExists error for ${link.linkType} link`, async function () {
-  //         link.dataverse = dvName
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().createLink(link)
-  //         }, H.lib.LinkExistsError)
-  //       })
-
-  //       it(`should replace link for ${link.linkType} link`, async function () {
-  //         link.dataverse = dvName
-  //         link.region = 'eu-west-2'
+  //   links.forEach((link) => {
+  //     it(`should fail to replace with LinkNotFound error for ${link.linkType} link`, async function () {
+  //       // have to set the dataversname after it has been defined
+  //       link.dataverse = dvName
+  //       await H.throwsHelper(async () => {
   //         await H.c.analyticsIndexes().replaceLink(link)
-  //       }).timeout(5000)
-
-  //       it(`should get all ${link.linkType} links`, async function () {
-  //         const linkResult = await H.c
-  //           .analyticsIndexes()
-  //           .getAllLinks({ dataverse: dvName, linkType: link.linkType })
-  //         assert.isArray(linkResult)
-  //         assert.lengthOf(linkResult, 2)
-  //       }).timeout(5000)
-
-  //       it(`should drop link for ${link.linkType} link`, async function () {
-  //         link.dataverse = dvName
-  //         extraLink.dataverse = dvName
-  //         await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
-  //         await H.c
-  //           .analyticsIndexes()
-  //           .dropLink(extraLink.name, extraLink.dataverse)
-  //       }).timeout(5000)
+  //       }, H.lib.LinkNotFoundError)
   //     })
+
+  //     it(`should fail tod drop with LinkNotFound error for ${link.linkType} link`, async function () {
+  //       // have to set the dataversname after it has been defined
+  //       link.dataverse = dvName
+  //       await H.throwsHelper(async () => {
+  //         await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
+  //       }, H.lib.LinkNotFoundError)
+  //     }).timeout(5000)
   //   })
+  // })
+
+  /* eslint-disable mocha/no-setup-in-describe */
+  describe('#link-create-replace-drop', function () {
+    const extraLink = {
+      linkType: AnalyticsLinkType.S3External,
+      name: 'extras3link',
+      dataverse: undefined,
+      accessKeyId: 'extraaccesskey',
+      region: 'us-west-2',
+      secretAccessKey: 'supersecretkey',
+    }
+
+    // can only test w/ S3 (at least easily)
+    // have to set the dataversname after it has been defined (e.g. w/in the specific test)
+    const links = [
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: undefined,
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+    ]
+
+    links.forEach((link) => {
+      it(`should create link for ${link.linkType} link`, async function () {
+        link.dataverse = dvName
+        extraLink.dataverse = dvName
+        await H.c.analyticsIndexes().createLink(link)
+        await H.c.analyticsIndexes().createLink(extraLink)
+      }).timeout(5000)
+
+      it(`should fail to create with LinkExists error for ${link.linkType} link`, async function () {
+        link.dataverse = dvName
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().createLink(link)
+        }, H.lib.LinkExistsError)
+      })
+
+      it(`should replace link for ${link.linkType} link`, async function () {
+        link.dataverse = dvName
+        link.region = 'eu-west-2'
+        await H.c.analyticsIndexes().replaceLink(link)
+      }).timeout(5000)
+
+      it(`should get all ${link.linkType} links`, async function () {
+        const linkResult = await H.c
+          .analyticsIndexes()
+          .getAllLinks({ dataverse: dvName, linkType: link.linkType })
+        assert.isArray(linkResult)
+        assert.lengthOf(linkResult, 2)
+      }).timeout(5000)
+
+      it(`should drop link for ${link.linkType} link`, async function () {
+        link.dataverse = dvName
+        extraLink.dataverse = dvName
+        await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
+        await H.c
+          .analyticsIndexes()
+          .dropLink(extraLink.name, extraLink.dataverse)
+      }).timeout(5000)
+    })
+  })
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#link-connect-disconnect', function () {
