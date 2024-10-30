@@ -24,230 +24,229 @@ describe('#analyticslinks', function () {
     }
   })
 
-  // BUG(JSCBC-1290): Analytics index management link APIs return CouchbaseError rather than InvalidArgumentError
   /* eslint-disable mocha/no-setup-in-describe */
-  //   describe('#invalidargument', function () {
-  //     const azurelinks = [
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: '',
-  //         accountName: 'myaccount',
-  //         accountKey: 'myaccountkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: '',
-  //         dataverse: 'Default',
-  //         accountName: 'myaccount',
-  //         accountKey: 'myaccountkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: 'Default',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: 'Default',
-  //         accountName: 'myaccount',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: 'Default',
-  //         accountKey: 'myaccountkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.AzureBlobExternal,
-  //         name: 'azurebloblink',
-  //         dataverse: 'Default',
-  //         sharedAccessSignature: 'sharedaccesssignature',
-  //       },
-  //     ]
+  describe('#invalidargument', function () {
+    const azurelinks = [
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: '',
+        accountName: 'myaccount',
+        accountKey: 'myaccountkey',
+      },
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: '',
+        dataverse: 'Default',
+        accountName: 'myaccount',
+        accountKey: 'myaccountkey',
+      },
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: 'Default',
+      },
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: 'Default',
+        accountName: 'myaccount',
+      },
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: 'Default',
+        accountKey: 'myaccountkey',
+      },
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: 'Default',
+        sharedAccessSignature: 'sharedaccesssignature',
+      },
+    ]
 
-  //     const s3links = [
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: '',
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: '',
-  //         dataverse: 'Default',
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: 'Default',
-  //         region: 'us-west-2',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: 'Default',
-  //         accessKeyId: 'accesskey',
-  //         secretAccessKey: 'supersecretkey',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.S3External,
-  //         name: 's3link',
-  //         dataverse: 'Default',
-  //         accessKeyId: 'accesskey',
-  //         region: 'us-west-2',
-  //       },
-  //     ]
+    const s3links = [
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: '',
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: '',
+        dataverse: 'Default',
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: 'Default',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: 'Default',
+        accessKeyId: 'accesskey',
+        secretAccessKey: 'supersecretkey',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: 'Default',
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+      },
+    ]
 
-  //     const cblinks = [
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: '',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: '',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: '',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.None,
-  //         },
-  //         username: 'Admin',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Half,
-  //         },
-  //         password: 'password',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Half,
-  //         },
-  //         username: 'Admin',
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Full,
-  //         },
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Full,
-  //           certificate: Buffer.from('certificate', 'utf-8'),
-  //         },
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Full,
-  //           certificate: Buffer.from('certificate', 'utf-8'),
-  //           clientCertificate: Buffer.from('clientcertificate', 'utf-8'),
-  //         },
-  //       },
-  //       {
-  //         linkType: AnalyticsLinkType.CouchbaseRemote,
-  //         name: 'cbremotelink',
-  //         dataverse: 'Default',
-  //         hostname: 'localhost',
-  //         encryption: {
-  //           encryptionLevel: AnalyticsEncryptionLevel.Full,
-  //           certificate: Buffer.from('certificate', 'utf-8'),
-  //           clientKey: Buffer.from('clientkey', 'utf-8'),
-  //         },
-  //       },
-  //     ]
+    const cblinks = [
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: '',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: '',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: '',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Half,
+        },
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Half,
+        },
+        username: 'Admin',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Full,
+        },
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Full,
+          certificate: Buffer.from('certificate', 'utf-8'),
+        },
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Full,
+          certificate: Buffer.from('certificate', 'utf-8'),
+          clientCertificate: Buffer.from('clientcertificate', 'utf-8'),
+        },
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: 'Default',
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.Full,
+          certificate: Buffer.from('certificate', 'utf-8'),
+          clientKey: Buffer.from('clientkey', 'utf-8'),
+        },
+      },
+    ]
 
-  //     azurelinks.forEach((link) => {
-  //       it(`should fail with InvalidArgument error for azureblob links`, async function () {
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().createLink(link)
-  //         }, H.lib.InvalidArgumentError)
-  //       })
-  //     })
+    azurelinks.forEach((link) => {
+      it(`should fail with InvalidArgument error for azureblob links`, async function () {
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().createLink(link)
+        }, H.lib.InvalidArgumentError)
+      })
+    })
 
-  //     s3links.forEach((link) => {
-  //       it(`should fail with InvalidArgument error for s3 links`, async function () {
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().createLink(link)
-  //         }, H.lib.InvalidArgumentError)
-  //       })
-  //     })
+    s3links.forEach((link) => {
+      it(`should fail with InvalidArgument error for s3 links`, async function () {
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().createLink(link)
+        }, H.lib.InvalidArgumentError)
+      })
+    })
 
-  //     cblinks.forEach((link) => {
-  //       it(`should fail with InvalidArgument error for couchbase links`, async function () {
-  //         await H.throwsHelper(async () => {
-  //           await H.c.analyticsIndexes().createLink(link)
-  //         }, H.lib.InvalidArgumentError)
-  //       })
-  //     })
-  //   })
+    cblinks.forEach((link) => {
+      it(`should fail with InvalidArgument error for couchbase links`, async function () {
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().createLink(link)
+        }, H.lib.InvalidArgumentError)
+      })
+    })
+  })
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#dataversenotfound', function () {

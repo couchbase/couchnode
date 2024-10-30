@@ -5,6 +5,7 @@ import {
   DatasetNotFoundError,
   DataverseExistsError,
   DataverseNotFoundError,
+  InvalidArgumentError,
   LinkExistsError,
 } from './errors'
 import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
@@ -225,20 +226,25 @@ export abstract class AnalyticsLink implements IAnalyticsLink {
   linkType: AnalyticsLinkType
 
   /**
+   * Validates the link.
+   */
+  abstract validate(): void
+
+  /**
    * @internal
    */
   static _toHttpData(data: IAnalyticsLink): any {
     if (data.linkType === AnalyticsLinkType.CouchbaseRemote) {
       return CouchbaseRemoteAnalyticsLink._toHttpData(
-        data as ICouchbaseRemoteAnalyticsLink
+        new CouchbaseRemoteAnalyticsLink(data as ICouchbaseRemoteAnalyticsLink)
       )
     } else if (data.linkType === AnalyticsLinkType.S3External) {
       return S3ExternalAnalyticsLink._toHttpData(
-        data as IS3ExternalAnalyticsLink
+        new S3ExternalAnalyticsLink(data as IS3ExternalAnalyticsLink)
       )
     } else if (data.linkType === AnalyticsLinkType.AzureBlobExternal) {
       return AzureExternalAnalyticsLink._toHttpData(
-        data as IAzureExternalAnalyticsLink
+        new AzureExternalAnalyticsLink(data as IAzureExternalAnalyticsLink)
       )
     } else {
       throw new Error('invalid link type')
@@ -352,9 +358,72 @@ export class CouchbaseRemoteAnalyticsLink
   password?: string
 
   /**
+   * Validates the CouchbaseRemoteAnalyticsLink.
+   */
+  validate(): void {
+    if (!this.dataverse) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Must provide a dataverse for the CouchbaseRemoteAnalyticsLink.'
+        )
+      )
+    }
+    if (!this.name) {
+      throw new InvalidArgumentError(
+        new Error('Must provide a name for the CouchbaseRemoteAnalyticsLink.')
+      )
+    }
+    if (!this.hostname) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Must provide a hostname for the CouchbaseRemoteAnalyticsLink.'
+        )
+      )
+    }
+    if (this.encryption) {
+      if (
+        [AnalyticsEncryptionLevel.None, AnalyticsEncryptionLevel.Half].includes(
+          this.encryption.encryptionLevel
+        )
+      ) {
+        if (!this.username || !this.password) {
+          throw new InvalidArgumentError(
+            new Error(
+              'When encryption level is half or none, username and password must be set for the CouchbaseRemoteAnalyticsLink.'
+            )
+          )
+        }
+      } else {
+        if (
+          !this.encryption.certificate ||
+          this.encryption.certificate.length == 0
+        ) {
+          throw new InvalidArgumentError(
+            new Error(
+              'When encryption level full, a certificate must be set for the CouchbaseRemoteAnalyticsLink.'
+            )
+          )
+        }
+        const clientCertificateInvalid =
+          !this.encryption.clientCertificate ||
+          this.encryption.clientCertificate.length == 0
+        const clientKeyInvalid =
+          !this.encryption.clientKey || this.encryption.clientKey.length == 0
+        if (clientCertificateInvalid || clientKeyInvalid) {
+          throw new InvalidArgumentError(
+            new Error(
+              'When encryption level full, a client key and certificate must be set for the CouchbaseRemoteAnalyticsLink.'
+            )
+          )
+        }
+      }
+    }
+  }
+
+  /**
    * @internal
    */
-  constructor(data: CouchbaseRemoteAnalyticsLink) {
+  constructor(data: ICouchbaseRemoteAnalyticsLink) {
     super()
     this.linkType = AnalyticsLinkType.CouchbaseRemote
 
@@ -369,7 +438,8 @@ export class CouchbaseRemoteAnalyticsLink
   /**
    * @internal
    */
-  static _toHttpData(data: ICouchbaseRemoteAnalyticsLink): any {
+  static _toHttpData(data: CouchbaseRemoteAnalyticsLink): any {
+    data.validate()
     let dvSpecific
     if (data.dataverse.indexOf('/') !== -1) {
       const encDataverse = encodeURIComponent(data.dataverse)
@@ -528,7 +598,7 @@ export class S3ExternalAnalyticsLink
   /**
    * @internal
    */
-  constructor(data: S3ExternalAnalyticsLink) {
+  constructor(data: IS3ExternalAnalyticsLink) {
     super()
     this.linkType = AnalyticsLinkType.S3External
 
@@ -542,9 +612,45 @@ export class S3ExternalAnalyticsLink
   }
 
   /**
+   * Validates the S3ExternalAnalyticsLink.
+   */
+  validate(): void {
+    if (!this.dataverse) {
+      throw new InvalidArgumentError(
+        new Error('Must provide a dataverse for the S3ExternalAnalyticsLink.')
+      )
+    }
+    if (!this.name) {
+      throw new InvalidArgumentError(
+        new Error('Must provide a name for the S3ExternalAnalyticsLink.')
+      )
+    }
+    if (!this.accessKeyId) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Must provide an accessKeyId for the S3ExternalAnalyticsLink.'
+        )
+      )
+    }
+    if (!this.secretAccessKey) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Must provide an secretAccessKey for the S3ExternalAnalyticsLink.'
+        )
+      )
+    }
+    if (!this.region) {
+      throw new InvalidArgumentError(
+        new Error('Must provide an region for the S3ExternalAnalyticsLink.')
+      )
+    }
+  }
+
+  /**
    * @internal
    */
-  static _toHttpData(data: IS3ExternalAnalyticsLink): any {
+  static _toHttpData(data: S3ExternalAnalyticsLink): any {
+    data.validate()
     let dvSpecific
     if (data.dataverse.indexOf('/') !== -1) {
       const encDataverse = encodeURIComponent(data.dataverse)
@@ -693,7 +799,7 @@ export class AzureExternalAnalyticsLink
   /**
    * @internal
    */
-  constructor(data: AzureExternalAnalyticsLink) {
+  constructor(data: IAzureExternalAnalyticsLink) {
     super()
     this.linkType = AnalyticsLinkType.AzureBlobExternal
 
@@ -708,9 +814,42 @@ export class AzureExternalAnalyticsLink
   }
 
   /**
+   * Validates the AzureExternalAnalyticsLink.
+   */
+  validate(): void {
+    if (!this.dataverse) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Must provide a dataverse for the AzureExternalAnalyticsLink.'
+        )
+      )
+    }
+    if (!this.name) {
+      throw new InvalidArgumentError(
+        new Error('Must provide a name for the AzureExternalAnalyticsLink.')
+      )
+    }
+    if (!this.connectionString) {
+      const missingAcctNameAndKey = !(this.accountName && this.accountKey)
+      const missingAcctNameAndSharedAccessSignature = !(
+        this.accountName && this.sharedAccessSignature
+      )
+      if (missingAcctNameAndKey && missingAcctNameAndSharedAccessSignature) {
+        throw new InvalidArgumentError(
+          new Error(
+            'If not providing connectionString, accountName and either accountKey' +
+              ' or sharedAccessSignature must be provided for the AzureExternalAnalyticsLink.'
+          )
+        )
+      }
+    }
+  }
+
+  /**
    * @internal
    */
-  static _toHttpData(data: IAzureExternalAnalyticsLink): any {
+  static _toHttpData(data: AzureExternalAnalyticsLink): any {
+    data.validate()
     let dvSpecific
     if (data.dataverse.indexOf('/') !== -1) {
       const encDataverse = encodeURIComponent(data.dataverse)
