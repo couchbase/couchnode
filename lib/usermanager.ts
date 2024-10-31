@@ -329,7 +329,7 @@ export class UserAndMetadata extends User {
   /**
    * The last time the users password was changed.
    */
-  passwordChanged: Date
+  passwordChanged?: Date
 
   /**
    * The external groups that this user is associated with.
@@ -375,7 +375,9 @@ export class UserAndMetadata extends User {
       domain: data.domain,
       effectiveRoles: effectiveRoles,
       effectiveRolesAndOrigins: effectiveRoles,
-      passwordChanged: new Date(data.password_change_date),
+      passwordChanged: data.password_change_date
+        ? new Date(data.password_change_date)
+        : undefined,
       externalGroups: data.external_groups,
     })
   }

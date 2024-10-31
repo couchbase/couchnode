@@ -88,11 +88,9 @@ function validateUserAndMetadata(actual, expected) {
   assert.strictEqual(actual.displayName, expected.displayName)
   if (actual.domain == 'local') {
     assert.isDefined(actual.passwordChanged)
+  } else {
+    assert.isUndefined(actual.passwordChanged)
   }
-  // BUG(JSCBC-1296): User management getUser passwordChanged field for an external user returns Invalid Date
-  // else {
-  //   assert.isUndefined(actual.passwordChanged)
-  // }
   assert.equal(expected.roles.length, actual.roles.length)
   assert.equal(expected.effectiveRoles.length, actual.effectiveRoles.length)
   expected.roles.forEach((role) => {
