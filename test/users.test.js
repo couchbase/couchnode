@@ -392,16 +392,15 @@ describe('#usersmgmt', function () {
       },
     ]
 
-    // BUG(JSCBC-1295): User management upserUsert does not properly apply all groups
-    // const user = {
-    //   username: 'custom-user-1',
-    //   displayName: 'Custom User 1',
-    //   password: 's3cret!',
-    //   roles: [
-    //     new Role({ name: 'data_reader', bucket: 'default' }),
-    //     new Role({ name: 'data_writer', bucket: 'default' }),
-    //   ],
-    // }
+    const user = {
+      username: 'custom-user-1',
+      displayName: 'Custom User 1',
+      password: 's3cret!',
+      roles: [
+        new Role({ name: 'data_reader', bucket: 'default' }),
+        new Role({ name: 'data_writer', bucket: 'default' }),
+      ],
+    }
 
     before(function () {
       H.skipIfMissingFeature(this, H.Features.UserGroupManagement)
@@ -455,24 +454,23 @@ describe('#usersmgmt', function () {
       )
     })
 
-    // BUG(JSCBC-1295): User management upserUsert does not properly apply all groups
-    // it('should successfully upsert user with groups', async function () {
-    //   user.groups = groups.map((g) => g.name)
-    //   await H.c.users().upsertUser(user)
-    //   await H.consistencyUtils.waitUntilUserPresent(user.username)
-    // })
+    it('should successfully upsert user with groups', async function () {
+      user.groups = groups.map((g) => g.name)
+      await H.c.users().upsertUser(user)
+      await H.consistencyUtils.waitUntilUserPresent(user.username)
+    })
 
-    // it('should successfully get user with groups', async function () {
-    //   const usermetadata = await H.c.users().getUser(user.username)
-    //   const expected = toExpectedUserAndMetadata(user, 'local', groups)
-    //   validateUserAndMetadata(usermetadata, expected)
-    //   await H.consistencyUtils.waitUntilUserPresent(user.username)
-    // })
+    it('should successfully get user with groups', async function () {
+      const usermetadata = await H.c.users().getUser(user.username)
+      const expected = toExpectedUserAndMetadata(user, 'local', groups)
+      validateUserAndMetadata(usermetadata, expected)
+      await H.consistencyUtils.waitUntilUserPresent(user.username)
+    })
 
-    // it('should successfully drop user with groups', async function () {
-    //   await H.c.users().dropUser(user.username)
-    //   await H.consistencyUtils.waitUntilUserDropped(user.username)
-    // })
+    it('should successfully drop user with groups', async function () {
+      await H.c.users().dropUser(user.username)
+      await H.consistencyUtils.waitUntilUserDropped(user.username)
+    })
 
     groups.forEach((group) => {
       it(`should successfully drop a group: ${group.name}`, async function () {

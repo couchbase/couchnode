@@ -292,7 +292,7 @@ export class User implements IUser {
   static _toNsData(user: IUser): any {
     let groups: any = undefined
     if (user.groups && user.groups.length > 0) {
-      groups = user.groups
+      groups = user.groups.join(',')
     }
 
     let roles: any = undefined
