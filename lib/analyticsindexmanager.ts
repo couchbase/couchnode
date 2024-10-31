@@ -1,15 +1,18 @@
 import { Cluster } from './cluster'
 import {
-  CouchbaseError,
-  DatasetExistsError,
-  DatasetNotFoundError,
-  DataverseExistsError,
-  DataverseNotFoundError,
-  InvalidArgumentError,
-  LinkExistsError,
-} from './errors'
-import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
+  CppManagementAnalyticsDataset,
+  CppManagementAnalyticsIndex,
+  CppManagementAnalyticsCouchbaseRemoteLink,
+  CppManagementAnalyticsS3ExternalLink,
+  CppManagementAnalyticsAzureBlobExternalLink,
+} from './binding'
+import { InvalidArgumentError } from './errors'
+import {
+  errorFromCpp,
+  encryptionSettingsFromCpp,
+  encryptionSettingsToCpp,
+} from './bindingutilities'
+import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
  * Represents the type of an analytics link.
@@ -207,6 +210,16 @@ export interface IAnalyticsLink {
    * Specifies what type of analytics link this represents.
    */
   linkType: AnalyticsLinkType
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
 }
 
 /**
@@ -218,12 +231,24 @@ export abstract class AnalyticsLink implements IAnalyticsLink {
    */
   constructor() {
     this.linkType = '' as AnalyticsLinkType
+    this.dataverse = ''
+    this.name = ''
   }
 
   /**
    * Specifies what type of analytics link this represents.
    */
   linkType: AnalyticsLinkType
+
+  /**
+   * The dataverse that this link belongs to.
+   */
+  dataverse: string
+
+  /**
+   * The name of this link.
+   */
+  name: string
 
   /**
    * Validates the link.
@@ -438,63 +463,32 @@ export class CouchbaseRemoteAnalyticsLink
   /**
    * @internal
    */
-  static _toHttpData(data: CouchbaseRemoteAnalyticsLink): any {
+  static _toCppData(
+    data: CouchbaseRemoteAnalyticsLink
+  ): CppManagementAnalyticsCouchbaseRemoteLink {
     data.validate()
-    let dvSpecific
-    if (data.dataverse.indexOf('/') !== -1) {
-      const encDataverse = encodeURIComponent(data.dataverse)
-      const encName = encodeURIComponent(data.name)
-      dvSpecific = {
-        httpPath: `/analytics/link/${encDataverse}/${encName}`,
-      }
-    } else {
-      dvSpecific = {
-        httpPath: `/analytics/link`,
-        dataverse: data.dataverse,
-        name: data.name,
-      }
-    }
-
     return {
-      type: 'couchbase',
-      ...dvSpecific,
+      link_name: data.name,
+      dataverse: data.dataverse,
       hostname: data.hostname,
-      username: data.username,
+      username: data.hostname,
       password: data.password,
-      encryption: data.encryption ? data.encryption.encryptionLevel : undefined,
-      certificate: data.encryption
-        ? data.encryption.certificate
-          ? data.encryption.certificate.toString()
-          : undefined
-        : undefined,
-      clientCertificate: data.encryption
-        ? data.encryption.clientCertificate
-          ? data.encryption.clientCertificate.toString()
-          : undefined
-        : undefined,
-      clientKey: data.encryption
-        ? data.encryption.clientKey
-          ? data.encryption.clientKey.toString()
-          : undefined
-        : undefined,
+      encryption: encryptionSettingsToCpp(data.encryption),
     }
   }
 
   /**
    * @internal
    */
-  static _fromHttpData(data: any): CouchbaseRemoteAnalyticsLink {
+  static _fromCppData(
+    data: CppManagementAnalyticsCouchbaseRemoteLink
+  ): CouchbaseRemoteAnalyticsLink {
     return new CouchbaseRemoteAnalyticsLink({
       linkType: AnalyticsLinkType.CouchbaseRemote,
-      dataverse: data.dataverse || data.scope,
-      name: data.name,
-      hostname: data.activeHostname,
-      encryption: new CouchbaseAnalyticsEncryptionSettings({
-        encryptionLevel: data.encryption,
-        certificate: Buffer.from(data.certificate),
-        clientCertificate: Buffer.from(data.clientCertificate),
-        clientKey: Buffer.from(data.clientKey),
-      }),
+      dataverse: data.dataverse,
+      name: data.link_name,
+      hostname: data.hostname,
+      encryption: encryptionSettingsFromCpp(data.encryption),
       username: data.username,
       password: undefined,
     })
@@ -649,47 +643,36 @@ export class S3ExternalAnalyticsLink
   /**
    * @internal
    */
-  static _toHttpData(data: S3ExternalAnalyticsLink): any {
+  static _toCppData(
+    data: S3ExternalAnalyticsLink
+  ): CppManagementAnalyticsS3ExternalLink {
     data.validate()
-    let dvSpecific
-    if (data.dataverse.indexOf('/') !== -1) {
-      const encDataverse = encodeURIComponent(data.dataverse)
-      const encName = encodeURIComponent(data.name)
-      dvSpecific = {
-        httpPath: `/analytics/link/${encDataverse}/${encName}`,
-      }
-    } else {
-      dvSpecific = {
-        httpPath: `/analytics/link`,
-        dataverse: data.dataverse,
-        name: data.name,
-      }
-    }
-
     return {
-      type: 's3',
-      ...dvSpecific,
-      accessKeyId: data.accessKeyId,
-      secretAccessKey: data.secretAccessKey,
+      link_name: data.name,
+      dataverse: data.dataverse,
+      access_key_id: data.accessKeyId,
+      secret_access_key: data.secretAccessKey as string,
+      session_token: data.sessionToken,
       region: data.region,
-      sessionToken: data.sessionToken,
-      serviceEndpoint: data.serviceEndpoint,
+      service_endpoint: data.serviceEndpoint,
     }
   }
 
   /**
    * @internal
    */
-  static _fromHttpData(data: any): S3ExternalAnalyticsLink {
+  static _fromCppData(
+    data: CppManagementAnalyticsS3ExternalLink
+  ): S3ExternalAnalyticsLink {
     return new S3ExternalAnalyticsLink({
+      name: data.link_name,
       linkType: AnalyticsLinkType.S3External,
-      dataverse: data.dataverse || data.scope,
-      name: data.name,
-      accessKeyId: data.accessKeyId,
+      dataverse: data.dataverse,
+      accessKeyId: data.access_key_id,
       secretAccessKey: undefined,
-      region: data.region,
       sessionToken: undefined,
-      serviceEndpoint: data.serviceEndpoint,
+      region: data.region,
+      serviceEndpoint: data.service_endpoint,
     })
   }
 }
@@ -848,49 +831,38 @@ export class AzureExternalAnalyticsLink
   /**
    * @internal
    */
-  static _toHttpData(data: AzureExternalAnalyticsLink): any {
+  static _toCppData(
+    data: AzureExternalAnalyticsLink
+  ): CppManagementAnalyticsAzureBlobExternalLink {
     data.validate()
-    let dvSpecific
-    if (data.dataverse.indexOf('/') !== -1) {
-      const encDataverse = encodeURIComponent(data.dataverse)
-      const encName = encodeURIComponent(data.name)
-      dvSpecific = {
-        httpPath: `/analytics/link/${encDataverse}/${encName}`,
-      }
-    } else {
-      dvSpecific = {
-        httpPath: `/analytics/link`,
-        dataverse: data.dataverse,
-        name: data.name,
-      }
-    }
-
     return {
-      type: 'azure',
-      ...dvSpecific,
-      connectionString: data.connectionString,
-      accountName: data.accountName,
-      accountKey: data.accountKey,
-      sharedAccessSignature: data.sharedAccessSignature,
-      blobEndpoint: data.blobEndpoint,
-      endpointSuffix: data.endpointSuffix,
+      link_name: data.name,
+      dataverse: data.dataverse,
+      connection_string: data.connectionString,
+      account_name: data.accountName,
+      account_key: data.accountKey,
+      shared_access_signature: data.sharedAccessSignature,
+      blob_endpoint: data.blobEndpoint,
+      endpoint_suffix: data.endpointSuffix,
     }
   }
 
   /**
    * @internal
    */
-  static _fromHttpData(data: any): AzureExternalAnalyticsLink {
+  static _fromCppData(
+    data: CppManagementAnalyticsAzureBlobExternalLink
+  ): AzureExternalAnalyticsLink {
     return new AzureExternalAnalyticsLink({
+      name: data.link_name,
       linkType: AnalyticsLinkType.AzureBlobExternal,
-      dataverse: data.dataverse || data.scope,
-      name: data.name,
+      dataverse: data.dataverse,
       connectionString: undefined,
-      accountName: data.accountName,
+      accountName: data.account_name,
       accountKey: undefined,
       sharedAccessSignature: undefined,
-      blobEndpoint: data.blobEndpoint,
-      endpointSuffix: data.endpointSuffix,
+      blobEndpoint: data.blob_endpoint,
+      endpointSuffix: data.endpoint_suffix,
     })
   }
 }
@@ -1162,10 +1134,6 @@ export class AnalyticsIndexManager {
     this._cluster = cluster
   }
 
-  private get _http() {
-    return new HttpExecutor(this._cluster.conn)
-  }
-
   /**
    * Creates a new dataverse.
    *
@@ -1186,30 +1154,24 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'CREATE DATAVERSE'
-
-    qs += ' `' + dataverseName.split('/').join('`.`') + '`'
-
-    if (options.ignoreIfExists) {
-      qs += ' IF NOT EXISTS'
-    }
-
     const timeout = options.timeout || this._cluster.managementTimeout
+    const ignoreIfExists = options.ignoreIfExists || false
 
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.analyticsQuery(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsDataverseCreate(
+        {
+          dataverse_name: dataverseName,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (err instanceof DataverseExistsError) {
-          throw err
+          ignore_if_exists: ignoreIfExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to create dataverse', err as Error)
-      }
+      )
     }, callback)
   }
 
@@ -1233,30 +1195,24 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'DROP DATAVERSE'
-
-    qs += ' `' + dataverseName.split('/').join('`.`') + '`'
-
-    if (options.ignoreIfNotExists) {
-      qs += ' IF EXISTS'
-    }
-
     const timeout = options.timeout || this._cluster.managementTimeout
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
 
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.analyticsQuery(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsDataverseDrop(
+        {
+          dataverse_name: dataverseName,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (err instanceof DataverseNotFoundError) {
-          throw err
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to drop dataverse', err as Error)
-      }
+      )
     }, callback)
   }
 
@@ -1282,45 +1238,28 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'CREATE DATASET'
-
-    if (options.ignoreIfExists) {
-      qs += ' IF NOT EXISTS'
-    }
-
-    if (options.dataverseName) {
-      qs +=
-        ' `' +
-        options.dataverseName.split('/').join('`.`') +
-        '`.`' +
-        datasetName +
-        '`'
-    } else {
-      qs += ' `' + datasetName + '`'
-    }
-
-    qs += ' ON `' + bucketName + '`'
-
-    if (options.condition) {
-      qs += ' WHERE ' + options.condition
-    }
-
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfExists = options.ignoreIfExists || false
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.analyticsQuery(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsDatasetCreate(
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          bucket_name: bucketName,
+          condition: options?.condition,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (err instanceof DatasetExistsError) {
-          throw err
+          ignore_if_exists: ignoreIfExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to create dataset', err as Error)
-      }
+      )
     }, callback)
   }
 
@@ -1344,39 +1283,26 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'DROP DATASET'
-
-    if (options.dataverseName) {
-      qs +=
-        ' `' +
-        options.dataverseName.split('/').join('`.`') +
-        '`.`' +
-        datasetName +
-        '`'
-    } else {
-      qs += ' `' + datasetName + '`'
-    }
-
-    if (options.ignoreIfNotExists) {
-      qs += ' IF EXISTS'
-    }
-
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      try {
-        await this._cluster.analyticsQuery(qs, {
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsDatasetDrop(
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
           timeout: timeout,
-        })
-      } catch (err) {
-        if (err instanceof DatasetNotFoundError) {
-          throw err
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to drop dataset', err as Error)
-      }
+      )
     }, callback)
   }
 
@@ -1398,27 +1324,30 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const qs =
-      'SELECT d.* FROM `Metadata`.`Dataset` d WHERE d.DataverseName <> "Metadata"'
-
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
-
-      const datasets = res.rows.map(
-        (row) =>
-          new AnalyticsDataset({
-            name: row.DatasetName,
-            dataverseName: row.DataverseName,
-            linkName: row.LinkName,
-            bucketName: row.BucketName,
-          })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsDatasetGetAll(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const dataSets = resp.datasets.map(
+            (dataset: CppManagementAnalyticsDataset) =>
+              new AnalyticsDataset({
+                name: dataset.name,
+                dataverseName: dataset.dataverse_name,
+                linkName: dataset.link_name,
+                bucketName: dataset.bucket_name,
+              })
+          )
+          wrapCallback(null, dataSets)
+        }
       )
-
-      return datasets
     }, callback)
   }
 
@@ -1446,41 +1375,28 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'CREATE INDEX'
-
-    qs += ' `' + indexName + '`'
-
-    if (options.ignoreIfExists) {
-      qs += ' IF NOT EXISTS'
-    }
-
-    if (options.dataverseName) {
-      qs +=
-        ' ON `' +
-        options.dataverseName.split('/').join('`.`') +
-        '`.`' +
-        datasetName +
-        '`'
-    } else {
-      qs += ' ON `' + datasetName + '`'
-    }
-
-    qs += ' ('
-
-    qs += Object.keys(fields)
-      .map((i) => '`' + i + '`: ' + fields[i])
-      .join(', ')
-
-    qs += ')'
-
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfExists = options.ignoreIfExists || false
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsIndexCreate(
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          index_name: indexName,
+          fields: fields,
+          timeout: timeout,
+          ignore_if_exists: ignoreIfExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -1506,32 +1422,27 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    let qs = ''
-
-    qs += 'DROP INDEX'
-
-    if (options.dataverseName) {
-      qs +=
-        ' `' +
-        options.dataverseName.split('/').join('`.`') +
-        '`.`' +
-        datasetName +
-        '`'
-    } else {
-      qs += ' `' + datasetName + '`'
-    }
-    qs += '.`' + indexName + '`'
-
-    if (options.ignoreIfNotExists) {
-      qs += ' IF EXISTS'
-    }
-
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsIndexDrop(
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          index_name: indexName,
+          timeout: timeout,
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -1553,26 +1464,30 @@ export class AnalyticsIndexManager {
       options = {}
     }
 
-    const qs =
-      'SELECT d.* FROM `Metadata`.`Index` d WHERE d.DataverseName <> "Metadata"'
-
     const timeout = options.timeout || this._cluster.managementTimeout
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
 
-      const indexes = res.rows.map(
-        (row) =>
-          new AnalyticsIndex({
-            name: row.IndexName,
-            datasetName: row.DatasetName,
-            dataverseName: row.DataverseName,
-            isPrimary: row.IsPrimary,
-          })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsIndexGetAll(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const indexes = resp.indexes.map(
+            (index: CppManagementAnalyticsIndex) =>
+              new AnalyticsIndex({
+                name: index.name,
+                dataverseName: index.dataverse_name,
+                datasetName: index.dataset_name,
+                isPrimary: index.is_primary,
+              })
+          )
+          wrapCallback(null, indexes)
+        }
       )
-
-      return indexes
     }, callback)
   }
 
@@ -1667,15 +1582,22 @@ export class AnalyticsIndexManager {
     const force = options.force || false
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    let qs = 'CONNECT LINK ' + '`' + dataverseName + '`.' + linkName
-    if (force) {
-      qs += ' WITH {"force": true}'
-    }
-
-    return PromiseHelper.wrapAsync(async () => {
-      await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsLinkConnect(
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+          force: force,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -1761,11 +1683,21 @@ export class AnalyticsIndexManager {
     const linkName = options.linkName || 'Local'
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    const qs = 'DISCONNECT LINK ' + '`' + dataverseName + '`.' + linkName
-    return PromiseHelper.wrapAsync(async () => {
-      await this._cluster.analyticsQuery(qs, {
-        timeout: timeout,
-      })
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsLinkDisconnect(
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -1789,25 +1721,22 @@ export class AnalyticsIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Analytics,
-        method: HttpMethod.Get,
-        path: `/analytics/node/agg/stats/remaining`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError(
-          'failed to get pending mutations',
-          undefined,
-          errCtx
-        )
-      }
-
-      return JSON.parse(res.body.toString())
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsGetPendingMutations(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const stats = {
+            stats: resp.stats,
+          }
+          wrapCallback(null, stats)
+        }
+      )
     }, callback)
   }
 
@@ -1833,32 +1762,67 @@ export class AnalyticsIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const linkData = AnalyticsLink._toHttpData(link)
-      const { httpPath, ...linkBody } = linkData
-
-      const res = await this._http.request({
-        type: HttpServiceType.Analytics,
-        method: HttpMethod.Post,
-        path: httpPath,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(linkBody),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('24055')) {
-          throw new LinkExistsError(undefined, errCtx)
-        } else if (errText.includes('24034')) {
-          throw new DataverseNotFoundError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to create link', undefined, errCtx)
-      }
-    }, callback)
+    if (link.linkType == AnalyticsLinkType.CouchbaseRemote) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkCreateCouchbaseRemoteLink(
+          {
+            link: CouchbaseRemoteAnalyticsLink._toCppData(
+              new CouchbaseRemoteAnalyticsLink(
+                link as ICouchbaseRemoteAnalyticsLink
+              )
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else if (link.linkType == AnalyticsLinkType.S3External) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkCreateS3ExternalLink(
+          {
+            link: S3ExternalAnalyticsLink._toCppData(
+              new S3ExternalAnalyticsLink(link as IS3ExternalAnalyticsLink)
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else if (link.linkType == AnalyticsLinkType.AzureBlobExternal) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkCreateAzureBlobExternalLink(
+          {
+            link: AzureExternalAnalyticsLink._toCppData(
+              new AzureExternalAnalyticsLink(
+                link as IAzureExternalAnalyticsLink
+              )
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else {
+      throw new Error('invalid link type')
+    }
   }
 
   /**
@@ -1883,32 +1847,67 @@ export class AnalyticsIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const linkData = AnalyticsLink._toHttpData(link)
-      const { httpPath, ...linkBody } = linkData
-
-      const res = await this._http.request({
-        type: HttpServiceType.Analytics,
-        method: HttpMethod.Put,
-        path: httpPath,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(linkBody),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('24055')) {
-          throw new LinkExistsError(undefined, errCtx)
-        } else if (errText.includes('24034')) {
-          throw new DataverseNotFoundError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to replace link', undefined, errCtx)
-      }
-    }, callback)
+    if (link.linkType == AnalyticsLinkType.CouchbaseRemote) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkReplaceCouchbaseRemoteLink(
+          {
+            link: CouchbaseRemoteAnalyticsLink._toCppData(
+              new CouchbaseRemoteAnalyticsLink(
+                link as ICouchbaseRemoteAnalyticsLink
+              )
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else if (link.linkType == AnalyticsLinkType.S3External) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkReplaceS3ExternalLink(
+          {
+            link: S3ExternalAnalyticsLink._toCppData(
+              new S3ExternalAnalyticsLink(link as IS3ExternalAnalyticsLink)
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else if (link.linkType == AnalyticsLinkType.AzureBlobExternal) {
+      return PromiseHelper.wrap((wrapCallback) => {
+        this._cluster.conn.managementAnalyticsLinkReplaceAzureBlobExternalLink(
+          {
+            link: AzureExternalAnalyticsLink._toCppData(
+              new AzureExternalAnalyticsLink(
+                link as IAzureExternalAnalyticsLink
+              )
+            ),
+            timeout: timeout,
+          },
+          (cppErr) => {
+            const err = errorFromCpp(cppErr)
+            if (err) {
+              return wrapCallback(err, null)
+            }
+            wrapCallback(err)
+          }
+        )
+      }, callback)
+    } else {
+      throw new Error('invalid link type')
+    }
   }
 
   /**
@@ -1935,42 +1934,21 @@ export class AnalyticsIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      let httpPath
-      let httpParams
-      if (dataverseName.indexOf('/') !== -1) {
-        const encDataverse = encodeURIComponent(dataverseName)
-        const encName = encodeURIComponent(linkName)
-        httpPath = `/analytics/link/${encDataverse}/${encName}`
-        httpParams = {}
-      } else {
-        httpPath = `/analytics/link`
-        httpParams = {
-          dataverse: dataverseName,
-          name: linkName,
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsLinkDrop(
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-      }
-      const res = await this._http.request({
-        type: HttpServiceType.Analytics,
-        method: HttpMethod.Delete,
-        path: httpPath,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(httpParams),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('24055')) {
-          throw new LinkExistsError(undefined, errCtx)
-        } else if (errText.includes('24034')) {
-          throw new DataverseNotFoundError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to delete link', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -1997,62 +1975,36 @@ export class AnalyticsIndexManager {
     const linkType = options.linkType
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      let httpPath
-      if (dataverseName && dataverseName.indexOf('/') !== -1) {
-        const encDataverse = encodeURIComponent(dataverseName)
-        httpPath = `/analytics/link/${encDataverse}`
-
-        if (linkName) {
-          const encName = encodeURIComponent(linkName)
-          httpPath += `/${encName}`
-        }
-
-        httpPath += '?'
-
-        if (linkType) {
-          httpPath += `type=${linkType}&`
-        }
-      } else {
-        httpPath = `/analytics/link?`
-
-        if (dataverseName) {
-          httpPath += `dataverse=${dataverseName}&`
-
-          if (linkName) {
-            httpPath += `dataverse=${linkName}&`
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementAnalyticsLinkGetAll(
+        {
+          link_type: linkType,
+          link_name: linkName,
+          dataverse_name: dataverseName,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
           }
+          const links: AnalyticsLink[] = []
+          resp.couchbase.forEach(
+            (link: CppManagementAnalyticsCouchbaseRemoteLink) => {
+              links.push(CouchbaseRemoteAnalyticsLink._fromCppData(link))
+            }
+          )
+          resp.s3.forEach((link: CppManagementAnalyticsS3ExternalLink) => {
+            links.push(S3ExternalAnalyticsLink._fromCppData(link))
+          })
+          resp.azure_blob.forEach(
+            (link: CppManagementAnalyticsAzureBlobExternalLink) => {
+              links.push(AzureExternalAnalyticsLink._fromCppData(link))
+            }
+          )
+          wrapCallback(null, links)
         }
-
-        if (linkType) {
-          httpPath += `type=${linkType}&`
-        }
-      }
-
-      const res = await this._http.request({
-        type: HttpServiceType.Analytics,
-        method: HttpMethod.Get,
-        path: httpPath,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        const errText = res.body.toString().toLowerCase()
-        if (errText.includes('24034')) {
-          throw new DataverseNotFoundError(undefined, errCtx)
-        }
-
-        throw new CouchbaseError('failed to get links', undefined, errCtx)
-      }
-
-      const linksData = JSON.parse(res.body.toString())
-      const links = linksData.map((linkData: any) =>
-        AnalyticsLink._fromHttpData(linkData)
       )
-
-      return links
     }, callback)
   }
 }

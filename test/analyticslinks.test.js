@@ -294,56 +294,55 @@ describe('#analyticslinks', function () {
     })
   })
 
-  // BUG(JSCBC-1292): Analytics index management link APIs return CouchbaseError rather than LinkNotFoundError
   /* eslint-disable mocha/no-setup-in-describe */
-  // describe('#linknotfound', function () {
-  //   const links = [
-  //     {
-  //       linkType: AnalyticsLinkType.AzureBlobExternal,
-  //       name: 'azurebloblink',
-  //       dataverse: undefined,
-  //       accountName: 'myaccount',
-  //       accountKey: 'myaccountkey',
-  //     },
-  //     {
-  //       linkType: AnalyticsLinkType.CouchbaseRemote,
-  //       name: 'cbremotelink',
-  //       dataverse: undefined,
-  //       hostname: 'localhost',
-  //       encryption: {
-  //         encryptionLevel: AnalyticsEncryptionLevel.None,
-  //       },
-  //       username: 'Admin',
-  //       password: 'password',
-  //     },
-  //     {
-  //       linkType: AnalyticsLinkType.S3External,
-  //       name: 's3link',
-  //       dataverse: undefined,
-  //       accessKeyId: 'accesskey',
-  //       region: 'us-west-2',
-  //       secretAccessKey: 'supersecretkey',
-  //     },
-  //   ]
+  describe('#linknotfound', function () {
+    const links = [
+      {
+        linkType: AnalyticsLinkType.AzureBlobExternal,
+        name: 'azurebloblink',
+        dataverse: undefined,
+        accountName: 'myaccount',
+        accountKey: 'myaccountkey',
+      },
+      {
+        linkType: AnalyticsLinkType.CouchbaseRemote,
+        name: 'cbremotelink',
+        dataverse: undefined,
+        hostname: 'localhost',
+        encryption: {
+          encryptionLevel: AnalyticsEncryptionLevel.None,
+        },
+        username: 'Admin',
+        password: 'password',
+      },
+      {
+        linkType: AnalyticsLinkType.S3External,
+        name: 's3link',
+        dataverse: undefined,
+        accessKeyId: 'accesskey',
+        region: 'us-west-2',
+        secretAccessKey: 'supersecretkey',
+      },
+    ]
 
-  //   links.forEach((link) => {
-  //     it(`should fail to replace with LinkNotFound error for ${link.linkType} link`, async function () {
-  //       // have to set the dataversname after it has been defined
-  //       link.dataverse = dvName
-  //       await H.throwsHelper(async () => {
-  //         await H.c.analyticsIndexes().replaceLink(link)
-  //       }, H.lib.LinkNotFoundError)
-  //     })
+    links.forEach((link) => {
+      it(`should fail to replace with LinkNotFound error for ${link.linkType} link`, async function () {
+        // have to set the dataversname after it has been defined
+        link.dataverse = dvName
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().replaceLink(link)
+        }, H.lib.LinkNotFoundError)
+      })
 
-  //     it(`should fail tod drop with LinkNotFound error for ${link.linkType} link`, async function () {
-  //       // have to set the dataversname after it has been defined
-  //       link.dataverse = dvName
-  //       await H.throwsHelper(async () => {
-  //         await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
-  //       }, H.lib.LinkNotFoundError)
-  //     }).timeout(5000)
-  //   })
-  // })
+      it(`should fail tod drop with LinkNotFound error for ${link.linkType} link`, async function () {
+        // have to set the dataversname after it has been defined
+        link.dataverse = dvName
+        await H.throwsHelper(async () => {
+          await H.c.analyticsIndexes().dropLink(link.name, link.dataverse)
+        }, H.lib.LinkNotFoundError)
+      }).timeout(5000)
+    })
+  })
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#link-create-replace-drop', function () {
