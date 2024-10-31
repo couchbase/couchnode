@@ -25,6 +25,7 @@ import binding, {
   CppManagementEventingFunctionLogLevel,
   CppManagementEventingFunctionProcessingStatus,
   CppManagementEventingFunctionStatus,
+  CppManagementRbacAuthDomain,
   CppMutationState,
   CppMutationToken,
   CppPersistTo,
@@ -1640,4 +1641,38 @@ export function encryptionSettingsFromCpp(
       : undefined,
     clientKey: undefined,
   })
+}
+
+/**
+ * @internal
+ */
+export function authDomainToCpp(domain: string): CppManagementRbacAuthDomain {
+  if (domain === 'unknown') {
+    return binding.management_rbac_auth_domain.unknown
+  }
+  if (domain === 'local') {
+    return binding.management_rbac_auth_domain.local
+  }
+  if (domain === 'external') {
+    return binding.management_rbac_auth_domain.external
+  }
+  throw new errs.InvalidArgumentError(new Error('Unrecognized auth domain.'))
+}
+
+/**
+ * @internal
+ */
+export function authDomainFromCpp(domain: CppManagementRbacAuthDomain): string {
+  if (domain === binding.management_rbac_auth_domain.unknown) {
+    return 'unknown'
+  }
+  if (domain === binding.management_rbac_auth_domain.local) {
+    return 'local'
+  }
+  if (domain === binding.management_rbac_auth_domain.external) {
+    return 'external'
+  }
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized CppManagementRbacAuthDomain.')
+  )
 }

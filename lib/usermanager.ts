@@ -1,7 +1,19 @@
 import { Cluster } from './cluster'
-import { CouchbaseError, GroupNotFoundError, UserNotFoundError } from './errors'
-import { HttpExecutor, HttpMethod, HttpServiceType } from './httpexecutor'
-import { cbQsStringify, NodeCallback, PromiseHelper } from './utilities'
+import {
+  CppManagementRbacGroup,
+  CppManagementRbacOrigin,
+  CppManagementRbacRole,
+  CppManagementRbacRoleAndDescription,
+  CppManagementRbacRoleAndOrigins,
+  CppManagementRbacUser,
+  CppManagementRbacUserAndMetadata,
+} from './binding'
+import {
+  authDomainToCpp,
+  authDomainFromCpp,
+  errorFromCpp,
+} from './bindingutilities'
+import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
  * Contains information about an origin for a role.
@@ -17,7 +29,7 @@ export class Origin {
   /**
    * The name of this origin.
    */
-  name: string
+  name?: string
 
   /**
    * @internal
@@ -30,7 +42,7 @@ export class Origin {
   /**
    * @internal
    */
-  static _fromNsData(data: any): Origin {
+  static _fromCppData(data: CppManagementRbacOrigin): Origin {
     return new Origin({
       type: data.type,
       name: data.name,
@@ -77,31 +89,24 @@ export class Role {
   /**
    * @internal
    */
-  static _fromNsData(data: any): Role {
+  static _fromCppData(data: CppManagementRbacRole): Role {
     return new Role({
-      name: data.role,
-      bucket: data.bucket_name,
-      scope: data.scope_name,
-      collection: data.collection_name,
+      name: data.name,
+      bucket: data.bucket,
+      scope: data.scope,
+      collection: data.collection,
     })
   }
 
   /**
    * @internal
    */
-  static _toNsStr(role: string | Role): string {
-    if (typeof role === 'string') {
-      return role
-    }
-
-    if (role.bucket && role.scope && role.collection) {
-      return `${role.name}[${role.bucket}:${role.scope}:${role.collection}]`
-    } else if (role.bucket && role.scope) {
-      return `${role.name}[${role.bucket}:${role.scope}]`
-    } else if (role.bucket) {
-      return `${role.name}[${role.bucket}]`
-    } else {
-      return role.name
+  static _toCppData(data: Role): CppManagementRbacRole {
+    return {
+      name: data.name,
+      bucket: data.bucket,
+      scope: data.scope,
+      collection: data.collection,
     }
   }
 }
@@ -134,9 +139,12 @@ export class RoleAndDescription extends Role {
   /**
    * @internal
    */
-  static _fromNsData(data: any): RoleAndDescription {
+  static _fromCppData(
+    data: CppManagementRbacRoleAndDescription
+  ): RoleAndDescription {
+    const role = Role._fromCppData(data)
     return new RoleAndDescription({
-      ...Role._fromNsData(data),
+      ...role,
       displayName: data.name,
       description: data.description,
     })
@@ -165,18 +173,15 @@ export class RoleAndOrigin extends Role {
   /**
    * @internal
    */
-  static _fromNsData(data: any): RoleAndOrigin {
-    let origins: Origin[]
-    if (data.origins) {
-      origins = data.origins.map((originData: any) =>
-        Origin._fromNsData(originData)
-      )
-    } else {
-      origins = []
-    }
-
+  static _fromCppData(data: CppManagementRbacRoleAndOrigins): RoleAndOrigin {
+    const origins = data.origins.map((origin) => Origin._fromCppData(origin))
     return new RoleAndOrigin({
-      ...Role._fromNsData(data),
+      ...Role._fromCppData({
+        name: data.name,
+        bucket: data.bucket,
+        scope: data.scope,
+        collection: data.collection,
+      }),
       origins,
     })
   }
@@ -228,7 +233,7 @@ export class User implements IUser {
   /**
    * The display name of the user.
    */
-  displayName: string
+  displayName?: string
 
   /**
    * The groups associated with this user.
@@ -258,30 +263,12 @@ export class User implements IUser {
   /**
    * @internal
    */
-  static _fromNsData(data: any): User {
-    let roles: Role[]
-    if (data.roles) {
-      roles = data.roles
-        .filter((roleData: any) => {
-          // Check whether or not this role has originated from the user directly
-          // or whether it was through a group.
-          if (!roleData.origins || roleData.origins.length === 0) {
-            return false
-          }
-          return !!roleData.origins.find(
-            (originData: any) => originData.type === 'user'
-          )
-        })
-        .map((roleData: any) => Role._fromNsData(roleData))
-    } else {
-      roles = []
-    }
-
+  static _fromCppData(data: CppManagementRbacUser): User {
     return new User({
-      username: data.id,
-      displayName: data.name,
+      username: data.username,
+      displayName: data.display_name,
       groups: data.groups,
-      roles: roles,
+      roles: data.roles.map((role) => Role._fromCppData(role)),
       password: undefined,
     })
   }
@@ -289,22 +276,25 @@ export class User implements IUser {
   /**
    * @internal
    */
-  static _toNsData(user: IUser): any {
-    let groups: any = undefined
-    if (user.groups && user.groups.length > 0) {
-      groups = user.groups.join(',')
+  static _toCppData(data: IUser): CppManagementRbacUser {
+    const roles: CppManagementRbacRole[] = []
+    if (data.roles) {
+      data.roles.forEach((role) => {
+        if (typeof role === 'string') {
+          roles.push({
+            name: role,
+          })
+        } else {
+          roles.push(Role._toCppData(role))
+        }
+      })
     }
-
-    let roles: any = undefined
-    if (user.roles && user.roles.length > 0) {
-      roles = user.roles.map((role) => Role._toNsStr(role)).join(',')
-    }
-
     return {
-      name: user.displayName,
-      groups: groups,
-      password: user.password,
+      username: data.username,
+      display_name: data.displayName,
+      groups: data.groups ? data.groups : [],
       roles: roles,
+      password: data.password,
     }
   }
 }
@@ -360,23 +350,24 @@ export class UserAndMetadata extends User {
   /**
    * @internal
    */
-  static _fromNsData(data: any): UserAndMetadata {
-    let effectiveRoles: RoleAndOrigin[]
-    if (data.roles) {
-      effectiveRoles = data.roles.map((roleData: any) =>
-        RoleAndOrigin._fromNsData(roleData)
-      )
-    } else {
-      effectiveRoles = []
-    }
-
+  static _fromCppData(data: CppManagementRbacUserAndMetadata): UserAndMetadata {
+    const user = User._fromCppData({
+      username: data.username,
+      display_name: data.display_name,
+      groups: data.groups,
+      roles: data.roles,
+      password: data.password,
+    })
+    const effectiveRoles = data.effective_roles.map((erole) =>
+      RoleAndOrigin._fromCppData(erole)
+    )
     return new UserAndMetadata({
-      ...User._fromNsData(data),
-      domain: data.domain,
+      ...user,
+      domain: authDomainFromCpp(data.domain),
       effectiveRoles: effectiveRoles,
       effectiveRolesAndOrigins: effectiveRoles,
-      passwordChanged: data.password_change_date
-        ? new Date(data.password_change_date)
+      passwordChanged: data.password_changed
+        ? new Date(data.password_changed)
         : undefined,
       externalGroups: data.external_groups,
     })
@@ -449,18 +440,11 @@ export class Group {
   /**
    * @internal
    */
-  static _fromNsData(data: any): Group {
-    let roles: Role[]
-    if (data.roles) {
-      roles = data.roles.map((roleData: any) => Role._fromNsData(roleData))
-    } else {
-      roles = []
-    }
-
+  static _fromCppData(data: CppManagementRbacGroup): Group {
     return new Group({
-      name: data.id,
-      description: data.description,
-      roles: roles,
+      name: data.name,
+      description: data.description || '',
+      roles: data.roles.map((role) => Role._fromCppData(role)),
       ldapGroupReference: data.ldap_group_reference,
     })
   }
@@ -468,16 +452,24 @@ export class Group {
   /**
    * @internal
    */
-  static _toNsData(group: IGroup): any {
-    let roles: any = undefined
-    if (group.roles && group.roles.length > 0) {
-      roles = group.roles.map((role) => Role._toNsStr(role)).join(',')
+  static _toCppData(data: IGroup): CppManagementRbacGroup {
+    const roles: CppManagementRbacRole[] = []
+    if (data.roles) {
+      data.roles.forEach((role) => {
+        if (typeof role === 'string') {
+          roles.push({
+            name: role,
+          })
+        } else {
+          roles.push(Role._toCppData(role))
+        }
+      })
     }
-
     return {
-      description: group.description,
+      name: data.name,
+      description: data.description,
       roles: roles,
-      ldap_group_reference: group.ldapGroupReference,
+      ldap_group_reference: data.ldapGroupReference,
     }
   }
 }
@@ -618,10 +610,6 @@ export class UserManager {
     this._cluster = cluster
   }
 
-  private get _http() {
-    return new HttpExecutor(this._cluster.conn)
-  }
-
   /**
    * Returns a specific user by their username.
    *
@@ -642,29 +630,24 @@ export class UserManager {
       options = {}
     }
 
-    const domainName = options.domainName || 'local'
+    const cppDomain = authDomainToCpp(options.domainName || 'local')
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/settings/rbac/users/${domainName}/${username}`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        if (res.statusCode === 404) {
-          throw new UserNotFoundError(undefined, errCtx)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementUserGet(
+        {
+          username: username,
+          domain: cppDomain,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(null, UserAndMetadata._fromCppData(resp.user))
         }
-
-        throw new CouchbaseError('failed to get the user', undefined, errCtx)
-      }
-
-      const userData = JSON.parse(res.body.toString())
-      return UserAndMetadata._fromNsData(userData)
+      )
     }, callback)
   }
 
@@ -686,28 +669,26 @@ export class UserManager {
       options = {}
     }
 
-    const domainName = options.domainName || 'local'
+    const cppDomain = authDomainToCpp(options.domainName || 'local')
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/settings/rbac/users/${domainName}`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError('failed to get users', undefined, errCtx)
-      }
-
-      const usersData = JSON.parse(res.body.toString())
-      const users = usersData.map((userData: any) =>
-        UserAndMetadata._fromNsData(userData)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementUserGetAll(
+        {
+          domain: cppDomain,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const users = resp.users.map((user) =>
+            UserAndMetadata._fromCppData(user)
+          )
+          wrapCallback(null, users)
+        }
       )
-      return users
     }, callback)
   }
 
@@ -731,26 +712,24 @@ export class UserManager {
       options = {}
     }
 
-    const domainName = options.domainName || 'local'
+    const cppDomain = authDomainToCpp(options.domainName || 'local')
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const userData = User._toNsData(user)
-
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Put,
-        path: `/settings/rbac/users/${domainName}/${user.username}`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(userData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError('failed to upsert user', undefined, errCtx)
-      }
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementUserUpsert(
+        {
+          user: User._toCppData(user),
+          domain: cppDomain,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -776,31 +755,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const passwordData = { password: newPassword }
-
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Post,
-        path: `/controller/changePassword`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(passwordData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        if (res.statusCode === 404) {
-          throw new UserNotFoundError(undefined, errCtx)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementChangePassword(
+        {
+          newPassword: newPassword,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError(
-          'failed to change password for the current user',
-          undefined,
-          errCtx
-        )
-      }
+      )
     }, callback)
   }
 
@@ -824,26 +792,24 @@ export class UserManager {
       options = {}
     }
 
-    const domainName = options.domainName || 'local'
+    const cppDomain = authDomainToCpp(options.domainName || 'local')
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Delete,
-        path: `/settings/rbac/users/${domainName}/${username}`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        if (res.statusCode === 404) {
-          throw new UserNotFoundError(undefined, errCtx)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementUserDrop(
+        {
+          username: username,
+          domain: cppDomain,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to drop the user', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 
@@ -867,25 +833,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/settings/rbac/roles`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError('failed to get roles', undefined, errCtx)
-      }
-
-      const rolesData = JSON.parse(res.body.toString())
-      const roles = rolesData.map((roleData: any) =>
-        RoleAndDescription._fromNsData(roleData)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementRoleGetAll(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const roles = resp.roles.map((role) => Role._fromCppData(role))
+          wrapCallback(null, roles)
+        }
       )
-      return roles
     }, callback)
   }
 
@@ -911,26 +872,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/settings/rbac/groups/${groupName}`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        if (res.statusCode === 404) {
-          throw new GroupNotFoundError(undefined, errCtx)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementGroupGet(
+        {
+          name: groupName,
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(null, Group._fromCppData(resp.group))
         }
-
-        throw new CouchbaseError('failed to get the group', undefined, errCtx)
-      }
-
-      const groupData = JSON.parse(res.body.toString())
-      return Group._fromNsData(groupData)
+      )
     }, callback)
   }
 
@@ -954,25 +909,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Get,
-        path: `/settings/rbac/groups`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError('failed to get groups', undefined, errCtx)
-      }
-
-      const groupsData = JSON.parse(res.body.toString())
-      const groups = groupsData.map((groupData: any) =>
-        Group._fromNsData(groupData)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementGroupGetAll(
+        {
+          timeout: timeout,
+        },
+        (cppErr, resp) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          const groups = resp.groups.map((group) => Group._fromCppData(group))
+          wrapCallback(null, groups)
+        }
       )
-      return groups
     }, callback)
   }
 
@@ -998,23 +948,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const groupData = Group._toNsData(group)
-
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Put,
-        path: `/settings/rbac/groups/${group.name}`,
-        contentType: 'application/x-www-form-urlencoded',
-        body: cbQsStringify(groupData),
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        throw new CouchbaseError('failed to upsert group', undefined, errCtx)
-      }
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementGroupUpsert(
+        {
+          group: Group._toCppData(group),
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
+        }
+      )
     }, callback)
   }
 
@@ -1040,23 +987,20 @@ export class UserManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._http.request({
-        type: HttpServiceType.Management,
-        method: HttpMethod.Delete,
-        path: `/settings/rbac/groups/${groupName}`,
-        timeout: timeout,
-      })
-
-      if (res.statusCode !== 200) {
-        const errCtx = HttpExecutor.errorContextFromResponse(res)
-
-        if (res.statusCode === 404) {
-          throw new GroupNotFoundError(undefined, errCtx)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._cluster.conn.managementGroupDrop(
+        {
+          name: groupName,
+          timeout: timeout,
+        },
+        (cppErr) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+          wrapCallback(err)
         }
-
-        throw new CouchbaseError('failed to drop the group', undefined, errCtx)
-      }
+      )
     }, callback)
   }
 }

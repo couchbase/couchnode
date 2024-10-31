@@ -282,79 +282,71 @@ describe('#usersmgmt', function () {
     })
   })
 
-  // BUG(JSCBC-1294): User management APIs return CouchbaseError rather than InvalidArgumentError
   /* eslint-disable mocha/no-setup-in-describe */
-  // describe('#invalidargument', function () {
-  //   const user = {
-  //     username: 'custom-user-1',
-  //     displayName: 'Custom User 1',
-  //     password: 's3cret!',
-  //     roles: [
-  //       new Role({ name: 'data_reader', bucket: 'default' }),
-  //       new Role({ name: 'data_writer', bucket: 'default' }),
-  //     ],
-  //   }
+  describe('#invalidargument', function () {
+    const user = {
+      username: 'custom-user-1',
+      displayName: 'Custom User 1',
+      password: 's3cret!',
+      roles: [
+        new Role({ name: 'data_reader', bucket: 'default' }),
+        new Role({ name: 'data_writer', bucket: 'default' }),
+      ],
+    }
 
-  //   it('should fail to upsert external user w/ password', async function () {
-  //     // try {
-  //     //   await H.c.users().upsertUser(user, { domainName: 'external' })
-  //     // } catch (err) {
-  //     //   assert.isTrue(err instanceof H.lib.InvalidArgumentError)
-  //     // }
-  //     await H.throwsHelper(async () => {
-  //       await H.c.users().upsertUser(user, { domainName: 'external' })
-  //     }, H.lib.InvalidArgumentError)
-  //   })
+    it('should fail to upsert external user w/ password', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.users().upsertUser(user, { domainName: 'external' })
+      }, H.lib.InvalidArgumentError)
+    })
 
-  //   it('should fail to upsert user with invalid domain', async function () {
-  //     await H.throwsHelper(async () => {
-  //       await H.c.users().upsertUser(user, { domainName: 'not-a-domain' })
-  //     }, H.lib.InvalidArgumentError)
-  //   })
+    it('should fail to upsert user with invalid domain', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.users().upsertUser(user, { domainName: 'not-a-domain' })
+      }, H.lib.InvalidArgumentError)
+    })
 
-  //   it('should fail to get a user with invalid domain', async function () {
-  //     await H.throwsHelper(async () => {
-  //       await H.c.users().getUser(user.username, { domainName: 'not-a-domain' })
-  //     }, H.lib.InvalidArgumentError)
-  //   })
+    it('should fail to get a user with invalid domain', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.users().getUser(user.username, { domainName: 'not-a-domain' })
+      }, H.lib.InvalidArgumentError)
+    })
 
-  //   it('should fail to drop a user with invalid domain', async function () {
-  //     await H.throwsHelper(async () => {
-  //       await H.c
-  //         .users()
-  //         .dropUser(user.username, { domainName: 'not-a-domain' })
-  //     }, H.lib.InvalidArgumentError)
-  //   })
+    it('should fail to drop a user with invalid domain', async function () {
+      await H.throwsHelper(async () => {
+        await H.c
+          .users()
+          .dropUser(user.username, { domainName: 'not-a-domain' })
+      }, H.lib.InvalidArgumentError)
+    })
 
-  //   it('should fail to get all users with invalid domain', async function () {
-  //     await H.throwsHelper(async () => {
-  //       await H.c.users().getAllUsers({ domainName: 'not-a-domain' })
-  //     }, H.lib.InvalidArgumentError)
-  //   })
-  // })
+    it('should fail to get all users with invalid domain', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.users().getAllUsers({ domainName: 'not-a-domain' })
+      }, H.lib.InvalidArgumentError)
+    })
+  })
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#roles', function () {
-    // BUG(JSCBC-1294): User management APIs return CouchbaseError rather than InvalidArgumentError
-    // const user = {
-    //   username: 'custom-user-1',
-    //   displayName: 'Custom User 1',
-    //   password: 's3cret!',
-    //   roles: [],
-    // }
+    const user = {
+      username: 'custom-user-1',
+      displayName: 'Custom User 1',
+      password: 's3cret!',
+      roles: [],
+    }
 
     it('should successfully get all roles', async function () {
       var roles = await H.c.users().getRoles()
       assert.isAtLeast(roles.length, 1)
     })
 
-    // BUG(JSCBC-1294): User management APIs return CouchbaseError rather than InvalidArgumentError
-    // it('should fail to upsert user with invalid roles', async function () {
-    //   user.roles.push(new Role({ name: 'data_reader', bucket: 'not-a-bucket' }))
-    //   await H.throwsHelper(async () => {
-    //     await H.c.users().upsertUser(user, { domainName: 'external' })
-    //   }, H.lib.InvalidArgumentError)
-    // })
+    it('should fail to upsert user with invalid roles', async function () {
+      user.roles.push(new Role({ name: 'data_reader', bucket: 'not-a-bucket' }))
+      await H.throwsHelper(async () => {
+        await H.c.users().upsertUser(user, { domainName: 'external' })
+      }, H.lib.InvalidArgumentError)
+    })
   })
 
   /* eslint-disable mocha/no-setup-in-describe */
