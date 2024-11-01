@@ -3585,7 +3585,7 @@ export interface CppTransactionGetMetaData {
 export interface CppTransactionGetResult {
   id: CppDocumentId
   cas: CppCas
-  content: CppJsonString
+  content: CppEncodedValue
   links: CppTransactionLinks
   metadata: CppTransactionGetMetaData
 }

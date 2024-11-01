@@ -493,8 +493,6 @@ describe('#transactions', function () {
   })
 
   it('should not fail to parse binary doc w/in lambda', async function () {
-    // JSCBC-1243:  Although we do not support binary docs (at least until we add ExtBinarySupport),
-    // we should not crash if a user happens to attempt a get on a binary doc w/in a txn lambda.
     const testkey = H.genTestKey()
     var testBinVal = Buffer.from(
       '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
@@ -510,5 +508,54 @@ describe('#transactions', function () {
       },
       { timeout: 5000 }
     )
+  }).timeout(15000)
+
+  it('should allow binary txns', async function () {
+    H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
+    const testkey = H.genTestKey()
+    const testBinVal = Buffer.from(
+      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+      'hex'
+    )
+    const newBinVal = Buffer.from('666f6f62617262617a', 'hex')
+    await H.c.transactions().run(
+      async (attempt) => {
+        await attempt.insert(H.co, testkey, testBinVal)
+        const getRes = await attempt.get(H.co, testkey)
+        assert.deepEqual(getRes.content, testBinVal)
+        const repRes = await attempt.replace(getRes, newBinVal)
+        assert.isTrue(getRes.cas != repRes.cas)
+      },
+      { timeout: 5000 }
+    )
+  }).timeout(15000)
+
+  it('should have FeatureNotAvailableError cause if binary txns not supported', async function () {
+    if (H.supportsFeature(H.Features.BinaryTransactions)) {
+      this.skip()
+    }
+    const testkey = H.genTestKey()
+    const testBinVal = Buffer.from(
+      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+      'hex'
+    )
+    let numAttempts = 0
+    try {
+      await H.c.transactions().run(
+        async (attempt) => {
+          numAttempts++
+          await attempt.insert(H.co, testkey, testBinVal)
+        },
+        { timeout: 2000 }
+      )
+    } catch (err) {
+      assert.instanceOf(err, H.lib.TransactionFailedError)
+      assert.instanceOf(err.cause, H.lib.FeatureNotAvailableError)
+      assert.equal(
+        err.cause.cause.message,
+        'Possibly attempting a binary transaction operation with a server version < 7.6.2'
+      )
+    }
+    assert.equal(numAttempts, 1)
   }).timeout(15000)
 })

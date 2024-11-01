@@ -255,8 +255,7 @@ struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("id", cbpp_to_js(env, res.id()));
-        resObj.Set("content",
-                   cbpp_to_js<std::vector<std::byte>>(env, res.content().data));
+        resObj.Set("content", cbpp_to_js(env, res.content()));
         resObj.Set("cas", cbpp_to_js(env, couchbase::cas{res.cas()}));
         resObj.Set("links", cbpp_to_js(env, res.links()));
         resObj.Set("metadata", cbpp_to_js(env, res.metadata()));

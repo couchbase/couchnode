@@ -371,11 +371,11 @@ function translateGetResult(
   }
 
   let content
-  if (cppRes.content && cppRes.content.length > 0) {
+  if (cppRes.content && cppRes.content.data && cppRes.content.data.length > 0) {
     try {
-      content = JSON.parse(cppRes.content.toString('utf8'))
+      content = JSON.parse(cppRes.content.data.toString('utf8'))
     } catch (e) {
-      content = cppRes.content
+      content = cppRes.content.data
     }
   }
 
@@ -510,7 +510,10 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: Buffer.from(''),
+            content: {
+              data: Buffer.from(''),
+              flags: 0,
+            },
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,
@@ -543,7 +546,10 @@ export class TransactionAttemptContext {
         {
           doc: {
             id: doc.id,
-            content: Buffer.from(''),
+            content: {
+              data: Buffer.from(''),
+              flags: 0,
+            },
             cas: doc.cas,
             links: doc._links,
             metadata: doc._metadata,

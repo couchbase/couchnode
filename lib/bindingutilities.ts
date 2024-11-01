@@ -693,6 +693,14 @@ export function errorFromCpp(err: CppError | null): Error | null {
 
   // BUG(JSCBC-1010): We shouldn't need to special case these.
   if (err.ctxtype === 'transaction_operation_failed') {
+    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    if (cause == 'feature_not_available_exception') {
+      const msg =
+        'Possibly attempting a binary transaction operation with a server version < 7.6.2'
+      return new errs.TransactionOperationFailedError(
+        new errs.FeatureNotAvailableError(new Error(msg))
+      )
+    }
     return new errs.TransactionOperationFailedError(
       new Error(txnExternalExceptionStringFromCpp(err.cause))
     )

@@ -46,6 +46,7 @@ const ServerFeatures = {
   ScopeSearch: 'scope_search',
   ScopeSearchIndexManagement: 'scope_search_index_management',
   ScopeEventingFunctionManagement: 'scope_eventing_function_management',
+  BinaryTransactions: 'binary_transactions',
 }
 
 class ServerVersion {
@@ -405,6 +406,8 @@ class Harness {
       case ServerFeatures.ScopeSearchIndexManagement:
       case ServerFeatures.ScopeEventingFunctionManagement:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
+      case ServerFeatures.BinaryTransactions:
+        return !this._version.isMock && this._version.isAtLeast(7, 6, 2)
     }
 
     throw new Error('invalid code for feature checking')
