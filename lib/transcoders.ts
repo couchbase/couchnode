@@ -109,3 +109,189 @@ export class DefaultTranscoder implements Transcoder {
     return bytes
   }
 }
+
+/**
+ * The raw binary transcoder provides an explicit mechanism for storing and retrieving raw
+ * byte data.
+ *
+ * @category Key-Value
+ */
+export class RawBinaryTranscoder implements Transcoder {
+  /**
+   * Encodes the specified value, returning a buffer and flags that are
+   * stored to the server and later used for decoding.
+   *
+   * @param value The value to encode.
+   */
+  encode(value: Buffer): [Buffer, number] {
+    // If its a buffer, write that directly as raw.
+    if (Buffer.isBuffer(value)) {
+      return [value, CF_RAW | NF_RAW]
+    }
+
+    throw new Error('Only binary data supported by RawBinaryTranscoder.')
+  }
+
+  /**
+   * Decodes a buffer and flags tuple back to the original type of the
+   * document.
+   *
+   * @param bytes The bytes that were previously encoded.
+   * @param flags The flags associated with the data.
+   */
+  decode(bytes: Buffer, flags: number): any {
+    let format = flags & NF_MASK
+    const cfformat = flags & CF_MASK
+
+    if (cfformat !== CF_NONE) {
+      if (cfformat === CF_JSON) {
+        format = NF_JSON
+      } else if (cfformat === CF_RAW) {
+        format = NF_RAW
+      } else if (cfformat === CF_UTF8) {
+        format = NF_UTF8
+      } else if (cfformat !== CF_PRIVATE) {
+        // Unknown CF Format!  The following will force
+        //   fallback to reporting RAW data.
+        format = NF_UNKNOWN
+      }
+    }
+
+    if (format === NF_RAW) {
+      return bytes
+    } else if (format === NF_UTF8) {
+      throw new Error('String format not supported by RawBinaryTranscoder.')
+    } else if (format === NF_JSON) {
+      throw new Error('JSON format not supported by RawBinaryTranscoder.')
+    } else if (format === NF_UNKNOWN) {
+      throw new Error('Unknown format not supported by RawBinaryTranscoder.')
+    } else {
+      throw new Error(`Unrecognized format provided: ${format}.`)
+    }
+  }
+}
+
+/**
+ * The raw string transcoder provides an explicit mechanism for storing and retrieving raw
+ * string data.
+ *
+ * @category Key-Value
+ */
+export class RawStringTranscoder implements Transcoder {
+  /**
+   * Encodes the specified value, returning a buffer and flags that are
+   * stored to the server and later used for decoding.
+   *
+   * @param value The value to encode.
+   */
+  encode(value: string): [Buffer, number] {
+    // If its a string, encode it as a UTF8 string.
+    if (typeof value === 'string') {
+      return [Buffer.from(value), CF_UTF8 | NF_UTF8]
+    }
+
+    throw new Error('Only string data supported by RawStringTranscoder.')
+  }
+
+  /**
+   * Decodes a buffer and flags tuple back to the original type of the
+   * document.
+   *
+   * @param bytes The bytes that were previously encoded.
+   * @param flags The flags associated with the data.
+   */
+  decode(bytes: Buffer, flags: number): string {
+    let format = flags & NF_MASK
+    const cfformat = flags & CF_MASK
+
+    if (cfformat !== CF_NONE) {
+      if (cfformat === CF_JSON) {
+        format = NF_JSON
+      } else if (cfformat === CF_RAW) {
+        format = NF_RAW
+      } else if (cfformat === CF_UTF8) {
+        format = NF_UTF8
+      } else if (cfformat !== CF_PRIVATE) {
+        // Unknown CF Format!  The following will force
+        //   fallback to reporting RAW data.
+        format = NF_UNKNOWN
+      }
+    }
+
+    if (format === NF_UTF8) {
+      return bytes.toString('utf8')
+    } else if (format === NF_RAW) {
+      throw new Error('Binary format not supported by RawStringTranscoder.')
+    } else if (format === NF_JSON) {
+      throw new Error('JSON format not supported by RawStringTranscoder.')
+    } else if (format === NF_UNKNOWN) {
+      throw new Error('Unknown format not supported by RawStringTranscoder.')
+    } else {
+      throw new Error(`Unrecognized format provided: ${format}.`)
+    }
+  }
+}
+
+/**
+ * The raw JSON transcoder provides an explicit mechanism for storing and retrieving JSON data.
+ *
+ * @category Key-Value
+ */
+export class RawJsonTranscoder implements Transcoder {
+  /**
+   * Encodes the specified value, returning a buffer and flags that are
+   * stored to the server and later used for decoding.
+   *
+   * @param value The value to encode.
+   */
+  encode(value: string): [Buffer, number] {
+    if (typeof value === 'string') {
+      return [Buffer.from(value), CF_JSON | NF_JSON]
+    }
+    if (Buffer.isBuffer(value)) {
+      return [value, CF_JSON | NF_JSON]
+    }
+
+    throw new Error(
+      'Only binary and string data supported by RawJsonTranscoder.'
+    )
+  }
+
+  /**
+   * Decodes a buffer and flags tuple back to the original type of the
+   * document.
+   *
+   * @param bytes The bytes that were previously encoded.
+   * @param flags The flags associated with the data.
+   */
+  decode(bytes: Buffer, flags: number): Buffer {
+    let format = flags & NF_MASK
+    const cfformat = flags & CF_MASK
+
+    if (cfformat !== CF_NONE) {
+      if (cfformat === CF_JSON) {
+        format = NF_JSON
+      } else if (cfformat === CF_RAW) {
+        format = NF_RAW
+      } else if (cfformat === CF_UTF8) {
+        format = NF_UTF8
+      } else if (cfformat !== CF_PRIVATE) {
+        // Unknown CF Format!  The following will force
+        //   fallback to reporting RAW data.
+        format = NF_UNKNOWN
+      }
+    }
+
+    if (format === NF_UTF8) {
+      throw new Error('string format not supported by RawJsonTranscoder.')
+    } else if (format === NF_RAW) {
+      throw new Error('Binary format not supported by RawJsonTranscoder.')
+    } else if (format === NF_JSON) {
+      return bytes
+    } else if (format === NF_UNKNOWN) {
+      throw new Error('Unknown format not supported by RawJsonTranscoder.')
+    } else {
+      throw new Error(`Unrecognized format provided: ${format}.`)
+    }
+  }
+}
