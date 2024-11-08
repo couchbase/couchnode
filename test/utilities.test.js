@@ -114,9 +114,7 @@ describe('#utilities', function () {
       }, localCallback)
     })
 
-    // BUG(JSCBC-1298): PromiseHelper wrap methods chain then() into catch()
     it('should wrap function and handle callback that throws uncaught error', function (done) {
-      this.skip('Skip until JSCBC-1298 is fixed')
       const expected = {
         success: 2,
         error: 0,
@@ -263,9 +261,7 @@ describe('#utilities', function () {
       }, localCallback)
     })
 
-    // BUG(JSCBC-1298): PromiseHelper wrap methods chain then() into catch()
     it('should wrapAsync function and handle callback that throws uncaught error', function (done) {
-      this.skip('Skip until JSCBC-1298 is fixed')
       const expected = {
         success: 2,
         error: 0,
