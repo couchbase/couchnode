@@ -6,6 +6,7 @@ const assert = require('chai').assert
 
 const { QueryMetaData, QueryResult } = require('../lib/querytypes')
 const {
+  StreamablePromise,
   StreamableRowPromise,
   StreamableReplicasPromise,
   StreamableScanPromise,
@@ -111,16 +112,43 @@ const ROWS = [
   },
 ]
 
+class TestStreamableRowPromise extends StreamablePromise {
+  _err
+  _rows
+  _meta
+
+  constructor(fn) {
+    super((emitter, resolve, reject) => {
+      emitter.on('row', (r) => this._rows.push(r))
+      emitter.on('meta', (m) => (this._meta = m))
+      emitter.on('error', (e) => (this._err = e))
+      emitter.on('end', () => {
+        if (this._err) {
+          return reject(this._err)
+        }
+        resolve(fn(this._rows, this._meta))
+      })
+    })
+    this._err = undefined
+    this._rows = []
+    this._meta = undefined
+  }
+}
+
 class StreamablePromiseBuilder {
   static buildStreamableRowPromise(
-    config = { simulateStreaming: false, withError: false }
+    config = { simulateStreaming: false, withError: false, useTestClass: false }
   ) {
-    const emitter = new StreamableRowPromise((rows, meta) => {
+    const resultFunc = (rows, meta) => {
       return new QueryResult({
         rows: rows,
         meta: meta,
       })
-    })
+    }
+
+    const emitter = config.useTestClass
+      ? new TestStreamableRowPromise(resultFunc)
+      : new StreamableRowPromise(resultFunc)
 
     const emitMap = new Map()
     if (config.withError) {
@@ -223,7 +251,7 @@ class StreamablePromiseBuilder {
       }
     }
 
-    // add a slight delay to simulat time to start executing request
+    // add a slight delay to simulate time to start executing request
     setTimeout(processMap, 250, 'replica', 0)
     return emitter
   }
@@ -281,6 +309,7 @@ class StreamablePromiseBuilder {
 
 describe('streamablepromise', function () {
   const streamingTypes = ['streaming', 'non-streaming']
+
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#streamablerowpromise', function () {
     streamingTypes.forEach((streamingType) => {
@@ -296,9 +325,7 @@ describe('streamablepromise', function () {
         assert.instanceOf(qResult.meta, QueryMetaData)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it(`should return promise and resolve after delayed await (${streamingType})`, async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableRowPromise({
             simulateStreaming: streamingType === 'streaming',
@@ -356,6 +383,56 @@ describe('streamablepromise', function () {
         }
       }
 
+      it('should stop caching rows after event registration', async function () {
+        const executorPromise =
+          StreamablePromiseBuilder.buildStreamableRowPromise({
+            simulateStreaming: true,
+            useTestClass: true,
+          })
+
+        await H.sleep(350)
+
+        const streamRows = () => {
+          const rowsOut = []
+          let metaOut = null
+          return new Promise((resolve, reject) => {
+            executorPromise
+              .on('row', (row) => {
+                rowsOut.push(row)
+              })
+              .on('meta', (meta) => {
+                metaOut = meta
+              })
+              .on('end', () => {
+                resolve({
+                  rows: rowsOut,
+                  meta: metaOut,
+                })
+              })
+              .on('error', (err) => {
+                reject(err)
+              })
+          })
+        }
+        const streamResults = await streamRows()
+        assert.equal(
+          streamResults.rows.length + executorPromise._rows.length,
+          ROWS.length
+        )
+        assert.isOk(streamResults.meta)
+        assert.notExists(executorPromise._meta)
+      })
+
+      /**
+       * Right now streaming is not available in the C++ core, so when we get the response back
+       * we emit all the rows synchronously, followed by the meta (if applicable) and end events.
+       * This means that if the query response is relatively fast and the user has a delay in registering
+       * streaming events, those events will never be captured as all the events will have already been
+       * emitted. Hence why this test expects a timeout.
+       * If the test were to simulate streaming, the expectation wouldn't be a timeout, but that rows caught
+       * w/in the user registered events are less than the total rows from the query results b/c only the
+       * initial row events would have been missed.
+       */
       it('Should timeout if event emitter registration is delayed', function (done) {
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableRowPromise()
@@ -397,9 +474,7 @@ describe('streamablepromise', function () {
         setTimeout(createStreamPromise, 350, executorPromise)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('Should timeout if event emitter registration is delayed (stream error)', function (done) {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableRowPromise({
             withError: true,
@@ -452,9 +527,7 @@ describe('streamablepromise', function () {
         }, ParsingFailureError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         await H.throwsHelper(async () => {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableRowPromise({
@@ -495,9 +568,7 @@ describe('streamablepromise', function () {
         }, ParsingFailureError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let rowsOut = []
         let metaOut = null // eslint-disable-line @typescript-eslint/no-unused-vars
         const executorPromise =
@@ -521,9 +592,7 @@ describe('streamablepromise', function () {
         )
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations (stream error)', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let rowsOut = []
         let metaOut = null // eslint-disable-line @typescript-eslint/no-unused-vars
         const executorPromise =
@@ -562,9 +631,7 @@ describe('streamablepromise', function () {
         assert.lengthOf(qResult, ROWS.length)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it(`should return promise and resolve after delayed await (${streamingType})`, async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableReplicaPromise({
             simulateStreaming: streamingType === 'streaming',
@@ -648,9 +715,7 @@ describe('streamablepromise', function () {
         setTimeout(createStreamPromise, 350, executorPromise)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('Should timeout if event emitter registration is delayed (stream error)', function (done) {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableReplicaPromise({
             withError: true,
@@ -697,9 +762,7 @@ describe('streamablepromise', function () {
         }, DocumentNotFoundError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         await H.throwsHelper(async () => {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableReplicaPromise({
@@ -735,9 +798,7 @@ describe('streamablepromise', function () {
         }, DocumentNotFoundError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let replicasOut = []
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableReplicaPromise()
@@ -757,9 +818,7 @@ describe('streamablepromise', function () {
         )
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations (stream error)', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let replicasOut = []
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableReplicaPromise({
@@ -794,9 +853,7 @@ describe('streamablepromise', function () {
         assert.lengthOf(qResult, ROWS.length)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it(`should return promise and resolve after delayed await (${streamingType})`, async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableScanPromise({
             simulateStreaming: streamingType === 'streaming',
@@ -880,9 +937,7 @@ describe('streamablepromise', function () {
         setTimeout(createStreamPromise, 350, executorPromise)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('Should timeout if event emitter registration is delayed (stream error)', function (done) {
-        this.skip('Skip until JSCBC-1301 is fixed')
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableScanPromise({
             withError: true,
@@ -929,9 +984,7 @@ describe('streamablepromise', function () {
         }, InvalidArgumentError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         await H.throwsHelper(async () => {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableScanPromise({
@@ -967,9 +1020,7 @@ describe('streamablepromise', function () {
         }, InvalidArgumentError)
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let results = []
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableScanPromise()
@@ -989,9 +1040,7 @@ describe('streamablepromise', function () {
         )
       })
 
-      // BUG(JSCBC-1301): StreamablePromise API must either be awaited or have events registered immediately
       it('should raise error if awaiting promise after event registrations (stream error)', async function () {
-        this.skip('Skip until JSCBC-1301 is fixed')
         let results = []
         const executorPromise =
           StreamablePromiseBuilder.buildStreamableScanPromise({
