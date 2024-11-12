@@ -4,6 +4,8 @@ const assert = require('chai').assert
 
 const H = require('./harness')
 
+const { RawBinaryTranscoder } = require('../lib/transcoders')
+
 describe('#transactions', function () {
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Transactions)
@@ -492,70 +494,127 @@ describe('#transactions', function () {
     }
   })
 
-  it('should not fail to parse binary doc w/in lambda', async function () {
-    const testkey = H.genTestKey()
-    var testBinVal = Buffer.from(
-      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
-      'hex'
-    )
+  describe('#binary', function () {
+    it('should not fail to parse binary doc w/in lambda', async function () {
+      const testkey = H.genTestKey()
+      var testBinVal = Buffer.from(
+        '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+        'hex'
+      )
 
-    await H.co.insert(testkey, testBinVal)
+      await H.co.insert(testkey, testBinVal)
 
-    await H.c.transactions().run(
-      async (attempt) => {
-        const getDoc = await attempt.get(H.co, testkey)
-        assert.deepEqual(getDoc.content, testBinVal)
-      },
-      { timeout: 5000 }
-    )
-  }).timeout(15000)
-
-  it('should allow binary txns', async function () {
-    H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
-    const testkey = H.genTestKey()
-    const testBinVal = Buffer.from(
-      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
-      'hex'
-    )
-    const newBinVal = Buffer.from('666f6f62617262617a', 'hex')
-    await H.c.transactions().run(
-      async (attempt) => {
-        await attempt.insert(H.co, testkey, testBinVal)
-        const getRes = await attempt.get(H.co, testkey)
-        assert.deepEqual(getRes.content, testBinVal)
-        const repRes = await attempt.replace(getRes, newBinVal)
-        assert.isTrue(getRes.cas != repRes.cas)
-      },
-      { timeout: 5000 }
-    )
-  }).timeout(15000)
-
-  it('should have FeatureNotAvailableError cause if binary txns not supported', async function () {
-    if (H.supportsFeature(H.Features.BinaryTransactions)) {
-      this.skip()
-    }
-    const testkey = H.genTestKey()
-    const testBinVal = Buffer.from(
-      '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
-      'hex'
-    )
-    let numAttempts = 0
-    try {
       await H.c.transactions().run(
         async (attempt) => {
-          numAttempts++
-          await attempt.insert(H.co, testkey, testBinVal)
+          const getDoc = await attempt.get(H.co, testkey)
+          assert.deepEqual(getDoc.content, testBinVal)
         },
-        { timeout: 2000 }
+        { timeout: 5000 }
       )
-    } catch (err) {
-      assert.instanceOf(err, H.lib.TransactionFailedError)
-      assert.instanceOf(err.cause, H.lib.FeatureNotAvailableError)
-      assert.equal(
-        err.cause.cause.message,
-        'Possibly attempting a binary transaction operation with a server version < 7.6.2'
+    }).timeout(15000)
+
+    it('should allow binary txns', async function () {
+      H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
+      const testkey = H.genTestKey()
+      const testBinVal = Buffer.from(
+        '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+        'hex'
       )
-    }
-    assert.equal(numAttempts, 1)
-  }).timeout(15000)
+      const newBinVal = Buffer.from('666f6f62617262617a', 'hex')
+      await H.c.transactions().run(
+        async (attempt) => {
+          await attempt.insert(H.co, testkey, testBinVal)
+          const getRes = await attempt.get(H.co, testkey)
+          assert.deepEqual(getRes.content, testBinVal)
+          const repRes = await attempt.replace(getRes, newBinVal)
+          assert.isTrue(getRes.cas != repRes.cas)
+        },
+        { timeout: 5000 }
+      )
+    }).timeout(15000)
+
+    it('should have FeatureNotAvailableError cause if binary txns not supported', async function () {
+      if (H.supportsFeature(H.Features.BinaryTransactions)) {
+        this.skip()
+      }
+      const testkey = H.genTestKey()
+      const testBinVal = Buffer.from(
+        '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+        'hex'
+      )
+      let numAttempts = 0
+      try {
+        await H.c.transactions().run(
+          async (attempt) => {
+            numAttempts++
+            await attempt.insert(H.co, testkey, testBinVal)
+          },
+          { timeout: 2000 }
+        )
+      } catch (err) {
+        assert.instanceOf(err, H.lib.TransactionFailedError)
+        assert.instanceOf(err.cause, H.lib.FeatureNotAvailableError)
+        assert.equal(
+          err.cause.cause.message,
+          'Possibly attempting a binary transaction operation with a server version < 7.6.2'
+        )
+      }
+      assert.equal(numAttempts, 1)
+    }).timeout(15000)
+
+    describe('#rawbinarytranscoder', function () {
+      it('should allow binary txns using RawBinaryTranscoder', async function () {
+        H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
+        const testkey = H.genTestKey()
+        const testBinVal = Buffer.from(
+          '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+          'hex'
+        )
+        const newBinVal = Buffer.from('666f6f62617262617a', 'hex')
+        const tc = new RawBinaryTranscoder()
+        await H.c.transactions().run(
+          async (attempt) => {
+            await attempt.insert(H.co, testkey, testBinVal, { transcoder: tc })
+            const getRes = await attempt.get(H.co, testkey, { transcoder: tc })
+            assert.deepEqual(getRes.content, testBinVal)
+            const repRes = await attempt.replace(getRes, newBinVal)
+            assert.isTrue(getRes.cas != repRes.cas)
+          },
+          { timeout: 5000 }
+        )
+      }).timeout(15000)
+
+      it('should have FeatureNotAvailableError cause if binary txns not supported using RawBinaryTranscoder', async function () {
+        if (H.supportsFeature(H.Features.BinaryTransactions)) {
+          this.skip()
+        }
+        const testkey = H.genTestKey()
+        const testBinVal = Buffer.from(
+          '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+          'hex'
+        )
+        const tc = new RawBinaryTranscoder()
+        let numAttempts = 0
+        try {
+          await H.c.transactions().run(
+            async (attempt) => {
+              numAttempts++
+              await attempt.insert(H.co, testkey, testBinVal, {
+                transcoder: tc,
+              })
+            },
+            { timeout: 2000 }
+          )
+        } catch (err) {
+          assert.instanceOf(err, H.lib.TransactionFailedError)
+          assert.instanceOf(err.cause, H.lib.FeatureNotAvailableError)
+          assert.equal(
+            err.cause.cause.message,
+            'Possibly attempting a binary transaction operation with a server version < 7.6.2'
+          )
+        }
+        assert.equal(numAttempts, 1)
+      }).timeout(15000)
+    })
+  })
 })

@@ -30,7 +30,7 @@ import {
   QueryScanConsistency,
 } from './querytypes'
 import { Scope } from './scope'
-import { DefaultTranscoder } from './transcoders'
+import { DefaultTranscoder, Transcoder } from './transcoders'
 import { Cas, PromiseHelper } from './utilities'
 
 /**
@@ -361,10 +361,41 @@ export interface TransactionQueryOptions {
 }
 
 /**
+ * @category Transactions
+ */
+export interface TransactionGetOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+}
+
+/**
+ * @category Transactions
+ */
+export interface TransactionInsertOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+}
+
+/**
+ * @category Transactions
+ */
+export interface TransactionReplaceOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+}
+
+/**
  * @internal
  */
 function translateGetResult(
-  cppRes: CppTransactionGetResult | null
+  cppRes: CppTransactionGetResult | null,
+  transcoder: Transcoder
 ): TransactionGetResult | null {
   if (!cppRes) {
     return null
@@ -372,11 +403,7 @@ function translateGetResult(
 
   let content
   if (cppRes.content && cppRes.content.data && cppRes.content.data.length > 0) {
-    try {
-      content = JSON.parse(cppRes.content.data.toString('utf8'))
-    } catch (e) {
-      content = cppRes.content.data
-    }
+    content = transcoder.decode(cppRes.content.data, cppRes.content.flags)
   }
 
   return new TransactionGetResult({
@@ -436,11 +463,14 @@ export class TransactionAttemptContext {
    *
    * @param collection The collection the document lives in.
    * @param key The document key to retrieve.
+   * @param options Optional parameters for this operation.
    */
   async get(
     collection: Collection,
-    key: string
+    key: string,
+    options?: TransactionGetOptions
   ): Promise<TransactionGetResult> {
+    const transcoder = options?.transcoder || this._transcoder
     return PromiseHelper.wrap((wrapCallback) => {
       const id = collection._cppDocId(key)
       this._impl.get(
@@ -453,7 +483,7 @@ export class TransactionAttemptContext {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(err, translateGetResult(cppRes))
+          wrapCallback(err, translateGetResult(cppRes, transcoder))
         }
       )
     })
@@ -465,15 +495,18 @@ export class TransactionAttemptContext {
    * @param collection The collection the document lives in.
    * @param key The document key to insert.
    * @param content The document content to insert.
+   * @param options Optional parameters for this operation.
    */
   async insert(
     collection: Collection,
     key: string,
-    content: any
+    content: any,
+    options?: TransactionInsertOptions
   ): Promise<TransactionGetResult> {
     return PromiseHelper.wrap((wrapCallback) => {
       const id = collection._cppDocId(key)
-      const [data, flags] = this._transcoder.encode(content)
+      const transcoder = options?.transcoder || this._transcoder
+      const [data, flags] = transcoder.encode(content)
       this._impl.insert(
         {
           id,
@@ -488,7 +521,7 @@ export class TransactionAttemptContext {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(err, translateGetResult(cppRes))
+          wrapCallback(err, translateGetResult(cppRes, transcoder))
         }
       )
     })
@@ -499,13 +532,16 @@ export class TransactionAttemptContext {
    *
    * @param doc The document to replace.
    * @param content The document content to insert.
+   * @param options Optional parameters for this operation.
    */
   async replace(
     doc: TransactionGetResult,
-    content: any
+    content: any,
+    options?: TransactionReplaceOptions
   ): Promise<TransactionGetResult> {
     return PromiseHelper.wrap((wrapCallback) => {
-      const [data, flags] = this._transcoder.encode(content)
+      const transcoder = options?.transcoder || this._transcoder
+      const [data, flags] = transcoder.encode(content)
       this._impl.replace(
         {
           doc: {
@@ -529,7 +565,7 @@ export class TransactionAttemptContext {
             return wrapCallback(err, null)
           }
 
-          wrapCallback(err, translateGetResult(cppRes))
+          wrapCallback(err, translateGetResult(cppRes, transcoder))
         }
       )
     })
