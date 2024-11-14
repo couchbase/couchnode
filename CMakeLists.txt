@@ -7,6 +7,13 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 project (couchbase_impl)
 
+function(get_couchnode_version)
+  execute_process(COMMAND node -e "console.log(JSON.parse(fs.readFileSync('${PROJECT_SOURCE_DIR}/package.json')).version)"
+                  OUTPUT_VARIABLE sdk_version)
+  string(STRIP "${sdk_version}" SDK_VERSION)
+  set(COUCHNODE_VERSION "${SDK_VERSION}" PARENT_SCOPE)
+endfunction()
+
 function(download_nodejs_headers)
   message("Finding Node.js headers SHA for version: ${NODE_RUNTIMEVERSION}")
   file(DOWNLOAD
@@ -146,6 +153,10 @@ endif()
 # We need to import headers globally for our dependant libraries such as couchbase-cxx-client.
 include_directories(${NODEJS_INC_DIR})
 
+get_couchnode_version()
+message(STATUS "COUCHNODE_VERSION=${COUCHNODE_VERSION}")
+
+set(COUCHBASE_CXX_CLIENT_WRAPPER_UNIFIED_ID "nodejs/${COUCHNODE_VERSION}" CACHE STRING "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_STATIC ON CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_SHARED OFF CACHE BOOL "" FORCE)
 set(COUCHBASE_CXX_CLIENT_BUILD_INSTALL OFF CACHE BOOL "" FORCE)
