@@ -25,7 +25,7 @@ Ensure the feature you are adding does not already exist, and think about how th
 
 #### For fixing bugs
 
-Ensure the bug you are fixing is actually a bug (and not a usage) error, and that it has not been fixed in a more recent version. Please read the [release notes](https://docs.couchbase.com/nodejs-sdk/current/project-docs/sdk-release-notes.html) as well as the [issue tracker](https://issues.couchbase.com/projects/JSCBC/issues/) to see a list of open and resolved issues.
+Ensure the bug you are fixing is actually a bug (and not a usage) error, and that it has not been fixed in a more recent version. Please read the [release notes](https://docs.couchbase.com/nodejs-sdk/current/project-docs/sdk-release-notes.html) as well as the [issue tracker](https://jira.issues.couchbase.com/projects/JSCBC/issues/) to see a list of open and resolved issues.
 
 ### Code Review
 

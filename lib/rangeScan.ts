@@ -106,7 +106,7 @@ export class SamplingScan implements ScanType {
 /**
  * A PrefixScan scan type selects every document whose ID starts with a certain prefix.
  *
- * @category key-value
+ * @category Key-Value
  */
 export class PrefixScan implements ScanType {
   /**

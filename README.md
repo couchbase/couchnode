@@ -9,7 +9,7 @@ protocol.
 
 Source - [https://github.com/couchbase/couchnode](https://github.com/couchbase/couchnode)
 
-Bug Tracker - [https://www.couchbase.com/issues/browse/JSCBC](https://www.couchbase.com/issues/browse/JSCBC)
+Bug Tracker - [https://jira.issues.couchbase.com/projects/JSCBC/issues/](https://jira.issues.couchbase.com/projects/JSCBC/issues/)
 
 Couchbase Developer Portal - [https://docs.couchbase.com/](https://docs.couchbase.com/nodejs-sdk/3.0/hello-world/start-using-sdk.html)
 
@@ -161,7 +161,7 @@ root directory, and a docs folder will be created with the api reference.
 
 # Support & Additional Resources
 
-If you found an issue, please file it in our [JIRA](https://issues.couchbase.com/projects/JSCBC/issues/).
+If you found an issue, please file it in our [Github issues](https://github.com/couchbase/couchnode/issues).  We will bring over the issue to our [JIRA](https://jira.issues.couchbase.com/projects/JSCBC/issues/) as needed.
 
 The Couchbase Discord server is a place where you can collaborate about all things Couchbase. Connect with others from the community, learn tips and tricks, and ask questions. [Join Discord and contribute](https://discord.com/invite/sQ5qbPZuTh).
 
