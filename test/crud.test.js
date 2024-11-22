@@ -1638,6 +1638,7 @@ function genericTests(collFn) {
     it('should mutateIn successfully', async function () {
       var res = await collFn().mutateIn(testKeySd, [
         H.lib.MutateInSpec.increment('bar', 3),
+        H.lib.MutateInSpec.decrement('bar', 2),
         H.lib.MutateInSpec.upsert('baz', 'world'),
         H.lib.MutateInSpec.arrayAppend('arr', 4),
         H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
@@ -1648,10 +1649,12 @@ function genericTests(collFn) {
 
       assert.isUndefined(res.content[0].error)
       assert.strictEqual(res.content[0].value, 5)
+      assert.isUndefined(res.content[1].error)
+      assert.strictEqual(res.content[1].value, 3)
 
       var gres = await collFn().get(testKeySd)
       assert.isOk(gres.value)
-      assert.strictEqual(gres.value.bar, 5)
+      assert.strictEqual(gres.value.bar, 3)
       assert.strictEqual(gres.value.baz, 'world')
       assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
     })

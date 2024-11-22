@@ -608,7 +608,7 @@ export class MutateInSpec {
     return this._create(
       binding.protocol_subdoc_opcode.counter,
       path,
-      +value,
+      -1 * +value,
       options
     )
   }
