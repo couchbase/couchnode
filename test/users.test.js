@@ -12,10 +12,11 @@ const H = require('./harness')
 
 function toExpectedRole(name, bucket, scope, collection) {
   if (typeof bucket !== 'undefined') {
-    if (typeof scope === 'undefined') {
+    const collectionsSupported = H.supportsFeature(H.Features.Collections)
+    if (collectionsSupported && typeof scope === 'undefined') {
       scope = '*'
     }
-    if (typeof collection === 'undefined') {
+    if (collectionsSupported && typeof collection === 'undefined') {
       collection = '*'
     }
   }
@@ -141,7 +142,7 @@ describe('#usersmgmt', function () {
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#user-roles', function () {
-    const users = [
+    let users = [
       {
         username: 'custom-user-1',
         displayName: 'Custom User 1',
@@ -152,6 +153,14 @@ describe('#usersmgmt', function () {
         ],
       },
       {
+        username: 'custom-user-4',
+        displayName: 'Custom User 4',
+        password: 's3cret!',
+        roles: ['data_reader[default]', 'data_writer[default]'],
+      },
+    ]
+    if (H.supportsFeature(H.Features.Collections)) {
+      users.push({
         username: 'custom-user-2',
         displayName: 'Custom User 2',
         password: 's3cret!',
@@ -167,8 +176,9 @@ describe('#usersmgmt', function () {
             scope: '_default',
           }),
         ],
-      },
-      {
+      })
+
+      users.push({
         username: 'custom-user-3',
         displayName: 'Custom User 3',
         password: 's3cret!',
@@ -186,14 +196,9 @@ describe('#usersmgmt', function () {
             collection: 'test',
           }),
         ],
-      },
-      {
-        username: 'custom-user-4',
-        displayName: 'Custom User 4',
-        password: 's3cret!',
-        roles: ['data_reader[default]', 'data_writer[default]'],
-      },
-    ]
+      })
+    }
+
     users.forEach((user) => {
       it(`should successfully create local user: ${user.username}`, async function () {
         await H.c.users().upsertUser(user)
@@ -408,17 +413,19 @@ describe('#usersmgmt', function () {
         assert.equal(grp.description, group.description)
         if (group.name == 'test-group-1') {
           assert.equal(grp.roles.length, groupRoles.length)
-          groupRoles.forEach((gr) => {
-            const filteredRole = grp.roles.filter((r) => {
-              return (
-                r.name == gr.name &&
-                r.bucket == gr.bucket &&
-                r.scope == gr.scope &&
-                r.collection == gr.collection
-              )
+          if (H.supportsFeature(H.Features.Collections)) {
+            groupRoles.forEach((gr) => {
+              const filteredRole = grp.roles.filter((r) => {
+                return (
+                  r.name == gr.name &&
+                  r.bucket == gr.bucket &&
+                  r.scope == gr.scope &&
+                  r.collection == gr.collection
+                )
+              })
+              assert.equal(filteredRole.length, 1)
             })
-            assert.equal(filteredRole.length, 1)
-          })
+          }
         } else {
           assert.deepStrictEqual(grp.roles, group.roles)
         }
