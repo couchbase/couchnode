@@ -450,6 +450,19 @@ class Harness {
     }
   }
 
+  async tryNTimes(n, delay, fn, ...args) {
+    for (let i = 0; i < n; ++i) {
+      try {
+        return await fn(...args)
+      } catch (e) {
+        if (i === n - 1) {
+          throw e
+        }
+        await this.sleep(delay)
+      }
+    }
+  }
+
   get lib() {
     return couchbase
   }

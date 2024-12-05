@@ -11,6 +11,12 @@ describe('#transactions', function () {
     H.skipIfMissingFeature(this, H.Features.Transactions)
   })
 
+  after(async function() {
+    this.timeout(10000)
+    const bmgr = H.c.buckets()
+    await H.tryNTimes(3, 1000, bmgr.flushBucket.bind(bmgr), H.bucketName)
+  })
+
   it('should work with a simple transaction', async function () {
     const testDocIns = H.genTestKey()
     const testDocRep = H.genTestKey()

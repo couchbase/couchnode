@@ -25,12 +25,26 @@ class TestProfile {
 }
 
 describe('#Cluster', function () {
+  let testKeys = []
+
+  after(async function () {
+    for (const key of testKeys) {
+      try {
+        await H.dco.remove(key)
+      } catch (e) {
+        // ignore
+      }
+    }
+  })
+
   it('should queue operations until connected', async function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
 
-    await coll.insert(H.genTestKey(), 'bar')
+    const key = H.genTestKey()
+    testKeys.push(key)
+    await coll.insert(key, 'bar')
 
     await cluster.close()
   })
@@ -39,7 +53,9 @@ describe('#Cluster', function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
-    await coll.insert(H.genTestKey(), 'bar')
+    const key = H.genTestKey()
+    testKeys.push(key)
+    await coll.insert(key, 'bar')
     await cluster.close()
 
     gc()
@@ -61,8 +77,9 @@ describe('#Cluster', function () {
     var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
     var bucket = cluster.bucket(H.bucketName)
     var coll = bucket.defaultCollection()
-
-    await coll.insert(H.genTestKey(), 'bar')
+    const key = H.genTestKey()
+    testKeys.push(key)
+    await coll.insert(key, 'bar')
 
     await cluster.close()
     await cluster.close()

@@ -40,6 +40,19 @@ async function startWorker(workerData) {
 }
 
 describe('#worker-threads', function () {
+  let testKey
+
+  before(function () {
+    testKey = H.genTestKey()
+  })
+
+  after(async function () {
+    try {
+      await H.dco.remove(testKey)
+    } catch (e) {
+      // ignore
+    }
+  })
   it('should start a worker and complete an operation', async function () {
     if (semver.lt(process.version, '12.11.0')) {
       return this.skip()
@@ -49,7 +62,7 @@ describe('#worker-threads', function () {
       connStr: H.connStr,
       connOpts: H.connOpts,
       bucketName: H.bucketName,
-      testKey: H.genTestKey(),
+      testKey: testKey,
     })
     if (!res.success) {
       throw res.error

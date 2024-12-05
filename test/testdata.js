@@ -58,7 +58,7 @@ async function removeTestData(target, testDocs) {
     return
   }
 
-  await Promise.all(testDocs.map((docId) => target.remove(docId)))
+  await Promise.allSettled(testDocs.map((docId) => target.remove(docId)))
 }
 
 module.exports.removeTestData = removeTestData

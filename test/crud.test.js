@@ -52,10 +52,11 @@ function validateMutationToken(token) {
 }
 
 function genericTests(collFn) {
-  describe('#basic', function () {
+  describe('#kvops', function () {
     let testKeyA
     let testKeyUtf8
     let testKeyBin
+    let otherTestKeys = []
 
     before(function () {
       testKeyA = H.genTestKey()
@@ -67,7 +68,7 @@ function genericTests(collFn) {
       try {
         await collFn().remove(testKeyA)
       } catch (e) {
-        // nothing
+        // ingore
       }
       try {
         await collFn().remove(testKeyUtf8)
@@ -75,9 +76,16 @@ function genericTests(collFn) {
         // ignore
       }
       try {
-        //await collFn().remove(testKeyBin)
+        await collFn().remove(testKeyBin)
       } catch (e) {
         // ignore
+      }
+      for (const key of otherTestKeys) {
+        try {
+          await collFn().remove(key)
+        } catch (e) {
+          // ignore
+        }
       }
     })
 
@@ -107,6 +115,7 @@ function genericTests(collFn) {
 
       it('should upsert successfully using options and callback', function (done) {
         const testKeyOpts = H.genTestKey()
+        otherTestKeys.push(testKeyOpts)
 
         const validate = () => {
           collFn().get(testKeyOpts, (err, res) => {
@@ -163,6 +172,7 @@ function genericTests(collFn) {
         H.skipIfMissingFeature(this, H.Features.PreserveExpiry)
 
         const testKeyPe = H.genTestKey()
+        otherTestKeys.push(testKeyPe)
 
         // Insert a test document
         var res = await collFn().insert(testKeyPe, { foo: 14 }, { expiry: 1 })
@@ -208,7 +218,7 @@ function genericTests(collFn) {
         try {
           await collFn().remove(testKeyExp)
         } catch (e) {
-          // nothing
+          // ignore
         }
       })
 
@@ -569,6 +579,14 @@ function genericTests(collFn) {
         testKeyIns = H.genTestKey()
       })
 
+      after(async function () {
+        try {
+          await collFn().remove(testKeyIns)
+        } catch (e) {
+          // ignore
+        }
+      })
+
       it('should perform inserts correctly', async function () {
         var res = await collFn().insert(testKeyIns, { foo: 'bar' })
         assert.isObject(res)
@@ -604,6 +622,7 @@ function genericTests(collFn) {
 
       it('should insert successfully using options and callback', function (done) {
         const testKeyOpts = H.genTestKey()
+        otherTestKeys.push(testKeyOpts)
 
         const validate = () => {
           collFn().get(testKeyOpts, (err, res) => {
@@ -659,6 +678,7 @@ function genericTests(collFn) {
 
       it('should insert w/ expiry successfully (slow)', async function () {
         const testKeyExp = H.genTestKey()
+        otherTestKeys.push(testKeyExp)
 
         var res = await collFn().insert(testKeyExp, { foo: 14 }, { expiry: 1 })
         assert.isObject(res)
@@ -679,6 +699,14 @@ function genericTests(collFn) {
         H.skipIfMissingFeature(this, H.Features.ServerDurability)
 
         testKeyIns = H.genTestKey()
+      })
+
+      after(async function () {
+        try {
+          await collFn().remove(testKeyIns)
+        } catch (e) {
+          // ignore
+        }
       })
 
       it('should insert w/ server durability', async function () {
@@ -744,6 +772,14 @@ function genericTests(collFn) {
         var res = await bmgr.getBucket(H.b.name)
         numReplicas = res.numReplicas
         testKeyIns = H.genTestKey()
+      })
+
+      after(async function () {
+        try {
+          await collFn().remove(testKeyIns)
+        } catch (e) {
+          // ignore
+        }
       })
 
       it('should insert w/ client durability', async function () {
@@ -820,6 +856,7 @@ function genericTests(collFn) {
     describe('#touch', function () {
       it('should touch a document successfully (slow)', async function () {
         const testKeyTch = H.genTestKey()
+        otherTestKeys.push(testKeyTch)
 
         // Insert a test document
         var res = await collFn().insert(testKeyTch, { foo: 14 }, { expiry: 3 })
@@ -853,6 +890,7 @@ function genericTests(collFn) {
     describe('#getAndTouch', function () {
       it('should touch a document successfully (slow)', async function () {
         const testKeyGat = H.genTestKey()
+        otherTestKeys.push(testKeyGat)
 
         // Insert a test document
         var res = await collFn().insert(testKeyGat, { foo: 14 }, { expiry: 3 })
@@ -889,7 +927,7 @@ function genericTests(collFn) {
     })
   })
 
-  describe('#getReplicas', function () {
+  describe('#replicas', function () {
     let replicaTestKey
 
     before(async function () {
@@ -902,7 +940,7 @@ function genericTests(collFn) {
       try {
         await collFn().remove(replicaTestKey)
       } catch (e) {
-        // nothing
+        // ignore
       }
     })
 
@@ -1009,7 +1047,11 @@ function genericTests(collFn) {
     })
 
     after(async function () {
-      await collFn().remove(testKeyBin)
+      try {
+        await collFn().remove(testKeyBin)
+      } catch (e) {
+        // ignore
+      }
     })
 
     describe('#increment', function () {
@@ -1305,102 +1347,102 @@ function genericTests(collFn) {
           })
       })
     })
-  })
 
-  describe('binary server durability', function () {
-    let testKeyBin
+    describe('#serverDurability', function () {
+      let testKeyBinDurability
 
-    before(async function () {
-      testKeyBin = H.genTestKey()
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.ServerDurability)
+        testKeyBinDurability = H.genTestKey()
+        await collFn().insert(testKeyBinDurability, 14)
+      })
 
-      await collFn().insert(testKeyBin, 14)
+      after(async function () {
+        try {
+          await collFn().remove(testKeyBinDurability)
+        } catch (e) {
+          // ignore
+        }
+      })
 
-      H.skipIfMissingFeature(this, H.Features.ServerDurability)
-    })
-
-    after(async function () {
-      await collFn().remove(testKeyBin)
-    })
-
-    describe('#increment', function () {
       it('should increment successfully w/ server durability', async function () {
-        var res = await collFn().binary().increment(testKeyBin, 3, {
+        var res = await collFn().binary().increment(testKeyBinDurability, 3, {
           durabilityLevel: DurabilityLevel.PersistToMajority,
         })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.deepStrictEqual(gres.value, 17)
       })
-    })
 
-    describe('#decrement', function () {
       it('should decrement successfully w/ server durability', async function () {
-        var res = await collFn().binary().decrement(testKeyBin, 4, {
+        var res = await collFn().binary().decrement(testKeyBinDurability, 4, {
           durabilityLevel: DurabilityLevel.PersistToMajority,
         })
         assert.isObject(res)
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.deepStrictEqual(gres.value, 13)
       })
-    })
 
-    describe('#append', function () {
       it('should append successfuly w/ server durability', async function () {
-        var res = await collFn().binary().append(testKeyBin, 'world', {
-          durabilityLevel: DurabilityLevel.PersistToMajority,
-        })
+        var res = await collFn()
+          .binary()
+          .append(testKeyBinDurability, 'world', {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
         assert.isObject(res)
         assert.isOk(res.cas)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.isTrue(Buffer.isBuffer(gres.value))
         assert.deepStrictEqual(gres.value.toString(), '13world')
       })
-    })
 
-    describe('#prepend', function () {
       it('should prepend successfuly w/ server durability', async function () {
-        var res = await collFn().binary().prepend(testKeyBin, 'hello', {
-          durabilityLevel: DurabilityLevel.PersistToMajority,
-        })
+        var res = await collFn()
+          .binary()
+          .prepend(testKeyBinDurability, 'hello', {
+            durabilityLevel: DurabilityLevel.PersistToMajority,
+          })
         assert.isObject(res)
         assert.isOk(res.cas)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.isTrue(Buffer.isBuffer(gres.value))
         assert.deepStrictEqual(gres.value.toString(), 'hello13world')
       })
     })
-  })
 
-  describe('binary client durability', function () {
-    let testKeyBin
-    let numReplicas
+    describe('#clientDurability', function () {
+      let testKeyBinDurability
+      let numReplicas
 
-    before(async function () {
-      testKeyBin = H.genTestKey()
+      before(async function () {
+        testKeyBinDurability = H.genTestKey()
 
-      await collFn().insert(testKeyBin, 14)
+        await collFn().insert(testKeyBinDurability, 14)
 
-      H.skipIfMissingFeature(this, H.Features.BucketManagement)
-      var bmgr = H.c.buckets()
-      var res = await bmgr.getBucket(H.b.name)
-      numReplicas = res.numReplicas
-    })
+        H.skipIfMissingFeature(this, H.Features.BucketManagement)
+        var bmgr = H.c.buckets()
+        var res = await bmgr.getBucket(H.b.name)
+        numReplicas = res.numReplicas
+      })
 
-    after(async function () {
-      await collFn().remove(testKeyBin)
-    })
+      after(async function () {
+        try {
+          await collFn().remove(testKeyBinDurability)
+        } catch (e) {
+          // ignore
+        }
+      })
 
-    describe('#increment', function () {
       it('should increment successfully w/ client durability', async function () {
-        var res = await collFn().binary().increment(testKeyBin, 3, {
+        var res = await collFn().binary().increment(testKeyBinDurability, 3, {
           durabilityPersistTo: 1,
           durabilityReplicateTo: numReplicas,
         })
@@ -1408,14 +1450,12 @@ function genericTests(collFn) {
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 17)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.deepStrictEqual(gres.value, 17)
       })
-    })
 
-    describe('#decrement', function () {
       it('should decrement successfully w/ client durability', async function () {
-        var res = await collFn().binary().decrement(testKeyBin, 4, {
+        var res = await collFn().binary().decrement(testKeyBinDurability, 4, {
           durabilityPersistTo: 1,
           durabilityReplicateTo: numReplicas,
         })
@@ -1423,36 +1463,36 @@ function genericTests(collFn) {
         assert.isOk(res.cas)
         assert.deepStrictEqual(res.value, 13)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.deepStrictEqual(gres.value, 13)
       })
-    })
 
-    describe('#append', function () {
       it('should append successfuly w/ client durability', async function () {
-        var res = await collFn().binary().append(testKeyBin, 'world', {
-          durabilityPersistTo: 1,
-          durabilityReplicateTo: numReplicas,
-        })
+        var res = await collFn()
+          .binary()
+          .append(testKeyBinDurability, 'world', {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
         assert.isObject(res)
         assert.isOk(res.cas)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.isTrue(Buffer.isBuffer(gres.value))
         assert.deepStrictEqual(gres.value.toString(), '13world')
       })
-    })
 
-    describe('#prepend', function () {
       it('should prepend successfuly w/ client durability', async function () {
-        var res = await collFn().binary().prepend(testKeyBin, 'hello', {
-          durabilityPersistTo: 1,
-          durabilityReplicateTo: numReplicas,
-        })
+        var res = await collFn()
+          .binary()
+          .prepend(testKeyBinDurability, 'hello', {
+            durabilityPersistTo: 1,
+            durabilityReplicateTo: numReplicas,
+          })
         assert.isObject(res)
         assert.isOk(res.cas)
 
-        var gres = await collFn().get(testKeyBin)
+        var gres = await collFn().get(testKeyBinDurability)
         assert.isTrue(Buffer.isBuffer(gres.value))
         assert.deepStrictEqual(gres.value.toString(), 'hello13world')
       })
@@ -1469,7 +1509,11 @@ function genericTests(collFn) {
     })
 
     after(async function () {
-      await collFn().remove(testKeyLck)
+      try {
+        await collFn().remove(testKeyLck)
+      } catch (e) {
+        // ignore
+      }
     })
 
     it('should lock successfully (slow)', async function () {
@@ -1565,133 +1609,10 @@ function genericTests(collFn) {
     })
   })
 
-  describe('subdoc', function () {
+  describe('#subdoc', function () {
     let testKeySd
 
     before(async function () {
-      testKeySd = H.genTestKey()
-
-      await collFn().insert(testKeySd, {
-        foo: 14,
-        bar: 2,
-        baz: 'hello',
-        arr: [1, 2, 3],
-      })
-    })
-
-    after(async function () {
-      await collFn().remove(testKeySd)
-    })
-
-    it('should lookupIn successfully', async function () {
-      var res = await collFn().lookupIn(testKeySd, [
-        H.lib.LookupInSpec.get('baz'),
-        H.lib.LookupInSpec.get('bar'),
-        H.lib.LookupInSpec.exists('not-exists'),
-      ])
-      assert.isObject(res)
-      assert.isOk(res.cas)
-      assert.isArray(res.content)
-      assert.strictEqual(res.content.length, 3)
-      assert.isNotOk(res.content[0].error)
-      assert.deepStrictEqual(res.content[0].value, 'hello')
-      assert.isNotOk(res.content[1].error)
-      assert.deepStrictEqual(res.content[1].value, 2)
-      assert.isNotOk(res.content[2].error)
-      assert.deepStrictEqual(res.content[2].value, false)
-
-      // BUG JSCBC-730: Check to make sure that the results property
-      // returns the same as the content property.
-      assert.strictEqual(res.results, res.content)
-    })
-
-    it('should doc-not-found for missing lookupIn', async function () {
-      await H.throwsHelper(async () => {
-        await collFn().lookupIn('some-document-which-does-not-exist', [
-          H.lib.LookupInSpec.get('baz'),
-        ])
-      }, H.lib.DocumentNotFoundError)
-    })
-
-    it('should lookupIn with accessDeleted successfully', async function () {
-      H.skipIfMissingFeature(this, H.Features.Xattr)
-
-      const testKeyDeleted = H.genTestKey()
-      var upsertRes = await collFn().upsert(testKeyDeleted, testObjVal)
-      assert.isOk(upsertRes.cas)
-
-      var removeRes = await collFn().remove(testKeyDeleted)
-      assert.isOk(removeRes.cas)
-
-      var res = await collFn().lookupIn(
-        testKeyDeleted,
-        [H.lib.LookupInSpec.exists('$document.revid', { xattr: true })],
-        {
-          accessDeleted: true,
-        }
-      )
-
-      assert.isNull(res.content[0].error)
-      assert.strictEqual(res.content[0].value, true)
-    })
-
-    it('should mutateIn successfully', async function () {
-      var res = await collFn().mutateIn(testKeySd, [
-        H.lib.MutateInSpec.increment('bar', 3),
-        H.lib.MutateInSpec.decrement('bar', 2),
-        H.lib.MutateInSpec.upsert('baz', 'world'),
-        H.lib.MutateInSpec.arrayAppend('arr', 4),
-        H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
-      ])
-      assert.isObject(res)
-      assert.isOk(res.cas)
-      validateMutationToken(res.token)
-
-      assert.isUndefined(res.content[0].error)
-      assert.strictEqual(res.content[0].value, 5)
-      assert.isUndefined(res.content[1].error)
-      assert.strictEqual(res.content[1].value, 3)
-
-      var gres = await collFn().get(testKeySd)
-      assert.isOk(gres.value)
-      assert.strictEqual(gres.value.bar, 3)
-      assert.strictEqual(gres.value.baz, 'world')
-      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
-    })
-
-    it('should cas mismatch when mutatein with wrong cas', async function () {
-      var getRes = await collFn().get(testKeySd)
-
-      await collFn().replace(testKeySd, { bar: 1 })
-
-      await H.throwsHelper(async () => {
-        await collFn().mutateIn(
-          testKeySd,
-          [H.lib.MutateInSpec.increment('bar', 3)],
-          {
-            cas: getRes.cas,
-          }
-        )
-      }, H.lib.CasMismatchError)
-    })
-  })
-
-  /* eslint-disable mocha/no-setup-in-describe */
-  describe('subdoc lookup-in macros', function () {
-    let testKeySd
-    const macros = [
-      H.lib.LookupInMacro.Cas,
-      H.lib.LookupInMacro.Document,
-      H.lib.LookupInMacro.Expiry,
-      H.lib.LookupInMacro.IsDeleted,
-      H.lib.LookupInMacro.LastModified,
-      H.lib.LookupInMacro.RevId,
-      H.lib.LookupInMacro.SeqNo,
-      H.lib.LookupInMacro.ValueSizeBytes,
-    ]
-
-    before(async function () {
-      H.skipIfMissingFeature(this, H.Features.Xattr)
       testKeySd = H.genTestKey()
 
       await collFn().insert(testKeySd, {
@@ -1706,503 +1627,641 @@ function genericTests(collFn) {
       try {
         await collFn().remove(testKeySd)
       } catch (e) {
-        // nothing
+        // ignore
       }
     })
 
-    macros.forEach((macro) => {
-      it(`correctly executes ${macro._value} lookup-in macro`, async function () {
-        const res = await collFn().lookupIn(testKeySd, [
-          H.lib.LookupInSpec.get(macro, { xattr: true }),
+    describe('#lookupIn', function () {
+      it('should lookupIn successfully', async function () {
+        var res = await collFn().lookupIn(testKeySd, [
+          H.lib.LookupInSpec.get('baz'),
+          H.lib.LookupInSpec.get('bar'),
+          H.lib.LookupInSpec.exists('not-exists'),
         ])
-        const documentRes = (
-          await collFn().lookupIn(testKeySd, [
-            H.lib.LookupInSpec.get(H.lib.LookupInMacro.Document, {
-              xattr: true,
-            }),
-          ])
-        ).content[0].value
-        const macroKey = macro._value.replace('$document.', '')
-        const macroRes = res.content[0].value
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.isArray(res.content)
+        assert.strictEqual(res.content.length, 3)
+        assert.isNotOk(res.content[0].error)
+        assert.deepStrictEqual(res.content[0].value, 'hello')
+        assert.isNotOk(res.content[1].error)
+        assert.deepStrictEqual(res.content[1].value, 2)
+        assert.isNotOk(res.content[2].error)
+        assert.deepStrictEqual(res.content[2].value, false)
 
-        if (macroKey === '$document') {
-          assert.deepStrictEqual(macroRes, documentRes)
-        } else {
-          assert.strictEqual(macroRes, documentRes[macroKey])
-          if (
-            ['CAS', 'seqno', 'vbucket_uuid', 'value_crc32c'].includes(macroKey)
-          ) {
-            assert.isTrue(macroRes.startsWith('0x'))
+        // BUG JSCBC-730: Check to make sure that the results property
+        // returns the same as the content property.
+        assert.strictEqual(res.results, res.content)
+      })
+
+      it('should doc-not-found for missing lookupIn', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().lookupIn('some-document-which-does-not-exist', [
+            H.lib.LookupInSpec.get('baz'),
+          ])
+        }, H.lib.DocumentNotFoundError)
+      })
+
+      it('should lookupIn with accessDeleted successfully', async function () {
+        H.skipIfMissingFeature(this, H.Features.Xattr)
+
+        const testKeyDeleted = H.genTestKey()
+        var upsertRes = await collFn().upsert(testKeyDeleted, testObjVal)
+        assert.isOk(upsertRes.cas)
+
+        var removeRes = await collFn().remove(testKeyDeleted)
+        assert.isOk(removeRes.cas)
+
+        var res = await collFn().lookupIn(
+          testKeyDeleted,
+          [H.lib.LookupInSpec.exists('$document.revid', { xattr: true })],
+          {
+            accessDeleted: true,
           }
-        }
+        )
+
+        assert.isNull(res.content[0].error)
+        assert.strictEqual(res.content[0].value, true)
+      })
+
+      describe('#macros', function () {
+        const macros = [
+          H.lib.LookupInMacro.Cas,
+          H.lib.LookupInMacro.Document,
+          H.lib.LookupInMacro.Expiry,
+          H.lib.LookupInMacro.IsDeleted,
+          H.lib.LookupInMacro.LastModified,
+          H.lib.LookupInMacro.RevId,
+          H.lib.LookupInMacro.SeqNo,
+          H.lib.LookupInMacro.ValueSizeBytes,
+        ]
+
+        before(function () {
+          H.skipIfMissingFeature(this, H.Features.Xattr)
+        })
+
+        macros.forEach((macro) => {
+          it(`correctly executes ${macro._value} lookup-in macro`, async function () {
+            const res = await collFn().lookupIn(testKeySd, [
+              H.lib.LookupInSpec.get(macro, { xattr: true }),
+            ])
+            const documentRes = (
+              await collFn().lookupIn(testKeySd, [
+                H.lib.LookupInSpec.get(H.lib.LookupInMacro.Document, {
+                  xattr: true,
+                }),
+              ])
+            ).content[0].value
+            const macroKey = macro._value.replace('$document.', '')
+            const macroRes = res.content[0].value
+
+            if (macroKey === '$document') {
+              assert.deepStrictEqual(macroRes, documentRes)
+            } else {
+              assert.strictEqual(macroRes, documentRes[macroKey])
+              if (
+                ['CAS', 'seqno', 'vbucket_uuid', 'value_crc32c'].includes(
+                  macroKey
+                )
+              ) {
+                assert.isTrue(macroRes.startsWith('0x'))
+              }
+            }
+          })
+        })
       })
     })
-  })
 
-  describe('subdoc mutate-in macros', function () {
-    let testUid
-    let testDocs
-    let docIdx
-    const xattrPath = 'xattr-macro'
-
-    const macros = [
-      H.lib.MutateInMacro.Cas,
-      H.lib.MutateInMacro.SeqNo,
-      H.lib.MutateInMacro.ValueCrc32c,
-    ]
-
-    before(async function () {
-      H.skipIfMissingFeature(this, H.Features.Xattr)
-      docIdx = 0
-      testUid = H.genTestKey()
-      testDocs = await testdata.upsertData(collFn(), testUid)
-    })
-
-    after(async function () {
-      try {
-        await testdata.removeTestData(collFn(), testDocs)
-      } catch (e) {
-        // nothing
-      }
-    })
-
-    it('correctly executes arrayaddunique mutate-in macros', async function () {
-      const testKey = testDocs[docIdx++]
-      // BUG JSCBC-1235: Server raises invalid argument when using
-      // mutate-in macro w/ arrayaddunique.  Update test if associated MB
-      // is addressed in the future.
-      await H.throwsHelper(async () => {
-        await collFn().mutateIn(testKey, [
-          H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
-          H.lib.MutateInSpec.arrayAddUnique(xattrPath, H.lib.MutateInMacro.Cas),
-          H.lib.MutateInSpec.arrayAddUnique(
-            xattrPath,
-            H.lib.MutateInMacro.SeqNo
-          ),
-          H.lib.MutateInSpec.arrayAddUnique(
-            xattrPath,
-            H.lib.MutateInMacro.ValueCrc32c
-          ),
+    describe('#mutateIn', function () {
+      it('should mutateIn successfully', async function () {
+        var res = await collFn().mutateIn(testKeySd, [
+          H.lib.MutateInSpec.increment('bar', 3),
+          H.lib.MutateInSpec.decrement('bar', 2),
+          H.lib.MutateInSpec.upsert('baz', 'world'),
+          H.lib.MutateInSpec.arrayAppend('arr', 4),
+          H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
         ])
-      }, H.lib.InvalidArgumentError)
-    })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        validateMutationToken(res.token)
 
-    it('correctly executes arrayappend mutate-in macros', async function () {
-      const testKey = testDocs[docIdx++]
-      const mutateInRes = await collFn().mutateIn(testKey, [
-        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
-          createPath: true,
-        }),
-        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.SeqNo),
-        H.lib.MutateInSpec.arrayAppend(
-          xattrPath,
-          H.lib.MutateInMacro.ValueCrc32c
-        ),
-      ])
-      const res = (
-        await collFn().lookupIn(testKey, [
-          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
-        ])
-      ).content[0].value
-      assert.equal(
-        BigInt(SdUtils.convertMacroCasToCas(res[0])),
-        BigInt(mutateInRes.cas.toString())
-      )
-      assert.isString(res[0])
-      assert.isString(res[1])
-      assert.isString(res[2])
-      assert.isTrue(res[0].startsWith('0x'))
-      assert.isTrue(res[1].startsWith('0x'))
-      assert.isTrue(res[2].startsWith('0x'))
-    })
+        assert.isUndefined(res.content[0].error)
+        assert.strictEqual(res.content[0].value, 5)
+        assert.isUndefined(res.content[1].error)
+        assert.strictEqual(res.content[1].value, 3)
 
-    it('correctly executes arrayinsert mutate-in macros', async function () {
-      const testKey = testDocs[docIdx++]
-      const mutateInRes = await collFn().mutateIn(testKey, [
-        H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
-        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
-          createPath: true,
-        }),
-        H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.SeqNo),
-        H.lib.MutateInSpec.arrayAppend(
-          xattrPath,
-          H.lib.MutateInMacro.ValueCrc32c
-        ),
-      ])
-      const res = (
-        await collFn().lookupIn(testKey, [
-          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
-        ])
-      ).content[0].value
-      assert.equal(
-        BigInt(SdUtils.convertMacroCasToCas(res[0])),
-        BigInt(mutateInRes.cas.toString())
-      )
-      assert.isString(res[0])
-      assert.isString(res[1])
-      assert.isString(res[2])
-      assert.isTrue(res[0].startsWith('0x'))
-      assert.isTrue(res[1].startsWith('0x'))
-      assert.isTrue(res[2].startsWith('0x'))
-    })
+        var gres = await collFn().get(testKeySd)
+        assert.isOk(gres.value)
+        assert.strictEqual(gres.value.bar, 3)
+        assert.strictEqual(gres.value.baz, 'world')
+        assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
+      })
 
-    it('correctly executes arrayprepend mutate-in macros', async function () {
-      const testKey = testDocs[docIdx++]
-      const mutateInRes = await collFn().mutateIn(testKey, [
-        H.lib.MutateInSpec.arrayPrepend(xattrPath, H.lib.MutateInMacro.Cas, {
-          createPath: true,
-        }),
-        H.lib.MutateInSpec.arrayPrepend(xattrPath, H.lib.MutateInMacro.SeqNo),
-        H.lib.MutateInSpec.arrayPrepend(
-          xattrPath,
-          H.lib.MutateInMacro.ValueCrc32c
-        ),
-      ])
-      const res = (
-        await collFn().lookupIn(testKey, [
-          H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
-        ])
-      ).content[0].value
-      assert.equal(
-        BigInt(SdUtils.convertMacroCasToCas(res[2])),
-        BigInt(mutateInRes.cas.toString())
-      )
-      assert.isString(res[0])
-      assert.isString(res[1])
-      assert.isString(res[2])
-      assert.isTrue(res[0].startsWith('0x'))
-      assert.isTrue(res[1].startsWith('0x'))
-      assert.isTrue(res[2].startsWith('0x'))
-    })
+      it('should cas mismatch when mutatein with wrong cas', async function () {
+        var getRes = await collFn().get(testKeySd)
 
-    macros.forEach((macro) => {
-      it(`correctly executes ${macro._value} mutate-in macro`, async function () {
-        const testKey = testDocs[docIdx++]
-        let mutateInRes = await collFn().mutateIn(testKey, [
-          H.lib.MutateInSpec.insert(xattrPath, macro),
-        ])
-        let res = (
-          await collFn().lookupIn(testKey, [
-            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        await collFn().replace(testKeySd, { bar: 1 })
+
+        await H.throwsHelper(async () => {
+          await collFn().mutateIn(
+            testKeySd,
+            [H.lib.MutateInSpec.increment('bar', 3)],
+            {
+              cas: getRes.cas,
+            }
+          )
+        }, H.lib.CasMismatchError)
+      })
+
+      describe('#macros', function () {
+        let testUid
+        let testDocs
+        let docIdx
+        const xattrPath = 'xattr-macro'
+
+        const macros = [
+          H.lib.MutateInMacro.Cas,
+          H.lib.MutateInMacro.SeqNo,
+          H.lib.MutateInMacro.ValueCrc32c,
+        ]
+
+        before(async function () {
+          H.skipIfMissingFeature(this, H.Features.Xattr)
+          docIdx = 0
+          testUid = H.genTestKey()
+          testDocs = await testdata.upsertData(collFn(), testUid)
+        })
+
+        after(async function () {
+          try {
+            await testdata.removeTestData(collFn(), testDocs)
+          } catch (e) {
+            // nothing
+          }
+        })
+
+        it('correctly executes arrayaddunique mutate-in macros', async function () {
+          const testKey = testDocs[docIdx++]
+          // BUG JSCBC-1235: Server raises invalid argument when using
+          // mutate-in macro w/ arrayaddunique.  Update test if associated MB
+          // is addressed in the future.
+          await H.throwsHelper(async () => {
+            await collFn().mutateIn(testKey, [
+              H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
+              H.lib.MutateInSpec.arrayAddUnique(
+                xattrPath,
+                H.lib.MutateInMacro.Cas
+              ),
+              H.lib.MutateInSpec.arrayAddUnique(
+                xattrPath,
+                H.lib.MutateInMacro.SeqNo
+              ),
+              H.lib.MutateInSpec.arrayAddUnique(
+                xattrPath,
+                H.lib.MutateInMacro.ValueCrc32c
+              ),
+            ])
+          }, H.lib.InvalidArgumentError)
+        })
+
+        it('correctly executes arrayappend mutate-in macros', async function () {
+          const testKey = testDocs[docIdx++]
+          const mutateInRes = await collFn().mutateIn(testKey, [
+            H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
+              createPath: true,
+            }),
+            H.lib.MutateInSpec.arrayAppend(
+              xattrPath,
+              H.lib.MutateInMacro.SeqNo
+            ),
+            H.lib.MutateInSpec.arrayAppend(
+              xattrPath,
+              H.lib.MutateInMacro.ValueCrc32c
+            ),
           ])
-        ).content[0].value
-
-        assert.isString(res)
-        assert.isTrue(res.startsWith('0x'))
-        if (macro._value.includes('CAS')) {
+          const res = (
+            await collFn().lookupIn(testKey, [
+              H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+            ])
+          ).content[0].value
           assert.equal(
-            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(SdUtils.convertMacroCasToCas(res[0])),
             BigInt(mutateInRes.cas.toString())
           )
-        }
+          assert.isString(res[0])
+          assert.isString(res[1])
+          assert.isString(res[2])
+          assert.isTrue(res[0].startsWith('0x'))
+          assert.isTrue(res[1].startsWith('0x'))
+          assert.isTrue(res[2].startsWith('0x'))
+        })
 
-        mutateInRes = await collFn().mutateIn(testKey, [
-          H.lib.MutateInSpec.upsert(xattrPath, macro),
-        ])
-        res = (
-          await collFn().lookupIn(testKey, [
-            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        it('correctly executes arrayinsert mutate-in macros', async function () {
+          const testKey = testDocs[docIdx++]
+          const mutateInRes = await collFn().mutateIn(testKey, [
+            H.lib.MutateInSpec.upsert(xattrPath, [], { xattr: true }),
+            H.lib.MutateInSpec.arrayAppend(xattrPath, H.lib.MutateInMacro.Cas, {
+              createPath: true,
+            }),
+            H.lib.MutateInSpec.arrayAppend(
+              xattrPath,
+              H.lib.MutateInMacro.SeqNo
+            ),
+            H.lib.MutateInSpec.arrayAppend(
+              xattrPath,
+              H.lib.MutateInMacro.ValueCrc32c
+            ),
           ])
-        ).content[0].value
-
-        assert.isString(res)
-        assert.isTrue(res.startsWith('0x'))
-        if (macro._value.includes('CAS')) {
+          const res = (
+            await collFn().lookupIn(testKey, [
+              H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+            ])
+          ).content[0].value
           assert.equal(
-            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(SdUtils.convertMacroCasToCas(res[0])),
             BigInt(mutateInRes.cas.toString())
           )
-        }
+          assert.isString(res[0])
+          assert.isString(res[1])
+          assert.isString(res[2])
+          assert.isTrue(res[0].startsWith('0x'))
+          assert.isTrue(res[1].startsWith('0x'))
+          assert.isTrue(res[2].startsWith('0x'))
+        })
 
-        mutateInRes = await collFn().mutateIn(testKey, [
-          H.lib.MutateInSpec.replace(xattrPath, macro),
-        ])
-        res = (
-          await collFn().lookupIn(testKey, [
-            H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+        it('correctly executes arrayprepend mutate-in macros', async function () {
+          const testKey = testDocs[docIdx++]
+          const mutateInRes = await collFn().mutateIn(testKey, [
+            H.lib.MutateInSpec.arrayPrepend(
+              xattrPath,
+              H.lib.MutateInMacro.Cas,
+              {
+                createPath: true,
+              }
+            ),
+            H.lib.MutateInSpec.arrayPrepend(
+              xattrPath,
+              H.lib.MutateInMacro.SeqNo
+            ),
+            H.lib.MutateInSpec.arrayPrepend(
+              xattrPath,
+              H.lib.MutateInMacro.ValueCrc32c
+            ),
           ])
-        ).content[0].value
-
-        assert.isString(res)
-        assert.isTrue(res.startsWith('0x'))
-        if (macro._value.includes('CAS')) {
+          const res = (
+            await collFn().lookupIn(testKey, [
+              H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+            ])
+          ).content[0].value
           assert.equal(
-            BigInt(SdUtils.convertMacroCasToCas(res)),
+            BigInt(SdUtils.convertMacroCasToCas(res[2])),
             BigInt(mutateInRes.cas.toString())
           )
-        }
+          assert.isString(res[0])
+          assert.isString(res[1])
+          assert.isString(res[2])
+          assert.isTrue(res[0].startsWith('0x'))
+          assert.isTrue(res[1].startsWith('0x'))
+          assert.isTrue(res[2].startsWith('0x'))
+        })
+
+        macros.forEach((macro) => {
+          it(`correctly executes ${macro._value} mutate-in macro`, async function () {
+            const testKey = testDocs[docIdx++]
+            let mutateInRes = await collFn().mutateIn(testKey, [
+              H.lib.MutateInSpec.insert(xattrPath, macro),
+            ])
+            let res = (
+              await collFn().lookupIn(testKey, [
+                H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+              ])
+            ).content[0].value
+
+            assert.isString(res)
+            assert.isTrue(res.startsWith('0x'))
+            if (macro._value.includes('CAS')) {
+              assert.equal(
+                BigInt(SdUtils.convertMacroCasToCas(res)),
+                BigInt(mutateInRes.cas.toString())
+              )
+            }
+
+            mutateInRes = await collFn().mutateIn(testKey, [
+              H.lib.MutateInSpec.upsert(xattrPath, macro),
+            ])
+            res = (
+              await collFn().lookupIn(testKey, [
+                H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+              ])
+            ).content[0].value
+
+            assert.isString(res)
+            assert.isTrue(res.startsWith('0x'))
+            if (macro._value.includes('CAS')) {
+              assert.equal(
+                BigInt(SdUtils.convertMacroCasToCas(res)),
+                BigInt(mutateInRes.cas.toString())
+              )
+            }
+
+            mutateInRes = await collFn().mutateIn(testKey, [
+              H.lib.MutateInSpec.replace(xattrPath, macro),
+            ])
+            res = (
+              await collFn().lookupIn(testKey, [
+                H.lib.LookupInSpec.get(xattrPath, { xattr: true }),
+              ])
+            ).content[0].value
+
+            assert.isString(res)
+            assert.isTrue(res.startsWith('0x'))
+            if (macro._value.includes('CAS')) {
+              assert.equal(
+                BigInt(SdUtils.convertMacroCasToCas(res)),
+                BigInt(mutateInRes.cas.toString())
+              )
+            }
+          })
+        })
       })
     })
-  })
-  /* eslint-enable mocha/no-setup-in-describe */
 
-  describe('subdoc replica', function () {
-    let testKeySd
+    describe('#replicas', function () {
+      let testKeySdRep
 
-    before(async function () {
-      H.skipIfMissingFeature(this, H.Features.SubdocReadReplica)
-      H.skipIfMissingFeature(this, H.Features.Replicas)
-      testKeySd = H.genTestKey()
-      await collFn().insert(
-        testKeySd,
-        {
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.SubdocReadReplica)
+        H.skipIfMissingFeature(this, H.Features.Replicas)
+        testKeySdRep = H.genTestKey()
+        await collFn().insert(
+          testKeySdRep,
+          {
+            foo: 14,
+            bar: 2,
+            baz: 'hello',
+            arr: [1, 2, 3],
+          },
+          {
+            durabilityLevel: DurabilityLevel.MajorityAndPersistOnMaster,
+          }
+        )
+      })
+
+      after(async function () {
+        try {
+          await collFn().remove(testKeySdRep)
+        } catch (e) {
+          // ignore
+        }
+      })
+
+      it('should lookupInAnyReplica successfully', async function () {
+        var res = await collFn().lookupInAnyReplica(testKeySdRep, [
+          H.lib.LookupInSpec.get('baz'),
+          H.lib.LookupInSpec.get('bar'),
+          H.lib.LookupInSpec.exists('not-exists'),
+        ])
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.isBoolean(res.isReplica)
+        assert.isArray(res.content)
+        assert.strictEqual(res.content.length, 3)
+        assert.isNotOk(res.content[0].error)
+        assert.deepStrictEqual(res.content[0].value, 'hello')
+        assert.isNotOk(res.content[1].error)
+        assert.deepStrictEqual(res.content[1].value, 2)
+        assert.isNotOk(res.content[2].error)
+        assert.deepStrictEqual(res.content[2].value, false)
+      })
+
+      it('should lookupInAllReplicas successfully', async function () {
+        var res = await collFn().lookupInAllReplicas(testKeySdRep, [
+          H.lib.LookupInSpec.get('baz'),
+          H.lib.LookupInSpec.get('bar'),
+          H.lib.LookupInSpec.exists('not-exists'),
+        ])
+        assert.isArray(res)
+        let activeCount = 0
+        res.forEach((replica) => {
+          if (!replica.isReplica) {
+            activeCount++
+          }
+          assert.isOk(replica.cas)
+          assert.isArray(replica.content)
+          assert.strictEqual(replica.content.length, 3)
+          assert.isNotOk(replica.content[0].error)
+          assert.deepStrictEqual(replica.content[0].value, 'hello')
+          assert.isNotOk(replica.content[1].error)
+          assert.deepStrictEqual(replica.content[1].value, 2)
+          assert.isNotOk(replica.content[2].error)
+          assert.deepStrictEqual(replica.content[2].value, false)
+        })
+        assert.strictEqual(activeCount, 1)
+      })
+
+      it('should stream lookupInAllReplicas correctly', async function () {
+        const streamLookupInReplica = (id, specs) => {
+          return new Promise((resolve, reject) => {
+            let resultsOut = []
+            collFn()
+              .lookupInAllReplicas(id, specs)
+              .on('replica', (res) => {
+                resultsOut.push(res)
+              })
+              .on('end', () => {
+                resolve({
+                  results: resultsOut,
+                })
+              })
+              .on('error', (err) => {
+                reject(err)
+              })
+          })
+        }
+        const specs = [
+          H.lib.LookupInSpec.get('baz'),
+          H.lib.LookupInSpec.get('bar'),
+          H.lib.LookupInSpec.exists('not-exists'),
+        ]
+        const res = await streamLookupInReplica(testKeySdRep, specs)
+        assert.isArray(res.results)
+        let activeCount = 0
+        res.results.forEach((replica) => {
+          if (!replica.isReplica) {
+            activeCount++
+          }
+          assert.isOk(replica.cas)
+          assert.isArray(replica.content)
+          assert.strictEqual(replica.content.length, 3)
+          assert.isNotOk(replica.content[0].error)
+          assert.deepStrictEqual(replica.content[0].value, 'hello')
+          assert.isNotOk(replica.content[1].error)
+          assert.deepStrictEqual(replica.content[1].value, 2)
+          assert.isNotOk(replica.content[2].error)
+          assert.deepStrictEqual(replica.content[2].value, false)
+        })
+        assert.strictEqual(activeCount, 1)
+      })
+
+      it('should successfully run lookupInAllReplicas with a callback', function (done) {
+        collFn().lookupInAllReplicas(
+          testKeySdRep,
+          [H.lib.LookupInSpec.get('baz')],
+          (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isAtLeast(res.length, 1)
+              assert.isBoolean(res[0].isReplica)
+              assert.isNotEmpty(res[0].cas)
+              assert.deepStrictEqual(res[0].content[0].value, 'hello')
+              done(null)
+            } catch (e) {
+              done(e)
+            }
+          }
+        )
+      })
+
+      it('should successfully run lookupInAnyReplica with a callback', function (done) {
+        collFn().lookupInAnyReplica(
+          testKeySdRep,
+          [H.lib.LookupInSpec.get('baz')],
+          (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.isObject(res)
+              assert.isNotEmpty(res.cas)
+              assert.isBoolean(res.isReplica)
+              assert.deepStrictEqual(res.content[0].value, 'hello')
+              done(null)
+            } catch (e) {
+              done(e)
+            }
+          }
+        )
+      })
+
+      it('should doc-not-found for missing doc lookupInAllReplicas', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().lookupInAllReplicas(
+            'some-document-which-does-not-exist',
+            [H.lib.LookupInSpec.get('baz')]
+          )
+        }, H.lib.DocumentNotFoundError)
+      })
+
+      it('should doc-irretrievable for missing doc lookupInAnyReplica', async function () {
+        await H.throwsHelper(async () => {
+          await collFn().lookupInAnyReplica(
+            'some-document-which-does-not-exist',
+            [H.lib.LookupInSpec.get('baz')]
+          )
+        }, H.lib.DocumentUnretrievableError)
+      })
+    })
+
+    describe('#serverDurability', function () {
+      let testKeySdDurability
+
+      before(async function () {
+        H.skipIfMissingFeature(this, H.Features.ServerDurability)
+        testKeySdDurability = H.genTestKey()
+        await collFn().insert(testKeySdDurability, {
           foo: 14,
           bar: 2,
           baz: 'hello',
           arr: [1, 2, 3],
-        },
-        {
-          durabilityLevel: DurabilityLevel.MajorityAndPersistOnMaster,
-        }
-      )
-    })
-
-    after(async function () {
-      try {
-        await collFn().remove(testKeySd)
-      } catch (e) {
-        // nothing
-      }
-    })
-
-    it('should lookupInAnyReplica successfully', async function () {
-      var res = await collFn().lookupInAnyReplica(testKeySd, [
-        H.lib.LookupInSpec.get('baz'),
-        H.lib.LookupInSpec.get('bar'),
-        H.lib.LookupInSpec.exists('not-exists'),
-      ])
-      assert.isObject(res)
-      assert.isOk(res.cas)
-      assert.isBoolean(res.isReplica)
-      assert.isArray(res.content)
-      assert.strictEqual(res.content.length, 3)
-      assert.isNotOk(res.content[0].error)
-      assert.deepStrictEqual(res.content[0].value, 'hello')
-      assert.isNotOk(res.content[1].error)
-      assert.deepStrictEqual(res.content[1].value, 2)
-      assert.isNotOk(res.content[2].error)
-      assert.deepStrictEqual(res.content[2].value, false)
-    })
-
-    it('should lookupInAllReplicas successfully', async function () {
-      var res = await collFn().lookupInAllReplicas(testKeySd, [
-        H.lib.LookupInSpec.get('baz'),
-        H.lib.LookupInSpec.get('bar'),
-        H.lib.LookupInSpec.exists('not-exists'),
-      ])
-      assert.isArray(res)
-      let activeCount = 0
-      res.forEach((replica) => {
-        if (!replica.isReplica) {
-          activeCount++
-        }
-        assert.isOk(replica.cas)
-        assert.isArray(replica.content)
-        assert.strictEqual(replica.content.length, 3)
-        assert.isNotOk(replica.content[0].error)
-        assert.deepStrictEqual(replica.content[0].value, 'hello')
-        assert.isNotOk(replica.content[1].error)
-        assert.deepStrictEqual(replica.content[1].value, 2)
-        assert.isNotOk(replica.content[2].error)
-        assert.deepStrictEqual(replica.content[2].value, false)
-      })
-      assert.strictEqual(activeCount, 1)
-    })
-
-    it('should stream lookupInAllReplicas correctly', async function () {
-      const streamLookupInReplica = (id, specs) => {
-        return new Promise((resolve, reject) => {
-          let resultsOut = []
-          collFn()
-            .lookupInAllReplicas(id, specs)
-            .on('replica', (res) => {
-              resultsOut.push(res)
-            })
-            .on('end', () => {
-              resolve({
-                results: resultsOut,
-              })
-            })
-            .on('error', (err) => {
-              reject(err)
-            })
         })
-      }
-      const specs = [
-        H.lib.LookupInSpec.get('baz'),
-        H.lib.LookupInSpec.get('bar'),
-        H.lib.LookupInSpec.exists('not-exists'),
-      ]
-      const res = await streamLookupInReplica(testKeySd, specs)
-      assert.isArray(res.results)
-      let activeCount = 0
-      res.results.forEach((replica) => {
-        if (!replica.isReplica) {
-          activeCount++
-        }
-        assert.isOk(replica.cas)
-        assert.isArray(replica.content)
-        assert.strictEqual(replica.content.length, 3)
-        assert.isNotOk(replica.content[0].error)
-        assert.deepStrictEqual(replica.content[0].value, 'hello')
-        assert.isNotOk(replica.content[1].error)
-        assert.deepStrictEqual(replica.content[1].value, 2)
-        assert.isNotOk(replica.content[2].error)
-        assert.deepStrictEqual(replica.content[2].value, false)
       })
-      assert.strictEqual(activeCount, 1)
-    })
 
-    it('should successfully run lookupInAllReplicas with a callback', function (done) {
-      collFn().lookupInAllReplicas(
-        testKeySd,
-        [H.lib.LookupInSpec.get('baz')],
-        (err, res) => {
-          if (err) {
-            return done(err)
-          }
-          try {
-            assert.isAtLeast(res.length, 1)
-            assert.isBoolean(res[0].isReplica)
-            assert.isNotEmpty(res[0].cas)
-            assert.deepStrictEqual(res[0].content[0].value, 'hello')
-            done(null)
-          } catch (e) {
-            done(e)
-          }
+      after(async function () {
+        try {
+          await collFn().remove(testKeySdDurability)
+        } catch (e) {
+          // ignore
         }
-      )
-    })
+      })
 
-    it('should successfully run lookupInAnyReplica with a callback', function (done) {
-      collFn().lookupInAnyReplica(
-        testKeySd,
-        [H.lib.LookupInSpec.get('baz')],
-        (err, res) => {
-          if (err) {
-            return done(err)
-          }
-          try {
-            assert.isObject(res)
-            assert.isNotEmpty(res.cas)
-            assert.isBoolean(res.isReplica)
-            assert.deepStrictEqual(res.content[0].value, 'hello')
-            done(null)
-          } catch (e) {
-            done(e)
-          }
-        }
-      )
-    })
-
-    it('should doc-not-found for missing doc lookupInAllReplicas', async function () {
-      await H.throwsHelper(async () => {
-        await collFn().lookupInAllReplicas(
-          'some-document-which-does-not-exist',
-          [H.lib.LookupInSpec.get('baz')]
+      it('should mutateIn successfully w/ server durability', async function () {
+        var res = await collFn().mutateIn(
+          testKeySdDurability,
+          [
+            H.lib.MutateInSpec.increment('bar', 3),
+            H.lib.MutateInSpec.upsert('baz', 'world'),
+            H.lib.MutateInSpec.arrayAppend('arr', 4),
+            H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
+          ],
+          { durabilityLevel: DurabilityLevel.PersistToMajority }
         )
-      }, H.lib.DocumentNotFoundError)
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        validateMutationToken(res.token)
+
+        assert.isUndefined(res.content[0].error)
+        assert.strictEqual(res.content[0].value, 5)
+
+        var gres = await collFn().get(testKeySdDurability)
+        assert.isOk(gres.value)
+        assert.strictEqual(gres.value.bar, 5)
+        assert.strictEqual(gres.value.baz, 'world')
+        assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
+      })
     })
 
-    it('should doc-irretrievable for missing doc lookupInAnyReplica', async function () {
-      await H.throwsHelper(async () => {
-        await collFn().lookupInAnyReplica(
-          'some-document-which-does-not-exist',
-          [H.lib.LookupInSpec.get('baz')]
+    describe('#clientDurability', function () {
+      let testKeySdDurability
+      let numReplicas
+
+      before(async function () {
+        testKeySdDurability = H.genTestKey()
+        await collFn().insert(testKeySdDurability, {
+          foo: 14,
+          bar: 2,
+          baz: 'hello',
+          arr: [1, 2, 3],
+        })
+        H.skipIfMissingFeature(this, H.Features.BucketManagement)
+        var bmgr = H.c.buckets()
+        var res = await bmgr.getBucket(H.b.name)
+        numReplicas = res.numReplicas
+      })
+
+      after(async function () {
+        try {
+          await collFn().remove(testKeySdDurability)
+        } catch (e) {
+          // ignore
+        }
+      })
+
+      it('should mutateIn successfully w/ client durability', async function () {
+        var res = await collFn().mutateIn(
+          testKeySdDurability,
+          [
+            H.lib.MutateInSpec.increment('bar', 3),
+            H.lib.MutateInSpec.upsert('baz', 'world'),
+            H.lib.MutateInSpec.arrayAppend('arr', 4),
+            H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
+          ],
+          { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
         )
-      }, H.lib.DocumentUnretrievableError)
-    })
-  })
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        validateMutationToken(res.token)
 
-  describe('subdoc server durability', function () {
-    let testKeySd
+        assert.isUndefined(res.content[0].error)
+        assert.strictEqual(res.content[0].value, 5)
 
-    before(async function () {
-      testKeySd = H.genTestKey()
-      await collFn().insert(testKeySd, {
-        foo: 14,
-        bar: 2,
-        baz: 'hello',
-        arr: [1, 2, 3],
+        var gres = await collFn().get(testKeySdDurability)
+        assert.isOk(gres.value)
+        assert.strictEqual(gres.value.bar, 5)
+        assert.strictEqual(gres.value.baz, 'world')
+        assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
       })
-      H.skipIfMissingFeature(this, H.Features.ServerDurability)
-    })
-
-    after(async function () {
-      await collFn().remove(testKeySd)
-    })
-
-    it('should mutateIn successfully w/ server durability', async function () {
-      var res = await collFn().mutateIn(
-        testKeySd,
-        [
-          H.lib.MutateInSpec.increment('bar', 3),
-          H.lib.MutateInSpec.upsert('baz', 'world'),
-          H.lib.MutateInSpec.arrayAppend('arr', 4),
-          H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
-        ],
-        { durabilityLevel: DurabilityLevel.PersistToMajority }
-      )
-      assert.isObject(res)
-      assert.isOk(res.cas)
-      validateMutationToken(res.token)
-
-      assert.isUndefined(res.content[0].error)
-      assert.strictEqual(res.content[0].value, 5)
-
-      var gres = await collFn().get(testKeySd)
-      assert.isOk(gres.value)
-      assert.strictEqual(gres.value.bar, 5)
-      assert.strictEqual(gres.value.baz, 'world')
-      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
-    })
-  })
-
-  describe('subdoc clientDurability', function () {
-    let testKeySd
-    let numReplicas
-
-    before(async function () {
-      testKeySd = H.genTestKey()
-      await collFn().insert(testKeySd, {
-        foo: 14,
-        bar: 2,
-        baz: 'hello',
-        arr: [1, 2, 3],
-      })
-      H.skipIfMissingFeature(this, H.Features.BucketManagement)
-      var bmgr = H.c.buckets()
-      var res = await bmgr.getBucket(H.b.name)
-      numReplicas = res.numReplicas
-    })
-
-    after(async function () {
-      await collFn().remove(testKeySd)
-    })
-
-    it('should mutateIn successfully w/ client durability', async function () {
-      var res = await collFn().mutateIn(
-        testKeySd,
-        [
-          H.lib.MutateInSpec.increment('bar', 3),
-          H.lib.MutateInSpec.upsert('baz', 'world'),
-          H.lib.MutateInSpec.arrayAppend('arr', 4),
-          H.lib.MutateInSpec.arrayAppend('arr', [5, 6], { multi: true }),
-        ],
-        { durabilityPersistTo: 1, durabilityReplicateTo: numReplicas }
-      )
-      assert.isObject(res)
-      assert.isOk(res.cas)
-      validateMutationToken(res.token)
-
-      assert.isUndefined(res.content[0].error)
-      assert.strictEqual(res.content[0].value, 5)
-
-      var gres = await collFn().get(testKeySd)
-      assert.isOk(gres.value)
-      assert.strictEqual(gres.value.bar, 5)
-      assert.strictEqual(gres.value.baz, 'world')
-      assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
     })
   })
 

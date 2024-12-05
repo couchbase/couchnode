@@ -12,6 +12,14 @@ function genericTests(collFn) {
       testKeyLst = H.genTestKey()
     })
 
+    after(async function () {
+      try {
+        await collFn().remove(testKeyLst)
+      } catch (e) {
+        // nothing
+      }
+    })
+
     it('should successfully get a list reference', async function () {
       listObj = collFn().list(testKeyLst)
     })
@@ -109,6 +117,14 @@ function genericTests(collFn) {
 
     before(function () {
       testKeyMap = H.genTestKey()
+    })
+
+    after(async function () {
+      try {
+        await collFn().remove(testKeyMap)
+      } catch (e) {
+        // nothing
+      }
     })
 
     it('should successfully get a map reference', async function () {
@@ -218,6 +234,14 @@ function genericTests(collFn) {
       testKeyQue = H.genTestKey()
     })
 
+    after(async function () {
+      try {
+        await collFn().remove(testKeyQue)
+      } catch (e) {
+        // nothing
+      }
+    })
+
     it('should successfully get a queue reference', async function () {
       queueObj = collFn().queue(testKeyQue)
     })
@@ -270,6 +294,14 @@ function genericTests(collFn) {
 
     before(function () {
       testKeySet = H.genTestKey()
+    })
+
+    after(async function () {
+      try {
+        await collFn().remove(testKeySet)
+      } catch (e) {
+        // nothing
+      }
     })
 
     it('should successfully get a set reference', async function () {

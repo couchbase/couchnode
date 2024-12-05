@@ -18,6 +18,7 @@ describe('#collectionmanager', function () {
   })
 
   after(async function () {
+    this.timeout(10000)
     if (typeof testCluster !== 'undefined') {
       var bmgr = testCluster.buckets()
       /* eslint no-empty: ["error", { "allowEmptyCatch": true }] */
@@ -553,5 +554,5 @@ describe('#collectionmanager', function () {
 
     await testCluster.buckets().dropBucket(magmaTestBucket)
     await H.consistencyUtils.waitUntilBucketDropped(magmaTestBucket)
-  })
+  }).timeout(5000)
 })

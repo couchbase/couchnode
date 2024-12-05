@@ -63,6 +63,10 @@ function rangeScanTests(collFn) {
 
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.RangeScan)
+      // cleanup the bucket prior to running the tests
+      this.timeout(10000)
+      const bmgr = H.c.buckets()
+      await H.tryNTimes(3, 1000, bmgr.flushBucket.bind(bmgr), H.bucketName)
 
       testUid = H.genTestKey()
       const results = await upsertTestData(collFn(), testUid)
