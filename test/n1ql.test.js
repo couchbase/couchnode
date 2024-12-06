@@ -13,6 +13,7 @@ describe('N1QL', function () {
   describe('#query - cluster level', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Query)
+      this.timeout(60000)
 
       testUid = H.genTestKey()
       idxName = H.genTestKey()
@@ -21,13 +22,35 @@ describe('N1QL', function () {
         deferredIndexes.push(H.genTestKey())
       }
 
-      testDocs = await testdata.upsertData(H.dco, testUid)
+      // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+      await H.tryNTimes(3, 1000, async () => {
+        try {
+          // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+          const result = await testdata.upsertData(H.dco, testUid)
+          if (!result.every((r) => r.status === 'fulfilled')) {
+            throw new Error('Failed to upsert all test data')
+          }
+          testDocs = result.map((r) => r.value)
+        } catch (err) {
+          await testdata.removeTestData(H.dco, testDocs)
+          throw err
+        }
+      })
     })
 
     after(async function () {
-      await testdata.removeTestData(H.dco, testDocs)
+      this.timeout(5000)
+      try {
+        await testdata.removeTestData(H.dco, testDocs)
+      } catch (e) {
+        // ignore
+      }
       for (let i = 0; i < deferredIndexes.length; i++) {
-        await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
+        try {
+          await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
+        } catch (e) {
+          // ignore
+        }
       }
     })
 
@@ -322,6 +345,7 @@ describe('N1QL', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Collections)
       H.skipIfMissingFeature(this, H.Features.Query)
+      this.timeout(60000)
 
       testUid = H.genTestKey()
       idxName = H.genTestKey()
@@ -330,20 +354,38 @@ describe('N1QL', function () {
         deferredIndexes.push(H.genTestKey())
       }
 
-      testDocs = await testdata.upsertData(H.co, testUid)
+      // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+      await H.tryNTimes(3, 1000, async () => {
+        try {
+          // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+          const result = await testdata.upsertData(H.co, testUid)
+          if (!result.every((r) => r.status === 'fulfilled')) {
+            throw new Error('Failed to upsert all test data')
+          }
+          testDocs = result.map((r) => r.value)
+        } catch (err) {
+          await testdata.removeTestData(H.co, testDocs)
+          throw err
+        }
+      })
     })
 
     after(async function () {
+      this.timeout(5000)
       try {
         await testdata.removeTestData(H.co, testDocs)
-        for (let i = 0; i < deferredIndexes.length; i++) {
+      } catch (e) {
+        // ignore
+      }
+      for (let i = 0; i < deferredIndexes.length; i++) {
+        try {
           await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i], {
             collectionName: H.co.name,
             scopeName: H.s.name,
           })
+        } catch (e) {
+          // ignore
         }
-      } catch (e) {
-        // Do nothing
       }
     })
 
@@ -690,6 +732,7 @@ function genericTests(collFn) {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Query)
       H.skipIfMissingFeature(this, H.Features.Collections)
+      this.timeout(60000)
 
       testUid = H.genTestKey()
       idxName = H.genTestKey()
@@ -698,13 +741,36 @@ function genericTests(collFn) {
         deferredIndexes.push(H.genTestKey())
       }
 
-      testDocs = await testdata.upsertData(collFn(), testUid)
+      // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+      await H.tryNTimes(3, 1000, async () => {
+        try {
+          // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+          const result = await testdata.upsertData(collFn(), testUid)
+          if (!result.every((r) => r.status === 'fulfilled')) {
+            throw new Error('Failed to upsert all test data')
+          }
+          testDocs = result.map((r) => r.value)
+        } catch (err) {
+          await testdata.removeTestData(collFn(), testDocs)
+          throw err
+        }
+      })
     })
 
     after(async function () {
-      await testdata.removeTestData(collFn(), testDocs)
+      this.timeout(5000)
+      try {
+        await testdata.removeTestData(collFn(), testDocs)
+      } catch (e) {
+        // ignore
+      }
+
       for (let i = 0; i < deferredIndexes.length; i++) {
-        await collFn().queryIndexes().dropIndex(deferredIndexes[i])
+        try {
+          await collFn().queryIndexes().dropIndex(deferredIndexes[i])
+        } catch (e) {
+          // ignore
+        }
       }
     })
 

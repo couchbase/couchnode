@@ -11,17 +11,35 @@ describe('#analytics', function () {
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Analytics)
+    this.timeout(60000)
 
     testUid = H.genTestKey()
     dvName = H.genTestKey()
     dsName = H.genTestKey()
     idxName = H.genTestKey()
 
-    testDocs = await testdata.upsertData(H.dco, testUid)
+    // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+    await H.tryNTimes(3, 1000, async () => {
+      try {
+        // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+        const result = await testdata.upsertData(H.dco, testUid)
+        if(!result.every((r) => r.status === 'fulfilled')) {
+          throw new Error('Failed to upsert all test data')
+        }
+        testDocs = result.map((r) => r.value)
+      } catch (err) {
+        await testdata.removeTestData(H.dco, testDocs)
+        throw err
+      }
+    })
   })
 
   after(async function () {
-    await testdata.removeTestData(H.dco, testDocs)
+    try {
+      await testdata.removeTestData(H.dco, testDocs)
+    } catch (e) {
+      // ignore
+    }
   })
 
   it('should successfully create a dataverse', async function () {

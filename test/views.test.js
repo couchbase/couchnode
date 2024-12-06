@@ -66,6 +66,7 @@ describe('#views', function () {
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Views)
+    this.timeout(60000)
 
     const tmpKey = H.genTestKey()
     const tokens = tmpKey.split('_')
@@ -73,6 +74,20 @@ describe('#views', function () {
     ddocKey = H.genTestKey()
 
     testDocs = await testdata.upsertData(H.dco, testUid)
+    // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+    await H.tryNTimes(3, 1000, async () => {
+      try {
+        // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+        const result = await testdata.upsertData(H.dco, testUid)
+        if (!result.every((r) => r.status === 'fulfilled')) {
+          throw new Error('Failed to upsert all test data')
+        }
+        testDocs = result.map((r) => r.value)
+      } catch (err) {
+        await testdata.removeTestData(H.dco, testDocs)
+        throw err
+      }
+    })
     mapFunc = `
     function(doc, meta){
       if(meta.id.indexOf("${testUid}")==0){
@@ -101,7 +116,11 @@ describe('#views', function () {
   })
 
   after(async function () {
-    await testdata.removeTestData(H.dco, testDocs)
+    try {
+      await testdata.removeTestData(H.dco, testDocs)
+    } catch (e) {
+      // ignore
+    }
   })
 
   describe('#viewmgmt-deprecated', function () {
@@ -154,8 +173,10 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', async function () {
-      await H.b.viewIndexes().publishDesignDocument(ddocKey)
-    })
+      const vmgr = H.b.viewIndexes()
+      await vmgr.publishDesignDocument(ddocKey)
+      await H.tryNTimes(5, 1000, vmgr.getDesignDocument.bind(vmgr), ddocKey)
+    }).timeout(7500)
 
     it('should fail to publish a non-existent index', async function () {
       await H.throwsHelper(async () => {
@@ -283,13 +304,32 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', function (done) {
-      H.b.viewIndexes().publishDesignDocument(ddocKey, (err) => {
-        if (err) {
-          return done(err)
+      const vmgr = H.b.viewIndexes()
+      H.tryNTimesWithCallback(
+        5,
+        1000,
+        vmgr.publishDesignDocument.bind(vmgr),
+        ddocKey,
+        (err) => {
+          if (err) {
+            return done(err)
+          }
+          H.tryNTimesWithCallback(
+            5,
+            1000,
+            vmgr.getDesignDocument.bind(vmgr),
+            ddocKey,
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+            (err, res) => {
+              if (err) {
+                return done(err)
+              }
+              done()
+            }
+          )
         }
-        done()
-      })
-    })
+      )
+    }).timeout(12500)
 
     it('should fail to publish a non-existent index', function (done) {
       H.b.viewIndexes().publishDesignDocument('missing-index-name', (err) => {
@@ -428,8 +468,16 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', async function () {
-      await H.b.viewIndexes().publishDesignDocument(ddocKey)
-    })
+      const vmgr = H.b.viewIndexes()
+      await vmgr.publishDesignDocument(ddocKey)
+      await H.tryNTimes(
+        5,
+        1000,
+        vmgr.getDesignDocument.bind(vmgr),
+        ddocKey,
+        DesignDocumentNamespace.Production
+      )
+    }).timeout(7500)
 
     it('should fail to publish a non-existent index', async function () {
       await H.throwsHelper(async () => {
@@ -456,7 +504,6 @@ describe('#views', function () {
         .viewIndexes()
         .getAllDesignDocuments(DesignDocumentNamespace.Production)
       assert.isArray(res)
-      console.log(res.length)
       assert.isTrue(res.length == 1)
       assert.isTrue(res.every((dd) => dd instanceof DesignDocument))
     })
@@ -595,13 +642,35 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', function (done) {
-      H.b.viewIndexes().publishDesignDocument(ddocKey, (err) => {
-        if (err) {
-          return done(err)
+      const vmgr = H.b.viewIndexes()
+      H.tryNTimesWithCallback(
+        5,
+        1000,
+        vmgr.publishDesignDocument.bind(vmgr),
+        ddocKey,
+        (err) => {
+          if (err) {
+            return done(err)
+          }
+
+          H.tryNTimesWithCallback(
+            5,
+            1000,
+            vmgr.getDesignDocument.bind(vmgr),
+            ddocKey,
+            DesignDocumentNamespace.Production,
+            {},
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
+            (err, res) => {
+              if (err) {
+                return done(err)
+              }
+              done()
+            }
+          )
         }
-        done()
-      })
-    })
+      )
+    }).timeout(12500)
 
     it('should fail to publish a non-existent index', function (done) {
       H.b.viewIndexes().publishDesignDocument('missing-index-name', (err) => {

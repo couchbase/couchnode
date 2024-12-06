@@ -463,6 +463,27 @@ class Harness {
     }
   }
 
+  tryNTimesWithCallback(n, delay, fn, ...args) {
+    const cb = args.pop()
+    fn(...args, (err, res) => {
+      if (err) {
+        if (n <= 0) {
+          return cb(err, res)
+        }
+        return setTimeout(
+          this.tryNTimesWithCallback.bind(this),
+          delay,
+          n - 1,
+          delay,
+          fn,
+          ...args,
+          cb
+        )
+      }
+      cb(err, res)
+    })
+  }
+
   get lib() {
     return couchbase
   }

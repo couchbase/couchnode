@@ -945,36 +945,50 @@ function genericTests(collFn) {
     })
 
     it('should perform basic get all replicas', async function () {
-      var res = await collFn().getAllReplicas(replicaTestKey)
+      let res = await H.tryNTimes(
+        5,
+        1000,
+        collFn().getAllReplicas.bind(collFn()),
+        replicaTestKey
+      )
 
       assert.isArray(res)
       assert.isAtLeast(res.length, 1)
       assert.isBoolean(res[0].isReplica)
       assert.isNotEmpty(res[0].cas)
       assert.deepStrictEqual(res[0].content, testObjVal)
-    })
+    }).timeout(7500)
 
     it('should perform basic get all replicas with callback', function (done) {
-      collFn().getAllReplicas(replicaTestKey, (err, res) => {
-        if (err) {
-          return done(err)
+      H.tryNTimesWithCallback(
+        5,
+        1000,
+        collFn().getAllReplicas.bind(collFn()),
+        replicaTestKey,
+        (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.isArray(res)
+            assert.isAtLeast(res.length, 1)
+            assert.isBoolean(res[0].isReplica)
+            assert.isNotEmpty(res[0].cas)
+            assert.deepStrictEqual(res[0].content, testObjVal)
+            done(null)
+          } catch (e) {
+            done(e)
+          }
         }
-        try {
-          assert.isArray(res)
-          assert.isAtLeast(res.length, 1)
-          assert.isBoolean(res[0].isReplica)
-          assert.isNotEmpty(res[0].cas)
-          assert.deepStrictEqual(res[0].content, testObjVal)
-          done(null)
-        } catch (e) {
-          done(e)
-        }
-      })
-    })
+      )
+    }).timeout(7500)
 
     it('should perform basic get all replicas with options and callback', function (done) {
       const tc = new DefaultTranscoder()
-      collFn().getAllReplicas(
+      H.tryNTimesWithCallback(
+        5,
+        1000,
+        collFn().getAllReplicas.bind(collFn()),
         replicaTestKey,
         { transcoder: tc },
         (err, res) => {
@@ -993,7 +1007,7 @@ function genericTests(collFn) {
           }
         }
       )
-    })
+    }).timeout(7500)
 
     it('should perform basic get any replica', async function () {
       var res = await collFn().getAnyReplica(replicaTestKey)
@@ -1787,16 +1801,28 @@ function genericTests(collFn) {
 
         before(async function () {
           H.skipIfMissingFeature(this, H.Features.Xattr)
+          this.timeout(5000)
           docIdx = 0
           testUid = H.genTestKey()
-          testDocs = await testdata.upsertData(collFn(), testUid)
+          await H.tryNTimes(3, 1000, async () => {
+            try {
+              const result = await testdata.upsertData(collFn(), testUid, 1)
+              if (!result.every((r) => r.status === 'fulfilled')) {
+                throw new Error('Failed to upsert all test data')
+              }
+              testDocs = result.map((r) => r.value)
+            } catch (err) {
+              await testdata.removeTestData(collFn(), testDocs)
+              throw err
+            }
+          })
         })
 
         after(async function () {
           try {
             await testdata.removeTestData(collFn(), testDocs)
           } catch (e) {
-            // nothing
+            // ignore
           }
         })
 

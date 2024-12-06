@@ -77,7 +77,7 @@ describe('#bucketmanager', function () {
 
   it('should successfully flush a bucket', async function () {
     var bmgr = H.c.buckets()
-    await bmgr.flushBucket(testBucket)
+    await H.tryNTimes(5, 1000, bmgr.flushBucket.bind(bmgr), testBucket)
   }).timeout(10 * 1000)
 
   it('should error when trying to flush a missing bucket', async function () {

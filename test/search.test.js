@@ -18,11 +18,25 @@ function genericTests(connFn, collFn) {
   /* eslint-disable-next-line mocha/no-top-level-hooks */
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Search)
+    this.timeout(60000)
 
     testUid = H.genTestKey()
     idxName = 's_' + H.genTestKey() // prefix with a letter
 
-    testDocs = await testdata.upsertData(collFn(), testUid)
+    // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
+    await H.tryNTimes(3, 1000, async () => {
+      try {
+        // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
+        const result = await testdata.upsertData(collFn(), testUid)
+        if (!result.every((r) => r.status === 'fulfilled')) {
+          throw new Error('Failed to upsert all test data')
+        }
+        testDocs = result.map((r) => r.value)
+      } catch (err) {
+        await testdata.removeTestData(H.dco, testDocs)
+        throw err
+      }
+    })
     const indexPath = path.join(
       process.cwd(),
       'test',
@@ -39,7 +53,11 @@ function genericTests(connFn, collFn) {
 
   /* eslint-disable-next-line mocha/no-top-level-hooks */
   after(async function () {
-    await testdata.removeTestData(collFn(), testDocs)
+    try {
+      await testdata.removeTestData(collFn(), testDocs)
+    } catch (e) {
+      // ignore
+    }
   })
 
   it('should successfully create an index', async function () {
@@ -228,6 +246,7 @@ describe('#vectorsearch', function () {
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.VectorSearch)
+    this.timeout(7500)
 
     testUid = H.genTestKey()
     idxName = 'vs_' + H.genTestKey() // prefix with a letter
@@ -242,7 +261,23 @@ describe('#vectorsearch', function () {
       .readFileSync(testVectorSearchDocsPath, 'utf8')
       .split('\n')
       .map((l) => JSON.parse(l))
-    testDocs = await testdata.upserDataFromList(H.dco, testUid, testVectorDocs)
+
+    await H.tryNTimes(3, 1000, async () => {
+      try {
+        const result = await testdata.upserDataFromList(
+          H.dco,
+          testUid,
+          testVectorDocs
+        )
+        if (!result.every((r) => r.status === 'fulfilled')) {
+          throw new Error('Failed to upsert all test data')
+        }
+        testDocs = result.map((r) => r.value)
+      } catch (err) {
+        await testdata.removeTestData(H.dco, testDocs)
+        throw err
+      }
+    })
 
     const testVectorPath = path.join(
       process.cwd(),
@@ -267,7 +302,11 @@ describe('#vectorsearch', function () {
   })
 
   after(async function () {
-    await testdata.removeTestData(H.dco, testDocs)
+    try {
+      await testdata.removeTestData(H.dco, testDocs)
+    } catch (e) {
+      // ignore
+    }
   })
 
   it('should handle invalid SearchRequest', function () {

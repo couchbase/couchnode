@@ -75,7 +75,11 @@ function rangeScanTests(collFn) {
     })
 
     after(async function () {
-      await testdata.removeTestData(collFn(), testIds)
+      try {
+        await testdata.removeTestData(collFn(), testIds)
+      } catch (e) {
+        // ignore
+      }
     })
 
     it('should execute a range scan', async function () {
@@ -228,7 +232,8 @@ function rangeScanTests(collFn) {
           validateResults(res, expected)
         }
 
-      it('should execute RangeScan with batchByteLimit=0',
+      it(
+        'should execute RangeScan with batchByteLimit=0',
         testBatchByteLimit({
           scanType: new RangeScan(),
           limit: 0,
@@ -236,7 +241,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchByteLimit=1',
+      it(
+        'should execute RangeScan with batchByteLimit=1',
         testBatchByteLimit({
           scanType: new RangeScan(),
           limit: 1,
@@ -244,7 +250,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchByteLimit=25',
+      it(
+        'should execute RangeScan with batchByteLimit=25',
         testBatchByteLimit({
           scanType: new RangeScan(),
           limit: 25,
@@ -252,7 +259,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchByteLimit=100',
+      it(
+        'should execute RangeScan with batchByteLimit=100',
         testBatchByteLimit({
           scanType: new RangeScan(),
           limit: 100,
@@ -260,7 +268,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchByteLimit=0',
+      it(
+        'should execute PrefixScan with batchByteLimit=0',
         testBatchByteLimit({
           scanType: new PrefixScan(testUid),
           limit: 0,
@@ -268,7 +277,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchByteLimit=1',
+      it(
+        'should execute PrefixScan with batchByteLimit=1',
         testBatchByteLimit({
           scanType: new PrefixScan(testUid),
           limit: 1,
@@ -276,7 +286,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchByteLimit=25',
+      it(
+        'should execute PrefixScan with batchByteLimit=25',
         testBatchByteLimit({
           scanType: new PrefixScan(testUid),
           limit: 25,
@@ -284,7 +295,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchByteLimit=100',
+      it(
+        'should execute PrefixScan with batchByteLimit=100',
         testBatchByteLimit({
           scanType: new PrefixScan(testUid),
           limit: 100,
@@ -292,7 +304,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchByteLimit=0',
+      it(
+        'should execute SamplingScan with batchByteLimit=0',
         testBatchByteLimit({
           scanType: new SamplingScan(10, 50),
           limit: 0,
@@ -300,7 +313,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchByteLimit=1',
+      it(
+        'should execute SamplingScan with batchByteLimit=1',
         testBatchByteLimit({
           scanType: new SamplingScan(10, 50),
           limit: 1,
@@ -308,7 +322,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchByteLimit=25',
+      it(
+        'should execute SamplingScan with batchByteLimit=25',
         testBatchByteLimit({
           scanType: new SamplingScan(10, 50),
           limit: 25,
@@ -316,7 +331,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchByteLimit=100',
+      it(
+        'should execute SamplingScan with batchByteLimit=100',
         testBatchByteLimit({
           scanType: new SamplingScan(10, 50),
           limit: 100,
@@ -334,7 +350,8 @@ function rangeScanTests(collFn) {
           validateResults(res, expected)
         }
 
-      it('should execute RangeScan with batchItemLimit=0',
+      it(
+        'should execute RangeScan with batchItemLimit=0',
         testBatchItemLimit({
           scanType: new RangeScan(),
           limit: 0,
@@ -342,7 +359,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchItemLimit=10',
+      it(
+        'should execute RangeScan with batchItemLimit=10',
         testBatchItemLimit({
           scanType: new RangeScan(),
           limit: 10,
@@ -350,7 +368,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchItemLimit=25',
+      it(
+        'should execute RangeScan with batchItemLimit=25',
         testBatchItemLimit({
           scanType: new RangeScan(),
           limit: 25,
@@ -358,7 +377,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute RangeScan with batchItemLimit=100',
+      it(
+        'should execute RangeScan with batchItemLimit=100',
         testBatchItemLimit({
           scanType: new RangeScan(),
           limit: 100,
@@ -366,7 +386,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchItemLimit=0',
+      it(
+        'should execute PrefixScan with batchItemLimit=0',
         testBatchItemLimit({
           scanType: new PrefixScan(testUid),
           limit: 0,
@@ -374,7 +395,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchItemLimit=10',
+      it(
+        'should execute PrefixScan with batchItemLimit=10',
         testBatchItemLimit({
           scanType: new PrefixScan(testUid),
           limit: 10,
@@ -382,7 +404,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchItemLimit=25',
+      it(
+        'should execute PrefixScan with batchItemLimit=25',
         testBatchItemLimit({
           scanType: new PrefixScan(testUid),
           limit: 25,
@@ -390,7 +413,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute PrefixScan with batchItemLimit=100',
+      it(
+        'should execute PrefixScan with batchItemLimit=100',
         testBatchItemLimit({
           scanType: new PrefixScan(testUid),
           limit: 100,
@@ -398,7 +422,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchItemLimit=0',
+      it(
+        'should execute SamplingScan with batchItemLimit=0',
         testBatchItemLimit({
           scanType: new SamplingScan(10, 50),
           limit: 0,
@@ -406,7 +431,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchItemLimit=10',
+      it(
+        'should execute SamplingScan with batchItemLimit=10',
         testBatchItemLimit({
           scanType: new SamplingScan(10, 50),
           limit: 10,
@@ -414,7 +440,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchItemLimit=25',
+      it(
+        'should execute SamplingScan with batchItemLimit=25',
         testBatchItemLimit({
           scanType: new SamplingScan(10, 50),
           limit: 25,
@@ -422,7 +449,8 @@ function rangeScanTests(collFn) {
         })
       )
 
-      it('should execute SamplingScan with batchItemLimit=100',
+      it(
+        'should execute SamplingScan with batchItemLimit=100',
         testBatchItemLimit({
           scanType: new SamplingScan(10, 50),
           limit: 100,
@@ -447,27 +475,33 @@ function rangeScanTests(collFn) {
           validateResults(res, 12)
         }
 
-      it('should execute RangeScan with concurrency=1',
+      it(
+        'should execute RangeScan with concurrency=1',
         testConcurrency({ concurrency: 1 })
       )
 
-      it('should execute RangeScan with concurrency=2',
+      it(
+        'should execute RangeScan with concurrency=2',
         testConcurrency({ concurrency: 2 })
       )
 
-      it('should execute RangeScan with concurrency=4',
+      it(
+        'should execute RangeScan with concurrency=4',
         testConcurrency({ concurrency: 4 })
       )
 
-      it('should execute RangeScan with concurrency=16',
+      it(
+        'should execute RangeScan with concurrency=16',
         testConcurrency({ concurrency: 16 })
       )
 
-      it('should execute RangeScan with concurrency=64',
+      it(
+        'should execute RangeScan with concurrency=64',
         testConcurrency({ concurrency: 64 })
       )
 
-      it('should execute RangeScan with concurrency=128',
+      it(
+        'should execute RangeScan with concurrency=128',
         testConcurrency({ concurrency: 128 })
       )
     })
@@ -487,11 +521,13 @@ function rangeScanTests(collFn) {
           }, H.lib.InvalidArgumentError)
         }
 
-      it('should return an invalid argument when concurrency <= 0 (concurrency=0)',
+      it(
+        'should return an invalid argument when concurrency <= 0 (concurrency=0)',
         testConcurrency({ concurrency: 0 })
       )
 
-      it('should return an invalid argument when concurrency <= 0 (concurrency=-1)',
+      it(
+        'should return an invalid argument when concurrency <= 0 (concurrency=-1)',
         testConcurrency({ concurrency: -1 })
       )
     })
@@ -505,11 +541,13 @@ function rangeScanTests(collFn) {
           }, H.lib.InvalidArgumentError)
         }
 
-      it('should return an invalid argument when SamplingScan limit <= 0 (limit=0)',
+      it(
+        'should return an invalid argument when SamplingScan limit <= 0 (limit=0)',
         testConcurrency({ limit: 0 })
       )
 
-      it('should return an invalid argument when SamplingScan limit <= 0 (limit=-10)',
+      it(
+        'should return an invalid argument when SamplingScan limit <= 0 (limit=-10)',
         testConcurrency({ limit: -10 })
       )
     })

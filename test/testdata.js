@@ -12,7 +12,11 @@ var TEST_DOCS = [
   { x: 2, y: 2, name: 'x2,y2' },
 ]
 
-async function upsertTestData(target, testUid) {
+async function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function upsertTestData(target, testUid, retries = 3) {
   var promises = []
 
   for (var i = 0; i < TEST_DOCS.length; ++i) {
@@ -22,13 +26,22 @@ async function upsertTestData(target, testUid) {
         var testDoc = TEST_DOCS[i]
         testDoc.testUid = testUid
 
-        await target.upsert(testDocKey, testDoc)
+        for (let i = 0; i < retries; ++i) {
+          try {
+            await target.upsert(testDocKey, testDoc)
+          } catch (e) {
+            if (i === retries - 1) {
+              throw e
+            }
+            await sleep(500)
+          }
+        }
         return testDocKey
       })()
     )
   }
 
-  return await Promise.all(promises)
+  return await Promise.allSettled(promises)
 }
 
 async function upsertTestDataFromList(target, testUid, docList) {
@@ -47,7 +60,7 @@ async function upsertTestDataFromList(target, testUid, docList) {
     )
   }
 
-  return await Promise.all(promises)
+  return await Promise.allSettled(promises)
 }
 
 module.exports.upsertData = upsertTestData
