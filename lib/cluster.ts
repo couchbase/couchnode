@@ -43,7 +43,7 @@ import { Transcoder, DefaultTranscoder } from './transcoders'
 import { UserManager } from './usermanager'
 import { PromiseHelper, NodeCallback } from './utilities'
 import { generateClientString } from './utilities_internal'
-
+import { inspect } from 'util'
 /**
  * Specifies the timeout options for the client.
  *
@@ -310,6 +310,24 @@ export class Cluster {
   */
   get resolveTimeout(): number | undefined {
     return this._resolveTimeout
+  }
+
+  /**
+   * @internal
+   */
+  [inspect.custom](): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _auth, ...rest } = this
+    return { ...rest, _auth: "***hidden***" }
+  }
+
+  /**
+   * @internal
+   */
+  toJSON(): Record<string, any> {
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { _auth, ...rest } = this
+    return { ...rest, _auth: "***hidden***" }
   }
 
   /**

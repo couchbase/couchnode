@@ -11,7 +11,7 @@ export interface IPasswordAuthenticator {
   username: string
 
   /**
-   * The password to autehnticate with.
+   * The password to authenticate with.
    */
   password: string
 

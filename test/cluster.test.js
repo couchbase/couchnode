@@ -150,4 +150,16 @@ describe('#Cluster', function () {
     assert.strictEqual(cluster.searchTimeout, 60000)
     assert.strictEqual(cluster.viewTimeout, 60000)
   })
+
+  it('should not expose auth info in cluster', async function () {
+    let clusterStr = JSON.stringify(H.c)
+    let cluster = JSON.parse(clusterStr)
+    assert.strictEqual(cluster._auth, '***hidden***')
+  })
+
+  it('should not expose cluster auth info in bucket', async function () {
+    let bucketStr = JSON.stringify(H.b)
+    let bucket = JSON.parse(bucketStr)
+    assert.strictEqual(bucket._cluster._auth, '***hidden***')
+  })
 })
