@@ -140,7 +140,6 @@ describe('#utilities', function () {
     })
 
     it('should wrap function and pass rejected promise result to callback', function (done) {
-      this.skip('Skip until JSCBC-1311 is fixed')
       const expected = setExpected(0, 1, 0)
       const result = resetResult()
       rejectionHandler = () => result.unhandledRejection++
@@ -192,7 +191,6 @@ describe('#utilities', function () {
     })
 
     it('should wrap function and and allow continued execution', function (done) {
-      this.skip('Skip until JSCBC-1311 is fixed')
       const expected = setExpected(1, 1, 0)
       const result = resetResult()
       rejectionHandler = () => result.unhandledRejection++
@@ -275,7 +273,6 @@ describe('#utilities', function () {
     })
 
     it('should wrapAsync function and pass rejected promise result to callback', function (done) {
-      this.skip('Skip until JSCBC-1311 is fixed')
       const expected = setExpected(0, 1, 0)
       const result = resetResult()
       rejectionHandler = () => result.unhandledRejection++
@@ -325,7 +322,6 @@ describe('#utilities', function () {
     })
 
     it('should wrapAsync function and allow continued execution', function (done) {
-      this.skip('Skip until JSCBC-1311 is fixed')
       const expected = setExpected(1, 1, 0)
       const result = resetResult()
       rejectionHandler = () => result.unhandledRejection++

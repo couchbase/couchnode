@@ -53,8 +53,10 @@ export class PromiseHelper {
     // callback specified.  We directly return the promise.
     if (callback) {
       const prom = fn()
-      prom.then((res) => callback(null, res))
-      prom.catch((err) => callback(err, null))
+      prom.then(
+        (res) => callback(null, res),
+        (err) => callback(err, null)
+      )
       return prom
     }
 
@@ -79,8 +81,10 @@ export class PromiseHelper {
     })
 
     if (callback) {
-      prom.then((res) => callback(null, res))
-      prom.catch((err) => callback(err, null))
+      prom.then(
+        (res) => callback(null, res),
+        (err) => callback(err, null)
+      )
     }
 
     return prom
