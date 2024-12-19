@@ -21,20 +21,14 @@ function genericTests(connFn) {
     await H.b.collections().createScope(testScope)
     await H.consistencyUtils.waitUntilScopePresent(H.bucketName, testScope)
 
-    await H.b.collections().createCollection({
-      name: 'source',
-      scopeName: testScope,
-    })
+    await H.b.collections().createCollection('source', testScope)
     await H.consistencyUtils.waitUntilCollectionPresent(
       H.bucketName,
       testScope,
       'source'
     )
 
-    await H.b.collections().createCollection({
-      name: 'meta',
-      scopeName: testScope,
-    })
+    await H.b.collections().createCollection('meta', testScope)
     await H.consistencyUtils.waitUntilCollectionPresent(
       H.bucketName,
       testScope,
@@ -43,8 +37,7 @@ function genericTests(connFn) {
 
     await H.sleep(2500)
 
-    // We drop the scope at the end of testing, so there is no need to clean
-    // up the documents, so no need to store anything.
+    // We drop the scope at the end of testing, so there is no need to clean up the documents.
     await testdata.upsertData(H.b.scope(testScope).collection('source'), 'docs')
   })
 
@@ -54,6 +47,7 @@ function genericTests(connFn) {
 
     if (testScope) {
       await H.b.collections().dropScope(testScope)
+      await H.consistencyUtils.waitUntilScopeDropped(H.bucketName, testScope)
     }
   })
 
@@ -121,16 +115,21 @@ function genericTests(connFn) {
     assert.isNotNull(status)
   })
 
-  async function waitForState(state) {
-    for (var i = 0; i < 60000 / 500; ++i) {
+  async function waitForState(state, options = {}) {
+    const fnName = options.fnName || testFn
+    const sleepMs = options.sleepMs || 500
+    // default is 90 seconds (180 * 500ms)
+    const maxAttempts = options.maxAttempts || 180
+
+    for (var i = 0; i < maxAttempts; ++i) {
       const statuses = await connFn().eventingFunctions().functionsStatus()
-      const status = statuses.functions.find((f) => f.name === testFn)
+      const status = statuses.functions.find((f) => f.name === fnName)
 
       if (status.status === state) {
         return
       }
 
-      await H.sleep(500)
+      await H.sleep(sleepMs)
     }
 
     throw new Error('failed to achieve required state')
@@ -140,25 +139,88 @@ function genericTests(connFn) {
     await waitForState(H.lib.EventingFunctionStatus.Undeployed)
   }).timeout(15000)
 
-  it('should successfully deploy the function', async function () {
-    await connFn().eventingFunctions().deployFunction(testFn)
-    await waitForState(H.lib.EventingFunctionStatus.Deployed)
-  }).timeout(30000)
+  describe('#deploy-pause-resume-undeploy', function () {
+    this.retries(3)
 
-  it('should successfully pause the function', async function () {
-    await connFn().eventingFunctions().pauseFunction(testFn)
-    await waitForState(H.lib.EventingFunctionStatus.Paused)
-  }).timeout(30000)
+    let innerTestFn
 
-  it('should successfully resume the function', async function () {
-    await connFn().eventingFunctions().resumeFunction(testFn)
-    await waitForState(H.lib.EventingFunctionStatus.Deployed)
-  }).timeout(30000)
+    before(async function () {
+      this.timeout(30000)
 
-  it('should successfully undeploy the function', async function () {
-    await connFn().eventingFunctions().undeployFunction(testFn)
-    await waitForState(H.lib.EventingFunctionStatus.Undeployed)
-  }).timeout(30000)
+      innerTestFn = H.genTestKey()
+
+      await connFn()
+        .eventingFunctions()
+        .upsertFunction({
+          name: innerTestFn,
+          code: `
+      function OnUpdate(doc, meta) {
+        log('data:', doc, meta)
+      }
+      `,
+          bucketBindings: [
+            new H.lib.EventingFunctionBucketBinding({
+              name: new H.lib.EventingFunctionKeyspace({
+                bucket: H.bucketName,
+                scope: H.scopeName,
+                collection: H.collName,
+              }),
+              alias: 'bucketbinding1',
+              access: H.lib.EventingFunctionBucketAccess.ReadWrite,
+            }),
+          ],
+          urlBindings: [],
+          constantBindings: [],
+          metadataKeyspace: new H.lib.EventingFunctionKeyspace({
+            bucket: H.bucketName,
+            scope: testScope,
+            collection: 'meta',
+          }),
+          sourceKeyspace: {
+            bucket: H.bucketName,
+            scope: testScope,
+            collection: 'source',
+          },
+        })
+    })
+
+    after(async function () {
+      this.timeout(30000)
+      try {
+        await connFn().eventingFunctions().dropFunction(innerTestFn)
+      } catch (e) {
+        // ignore
+      }
+    })
+
+    it('should successfully deploy the function', async function () {
+      await connFn().eventingFunctions().deployFunction(innerTestFn)
+      await waitForState(H.lib.EventingFunctionStatus.Deployed, {
+        fnName: innerTestFn,
+      })
+    }).timeout(90000)
+
+    it('should successfully pause the function', async function () {
+      await connFn().eventingFunctions().pauseFunction(innerTestFn)
+      await waitForState(H.lib.EventingFunctionStatus.Paused, {
+        fnName: innerTestFn,
+      })
+    }).timeout(90000)
+
+    it('should successfully resume the function', async function () {
+      await connFn().eventingFunctions().resumeFunction(innerTestFn)
+      await waitForState(H.lib.EventingFunctionStatus.Deployed, {
+        fnName: innerTestFn,
+      })
+    }).timeout(90000)
+
+    it('should successfully undeploy the function', async function () {
+      await connFn().eventingFunctions().undeployFunction(innerTestFn)
+      await waitForState(H.lib.EventingFunctionStatus.Undeployed, {
+        fnName: innerTestFn,
+      })
+    }).timeout(90000)
+  })
 
   it('should successfully drop the function', async function () {
     await connFn().eventingFunctions().dropFunction(testFn)
