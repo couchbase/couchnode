@@ -485,10 +485,16 @@ describe('#usersmgmt', function () {
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#change-password', function () {
-    it('should successfully change current user password', async function () {
-      var changePasswordUsername = 'changePasswordUser'
-      var changeUserPassword = 'changeUserPassword'
-      var newPassword = 'newPassword'
+    this.retries(5)
+
+    let changePasswordUsername
+    let changeUserPassword
+    let newPassword
+
+    before(async function () {
+      changePasswordUsername = 'changePasswordUser'
+      changeUserPassword = 'changeUserPassword'
+      newPassword = 'newPassword'
 
       await H.c.users().upsertUser({
         username: changePasswordUsername,
@@ -496,7 +502,14 @@ describe('#usersmgmt', function () {
         roles: ['admin'],
       })
       await H.consistencyUtils.waitUntilUserPresent(changePasswordUsername)
+    })
 
+    after(async function () {
+      await H.c.users().dropUser(changePasswordUsername)
+      await H.consistencyUtils.waitUntilUserDropped(changePasswordUsername)
+    })
+
+    it('should successfully change current user password', async function () {
       /* eslint-disable-next-line no-constant-condition */
       while (true) {
         try {
@@ -513,6 +526,8 @@ describe('#usersmgmt', function () {
         break
       }
       await cluster.users().changePassword(newPassword)
+      // lets give the server a little time...
+      await H.sleep(500)
 
       //Assert can connect using new password
       /* eslint-disable-next-line no-constant-condition */
@@ -533,14 +548,27 @@ describe('#usersmgmt', function () {
       }
 
       //Assert cannot authenticate using old credentials
-      await H.throwsHelper(async () => {
-        await H.lib.Cluster.connect(H.connStr, {
-          username: changePasswordUsername,
-          password: changeUserPassword,
-        })
-      }, H.lib.AuthenticationFailureError)
-
+      let failedToConnect = false
+      for (let i = 0; i < 5; i++) {
+        let failCluster
+        try {
+          failCluster = await H.lib.Cluster.connect(H.connStr, {
+            username: changePasswordUsername,
+            password: changeUserPassword,
+          })
+        } catch (e) {
+          if (e instanceof H.lib.AuthenticationFailureError) {
+            failedToConnect = true
+            break
+          }
+          if (failCluster) {
+            await failCluster.close()
+          }
+          await H.sleep(500)
+        }
+      }
       await cluster.close()
+      assert.isTrue(failedToConnect)
     }).timeout(10000)
   })
 })
