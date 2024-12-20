@@ -8,7 +8,6 @@ const H = require('./harness')
 describe('N1QL', function () {
   let testUid, idxName, sidxName
   let testDocs
-  let deferredIndexes = []
 
   describe('#query - cluster level', function () {
     before(async function () {
@@ -18,9 +17,6 @@ describe('N1QL', function () {
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
-      for (let i = 0; i < 3; i++) {
-        deferredIndexes.push(H.genTestKey())
-      }
 
       // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
       await H.tryNTimes(3, 1000, async () => {
@@ -44,13 +40,6 @@ describe('N1QL', function () {
         await testdata.removeTestData(H.dco, testDocs)
       } catch (e) {
         // ignore
-      }
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        try {
-          await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
-        } catch (e) {
-          // ignore
-        }
       }
     })
 
@@ -301,30 +290,8 @@ describe('N1QL', function () {
     it('should fail to drop a missing secondary index', async function () {
       await H.throwsHelper(async () => {
         await H.c.queryIndexes().dropIndex(H.b.name, sidxName)
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
     })
-
-    it('should build deferred indexes', async function () {
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        await H.c
-          .queryIndexes()
-          .createIndex(H.b.name, deferredIndexes[i], ['name'], {
-            deferred: true,
-          })
-      }
-
-      var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name)
-      var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
-      assert.lengthOf(filteredIdxs, deferredIndexes.length)
-
-      await H.c.queryIndexes().buildDeferredIndexes(H.b.name)
-
-      await H.c.queryIndexes().watchIndexes(
-        H.b.name,
-        filteredIdxs.map((f) => f.name),
-        6000
-      )
-    }).timeout(60000)
 
     it('should successfully drop a primary index', async function () {
       await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
@@ -337,7 +304,54 @@ describe('N1QL', function () {
         await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
           name: idxName,
         })
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
+    })
+
+    describe('#deferred', function () {
+      this.retries(3)
+
+      const numDeferredIndexes = 3
+      let deferredIndexes = []
+      let filteredIdexes = []
+
+      before(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < numDeferredIndexes; i++) {
+          idxName = H.genTestKey()
+          deferredIndexes.push(idxName)
+          await H.c.queryIndexes().createIndex(H.b.name, idxName, ['name'], {
+            deferred: true,
+          })
+        }
+        var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name)
+        filteredIdexes = idxs.filter((idx) => idx.state === 'deferred')
+      })
+
+      after(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < deferredIndexes.length; i++) {
+          try {
+            await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
+          } catch (e) {
+            // ignore
+          }
+        }
+      })
+
+      it('should build deferred indexes', async function () {
+        const imgr = H.c.queryIndexes()
+        await imgr.buildDeferredIndexes(H.b.name)
+        await H.tryNTimes(
+          5,
+          2000,
+          imgr.watchIndexes.bind(imgr),
+          H.b.name,
+          filteredIdexes.map((f) => f.name),
+          6000
+        )
+      }).timeout(60000)
     })
   })
 
@@ -350,9 +364,6 @@ describe('N1QL', function () {
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
-      for (let i = 0; i < 3; i++) {
-        deferredIndexes.push(H.genTestKey())
-      }
 
       // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
       await H.tryNTimes(3, 1000, async () => {
@@ -376,16 +387,6 @@ describe('N1QL', function () {
         await testdata.removeTestData(H.co, testDocs)
       } catch (e) {
         // ignore
-      }
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        try {
-          await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i], {
-            collectionName: H.co.name,
-            scopeName: H.s.name,
-          })
-        } catch (e) {
-          // ignore
-        }
       }
     })
 
@@ -667,42 +668,8 @@ describe('N1QL', function () {
           collectionName: H.co.name,
           scopeName: H.s.name,
         })
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
     })
-
-    it('should build deferred indexes', async function () {
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        await H.c
-          .queryIndexes()
-          .createIndex(H.b.name, deferredIndexes[i], ['name'], {
-            deferred: true,
-            collectionName: H.co.name,
-            scopeName: H.s.name,
-          })
-      }
-
-      var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name, {
-        collectionName: H.co.name,
-        scopeName: H.s.name,
-      })
-      var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
-      assert.lengthOf(filteredIdxs, deferredIndexes.length)
-
-      await H.c.queryIndexes().buildDeferredIndexes(H.b.name, {
-        collectionName: H.co.name,
-        scopeName: H.s.name,
-      })
-
-      await H.c.queryIndexes().watchIndexes(
-        H.b.name,
-        filteredIdxs.map((f) => f.name),
-        6000,
-        {
-          collectionName: H.co.name,
-          scopeName: H.s.name,
-        }
-      )
-    }).timeout(60000)
 
     it('should successfully drop a primary index', async function () {
       await H.c.queryIndexes().dropPrimaryIndex(H.b.name, {
@@ -719,7 +686,70 @@ describe('N1QL', function () {
           collectionName: H.co.name,
           scopeName: H.s.name,
         })
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
+    })
+
+    describe('#deferred', function () {
+      this.retries(3)
+
+      const numDeferredIndexes = 3
+      let deferredIndexes = []
+      let filteredIdexes = []
+
+      before(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < numDeferredIndexes; i++) {
+          idxName = H.genTestKey()
+          deferredIndexes.push(idxName)
+          await H.c.queryIndexes().createIndex(H.b.name, idxName, ['name'], {
+            collectionName: H.co.name,
+            scopeName: H.s.name,
+            deferred: true,
+          })
+        }
+        var idxs = await H.c.queryIndexes().getAllIndexes(H.b.name, {
+          collectionName: H.co.name,
+          scopeName: H.s.name,
+        })
+        filteredIdexes = idxs.filter((idx) => idx.state === 'deferred')
+      })
+
+      after(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < deferredIndexes.length; i++) {
+          try {
+            await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i], {
+              collectionName: H.co.name,
+              scopeName: H.s.name,
+            })
+          } catch (e) {
+            // ignore
+          }
+        }
+      })
+
+      it('should build deferred indexes', async function () {
+        const imgr = H.c.queryIndexes()
+        await imgr.buildDeferredIndexes(H.b.name, {
+          collectionName: H.co.name,
+          scopeName: H.s.name,
+        })
+        const opts = {
+          collectionName: H.co.name,
+          scopeName: H.s.name,
+        }
+        await H.tryNTimes(
+          5,
+          2000,
+          imgr.watchIndexes.bind(imgr),
+          H.b.name,
+          filteredIdexes.map((f) => f.name),
+          6000,
+          opts
+        )
+      }).timeout(60000)
     })
   })
 })
@@ -727,8 +757,8 @@ describe('N1QL', function () {
 function genericTests(collFn) {
   let testUid, idxName, sidxName
   let testDocs
-  let deferredIndexes = []
-  describe('#QueryIndexManagement', function () {
+
+  describe('#CollectionQueryIndexManagement', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Query)
       H.skipIfMissingFeature(this, H.Features.Collections)
@@ -737,9 +767,6 @@ function genericTests(collFn) {
       testUid = H.genTestKey()
       idxName = H.genTestKey()
       sidxName = H.genTestKey()
-      for (let i = 0; i < 3; i++) {
-        deferredIndexes.push(H.genTestKey())
-      }
 
       // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
       await H.tryNTimes(3, 1000, async () => {
@@ -763,14 +790,6 @@ function genericTests(collFn) {
         await testdata.removeTestData(collFn(), testDocs)
       } catch (e) {
         // ignore
-      }
-
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        try {
-          await collFn().queryIndexes().dropIndex(deferredIndexes[i])
-        } catch (e) {
-          // ignore
-        }
       }
     })
 
@@ -812,29 +831,8 @@ function genericTests(collFn) {
     it('should fail to drop a missing secondary index', async function () {
       await H.throwsHelper(async () => {
         await collFn().queryIndexes().dropIndex(sidxName)
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
     })
-
-    it('should build deferred indexes', async function () {
-      for (let i = 0; i < deferredIndexes.length; i++) {
-        await collFn()
-          .queryIndexes()
-          .createIndex(deferredIndexes[i], ['name'], { deferred: true })
-      }
-
-      var idxs = await collFn().queryIndexes().getAllIndexes()
-      var filteredIdxs = idxs.filter((idx) => idx.state === 'deferred')
-      assert.lengthOf(filteredIdxs, deferredIndexes.length)
-
-      await collFn().queryIndexes().buildDeferredIndexes()
-
-      await collFn()
-        .queryIndexes()
-        .watchIndexes(
-          filteredIdxs.map((f) => f.name),
-          6000
-        )
-    }).timeout(60000)
 
     it('should successfully drop a primary index', async function () {
       await collFn().queryIndexes().dropPrimaryIndex({
@@ -847,7 +845,53 @@ function genericTests(collFn) {
         await collFn().queryIndexes().dropPrimaryIndex({
           name: idxName,
         })
-      }, H.lib.QueryIndexNotFoundError)
+      }, H.lib.IndexNotFoundError)
+    })
+
+    describe('#deferred', function () {
+      this.retries(3)
+
+      const numDeferredIndexes = 3
+      let deferredIndexes = []
+      let filteredIdexes = []
+
+      before(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < numDeferredIndexes; i++) {
+          idxName = H.genTestKey()
+          deferredIndexes.push(idxName)
+          await collFn()
+            .queryIndexes()
+            .createIndex(idxName, ['name'], { deferred: true })
+        }
+        var idxs = await collFn().queryIndexes().getAllIndexes()
+        filteredIdexes = idxs.filter((idx) => idx.state === 'deferred')
+      })
+
+      after(async function () {
+        this.timeout(5000)
+
+        for (let i = 0; i < deferredIndexes.length; i++) {
+          try {
+            await collFn().queryIndexes().dropIndex(deferredIndexes[i])
+          } catch (e) {
+            // ignore
+          }
+        }
+      })
+
+      it('should build deferred indexes', async function () {
+        const imgr = collFn().queryIndexes()
+        await imgr.buildDeferredIndexes()
+        await H.tryNTimes(
+          5,
+          2000,
+          imgr.watchIndexes.bind(imgr),
+          filteredIdexes.map((f) => f.name),
+          6000
+        )
+      }).timeout(60000)
     })
   })
 }
