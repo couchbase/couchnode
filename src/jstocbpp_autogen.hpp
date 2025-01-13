@@ -2021,7 +2021,8 @@ struct js_to_cbpp_t<couchbase::core::operations::get_all_replicas_request> {
         js_to_cbpp<couchbase::core::document_id>(cppObj.id, jsObj.Get("id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
-        // read_preference
+        js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
+                                               jsObj.Get("read_preference"));
         return cppObj;
     }
     static inline Napi::Value
@@ -2034,7 +2035,8 @@ struct js_to_cbpp_t<couchbase::core::operations::get_all_replicas_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
-        // read_preference
+        resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
+                                          env, cppObj.read_preference));
         return resObj;
     }
 };
@@ -2209,7 +2211,8 @@ struct js_to_cbpp_t<couchbase::core::operations::get_any_replica_request> {
         js_to_cbpp<couchbase::core::document_id>(cppObj.id, jsObj.Get("id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
-        // read_preference
+        js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
+                                               jsObj.Get("read_preference"));
         return cppObj;
     }
     static inline Napi::Value
@@ -2222,7 +2225,8 @@ struct js_to_cbpp_t<couchbase::core::operations::get_any_replica_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
-        // read_preference
+        resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
+                                          env, cppObj.read_preference));
         return resObj;
     }
 };
@@ -3138,7 +3142,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // parent_span
-        // read_preference
+        js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
+                                               jsObj.Get("read_preference"));
         return cppObj;
     }
     static inline Napi::Value
@@ -3157,7 +3162,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // parent_span
-        // read_preference
+        resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
+                                          env, cppObj.read_preference));
         return resObj;
     }
 };
@@ -4789,7 +4795,8 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // parent_span
-        // read_preference
+        js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
+                                               jsObj.Get("read_preference"));
         return cppObj;
     }
     static inline Napi::Value
@@ -4808,7 +4815,8 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // parent_span
-        // read_preference
+        resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
+                                          env, cppObj.read_preference));
         return resObj;
     }
 };

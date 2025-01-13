@@ -198,6 +198,12 @@ export interface ConnectOptions {
    *
    */
   configProfile?: string
+
+  /**
+   * Specifies the preferred server group to use for replica operations that specify a non-default
+   * read preference.
+   */
+  preferredServerGroup?: string
 }
 
 /**
@@ -227,6 +233,7 @@ export class Cluster {
   private _transactions?: Transactions
   private _openBuckets: string[]
   private _dnsConfig: DnsConfig | null
+  private _preferredServerGroup: string | undefined
 
   /**
    * @internal
@@ -318,7 +325,7 @@ export class Cluster {
   [inspect.custom](): Record<string, any> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _auth, ...rest } = this
-    return { ...rest, _auth: "***hidden***" }
+    return { ...rest, _auth: '***hidden***' }
   }
 
   /**
@@ -327,7 +334,7 @@ export class Cluster {
   toJSON(): Record<string, any> {
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _auth, ...rest } = this
-    return { ...rest, _auth: "***hidden***" }
+    return { ...rest, _auth: '***hidden***' }
   }
 
   /**
@@ -367,6 +374,10 @@ export class Cluster {
       this._transcoder = options.transcoder
     } else {
       this._transcoder = new DefaultTranscoder()
+    }
+
+    if (options.preferredServerGroup) {
+      this._preferredServerGroup = options.preferredServerGroup
     }
 
     if (options.transactions) {
@@ -725,6 +736,9 @@ export class Cluster {
       }
       if (this.resolveTimeout) {
         dsnObj.options['resolve_timeout'] = this.resolveTimeout.toString()
+      }
+      if (this._preferredServerGroup) {
+        dsnObj.options['server_group'] = this._preferredServerGroup
       }
 
       const connStr = dsnObj.toString()

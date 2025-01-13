@@ -91,3 +91,21 @@ export enum StoreSemantics {
    */
   Insert = 2,
 }
+
+/**
+ * Represents the various scan consistency options that are available when
+ * querying against the query service.
+ */
+export enum ReadPreference {
+  /**
+   * Indicates that filtering for replica set should not be enforced.
+   */
+  NoPreference = 'no_preference',
+
+  /**
+   * Indicates that any nodes that do not belong to local group selected during
+   * cluster instantiation using the `ConnectOptions.preferredServerGroup` option
+   * should be excluded.
+   */
+  SelectedServerGroup = 'selected_server_group'
+}

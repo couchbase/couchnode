@@ -500,7 +500,7 @@ export interface CppGetAllReplicasResponseEntry {
 export interface CppGetAllReplicasRequest {
   id: CppDocumentId
   timeout?: CppMilliseconds
-  // read_preference
+  read_preference: CppReadPreference
 }
 export interface CppUpsertResponse {
   // ctx
@@ -544,7 +544,7 @@ export interface CppGetAnyReplicaResponse {
 export interface CppGetAnyReplicaRequest {
   id: CppDocumentId
   timeout?: CppMilliseconds
-  // read_preference
+  read_preference: CppReadPreference
 }
 export interface CppAppendResponse {
   // ctx
@@ -747,7 +747,7 @@ export interface CppLookupInAllReplicasRequest {
   specs: CppImplSubdocCommand[]
   timeout?: CppMilliseconds
   // parent_span
-  // read_preference
+  read_preference: CppReadPreference
 }
 export interface CppAnalyticsResponse {
   // ctx
@@ -1088,7 +1088,7 @@ export interface CppLookupInAnyReplicaRequest {
   specs: CppImplSubdocCommand[]
   timeout?: CppMilliseconds
   // parent_span
-  // read_preference
+  read_preference: CppReadPreference
 }
 export interface CppMutateInResponse {
   // ctx

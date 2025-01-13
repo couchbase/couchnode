@@ -33,6 +33,7 @@ import binding, {
   CppQueryProfile,
   CppQueryScanConsistency,
   CppRangeScan,
+  CppReadPreference,
   CppReplicateTo,
   CppSamplingScan,
   CppSearchHighlightStyle,
@@ -57,7 +58,12 @@ import { EndpointState, PingState } from './diagnosticstypes'
 import * as errctxs from './errorcontexts'
 import { ErrorContext } from './errorcontexts'
 import * as errs from './errors'
-import { DurabilityLevel, ServiceType, StoreSemantics } from './generaltypes'
+import {
+  DurabilityLevel,
+  ReadPreference,
+  ServiceType,
+  StoreSemantics,
+} from './generaltypes'
 import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
 import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
@@ -1683,4 +1689,24 @@ export function authDomainFromCpp(domain: CppManagementRbacAuthDomain): string {
   throw new errs.InvalidArgumentError(
     new Error('Unrecognized CppManagementRbacAuthDomain.')
   )
+}
+
+/**
+ * @internal
+ */
+export function readPreferenceToCpp(
+  preference: ReadPreference | undefined
+): CppReadPreference {
+  // Unspecified is allowed, and means no preference.
+  if (preference === null || preference === undefined) {
+    return binding.read_preference.no_preference
+  }
+
+  if (preference === ReadPreference.NoPreference) {
+    return binding.read_preference.no_preference
+  } else if (preference === ReadPreference.SelectedServerGroup) {
+    return binding.read_preference.selected_server_group
+  }
+
+  throw new errs.InvalidArgumentError(new Error('Unrecognized ReadPreference.'))
 }

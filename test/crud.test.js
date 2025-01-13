@@ -1,7 +1,7 @@
 'use strict'
 
 const assert = require('chai').assert
-const { DurabilityLevel } = require('../lib/generaltypes')
+const { DurabilityLevel, ReadPreference } = require('../lib/generaltypes')
 const { DefaultTranscoder } = require('../lib/transcoders')
 const { SdUtils } = require('../lib/sdutils')
 const H = require('./harness')
@@ -1054,6 +1054,32 @@ function genericTests(collFn) {
         } catch (e) {
           done(e)
         }
+      })
+    })
+
+    describe('#server-groups', function () {
+      before(function () {
+        H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+      })
+
+      it('should raise DocumentUnretrievableError for getAnyReplica', async function () {
+        // the cluster setup does not set a preferred server group, so executing getAnyReplica
+        // with a ReadPreference should fail.
+        await H.throwsHelper(async () => {
+          await collFn().getAnyReplica(replicaTestKey, {
+            readPreference: ReadPreference.SelectedServerGroup,
+          })
+        })
+      })
+
+      it('should raise DocumentUnretrievableError for getAllReplicas', async function () {
+        // the cluster setup does not set a preferred server group, so executing getAnyReplica
+        // with a ReadPreference should fail.
+        await H.throwsHelper(async () => {
+          await collFn().getAllReplicas(replicaTestKey, {
+            readPreference: ReadPreference.SelectedServerGroup,
+          })
+        })
       })
     })
   })
@@ -2197,6 +2223,44 @@ function genericTests(collFn) {
             [H.lib.LookupInSpec.get('baz')]
           )
         }, H.lib.DocumentUnretrievableError)
+      })
+
+      describe('#server-groups', function () {
+        before(function () {
+          H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+        })
+
+        it('should raise DocumentUnretrievableError for lookupInAnyReplica', async function () {
+          // the cluster setup does not set a preferred server group, so executing lookupInAnyReplica
+          // with a ReadPreference should fail.
+          await H.throwsHelper(async () => {
+            await collFn().lookupInAnyReplica(
+              testKeySdRep,
+              [
+                H.lib.LookupInSpec.get('baz'),
+                H.lib.LookupInSpec.get('bar'),
+                H.lib.LookupInSpec.exists('not-exists'),
+              ],
+              { readPreference: ReadPreference.SelectedServerGroup }
+            )
+          })
+        })
+
+        it('should raise DocumentUnretrievableError for lookupInAllReplicas', async function () {
+          // the cluster setup does not set a preferred server group, so executing lookupInAllReplicas
+          // with a ReadPreference should fail.
+          await H.throwsHelper(async () => {
+            await collFn().lookupInAllReplicas(
+              testKeySdRep,
+              [
+                H.lib.LookupInSpec.get('baz'),
+                H.lib.LookupInSpec.get('bar'),
+                H.lib.LookupInSpec.exists('not-exists'),
+              ],
+              { readPreference: ReadPreference.SelectedServerGroup }
+            )
+          })
+        })
       })
     })
 

@@ -28,6 +28,7 @@ import {
   errorFromCpp,
   mutationStateToCpp,
   persistToToCpp,
+  readPreferenceToCpp,
   replicateToToCpp,
   scanTypeToCpp,
   storeSemanticToCpp,
@@ -53,7 +54,7 @@ import {
   CouchbaseSet,
 } from './datastructures'
 import { InvalidArgumentError } from './errors'
-import { DurabilityLevel, StoreSemantics } from './generaltypes'
+import { DurabilityLevel, ReadPreference, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
 import { CollectionQueryIndexManager } from './queryindexmanager'
 import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
@@ -291,6 +292,11 @@ export interface GetAnyReplicaOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies how replica nodes will be filtered.
+   */
+  readPreference?: ReadPreference
 }
 
 /**
@@ -306,6 +312,11 @@ export interface GetAllReplicasOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies how replica nodes will be filtered.
+   */
+  readPreference?: ReadPreference
 }
 
 /**
@@ -388,6 +399,11 @@ export interface LookupInAnyReplicaOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies how replica nodes will be filtered.
+   */
+  readPreference?: ReadPreference
 }
 
 /**
@@ -398,6 +414,11 @@ export interface LookupInAllReplicasOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies how replica nodes will be filtered.
+   */
+  readPreference?: ReadPreference
 }
 
 /**
@@ -864,6 +885,7 @@ export class Collection {
     options?: {
       transcoder?: Transcoder
       timeout?: number
+      readPreference?: ReadPreference
     },
     callback?: NodeCallback<GetReplicaResult[]>
   ): StreamableReplicasPromise<GetReplicaResult[], GetReplicaResult> {
@@ -888,6 +910,7 @@ export class Collection {
         {
           id: this._cppDocId(key),
           timeout: timeout,
+          read_preference: readPreferenceToCpp(options.readPreference),
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
@@ -930,6 +953,7 @@ export class Collection {
         {
           id: this._cppDocId(key),
           timeout: timeout,
+          read_preference: readPreferenceToCpp(options.readPreference),
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
@@ -1823,6 +1847,7 @@ export class Collection {
     specs: LookupInSpec[],
     options?: {
       timeout?: number
+      readPreference?: ReadPreference
     },
     callback?: NodeCallback<LookupInReplicaResult[]>
   ): StreamableReplicasPromise<LookupInReplicaResult[], LookupInReplicaResult> {
@@ -1857,6 +1882,7 @@ export class Collection {
           id: this._cppDocId(key),
           specs: cppSpecs,
           timeout: timeout,
+          read_preference: readPreferenceToCpp(options.readPreference),
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
@@ -1910,6 +1936,7 @@ export class Collection {
           id: this._cppDocId(key),
           specs: cppSpecs,
           timeout: timeout,
+          read_preference: readPreferenceToCpp(options.readPreference),
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
