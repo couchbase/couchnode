@@ -3614,6 +3614,16 @@ export interface CppTransaction {
     ) => void
   ): void
 
+  getReplicaFromPreferredServerGroup(
+    options: {
+      id: CppDocumentId
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetResult | null
+    ) => void
+  ): void
+
   insert(
     options: {
       id: CppDocumentId

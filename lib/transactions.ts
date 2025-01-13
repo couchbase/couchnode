@@ -373,6 +373,16 @@ export interface TransactionGetOptions {
 /**
  * @category Transactions
  */
+export interface TransactionGetReplicaFromPreferredServerGroupOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
+}
+
+/**
+ * @category Transactions
+ */
 export interface TransactionInsertOptions {
   /**
    * Specifies an explicit transcoder to use for this specific operation.
@@ -474,6 +484,37 @@ export class TransactionAttemptContext {
     return PromiseHelper.wrap((wrapCallback) => {
       const id = collection._cppDocId(key)
       this._impl.get(
+        {
+          id,
+        },
+        (cppErr, cppRes) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(err, translateGetResult(cppRes, transcoder))
+        }
+      )
+    })
+  }
+
+  /**
+   * Retrieves the value of a document from the collection.
+   *
+   * @param collection The collection the document lives in.
+   * @param key The document key to retrieve.
+   * @param options Optional parameters for this operation.
+   */
+  async getReplicaFromPreferredServerGroup(
+    collection: Collection,
+    key: string,
+    options?: TransactionGetReplicaFromPreferredServerGroupOptions
+  ): Promise<TransactionGetResult> {
+    const transcoder = options?.transcoder || this._transcoder
+    return PromiseHelper.wrap((wrapCallback) => {
+      const id = collection._cppDocId(key)
+      this._impl.getReplicaFromPreferredServerGroup(
         {
           id,
         },

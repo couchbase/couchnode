@@ -26,6 +26,8 @@ public:
     Napi::Value jsNewAttempt(const Napi::CallbackInfo &info);
     Napi::Value jsFinalizeAttempt(const Napi::CallbackInfo &info);
     Napi::Value jsGet(const Napi::CallbackInfo &info);
+    Napi::Value
+    jsGetReplicaFromPreferredServerGroup(const Napi::CallbackInfo &info);
     Napi::Value jsInsert(const Napi::CallbackInfo &info);
     Napi::Value jsReplace(const Napi::CallbackInfo &info);
     Napi::Value jsRemove(const Napi::CallbackInfo &info);

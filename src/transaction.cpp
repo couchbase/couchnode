@@ -39,6 +39,8 @@ void Transaction::Init(Napi::Env env, Napi::Object exports)
         {
             InstanceMethod<&Transaction::jsNewAttempt>("newAttempt"),
             InstanceMethod<&Transaction::jsGet>("get"),
+            InstanceMethod<&Transaction::jsGetReplicaFromPreferredServerGroup>(
+                "getReplicaFromPreferredServerGroup"),
             InstanceMethod<&Transaction::jsInsert>("insert"),
             InstanceMethod<&Transaction::jsReplace>("replace"),
             InstanceMethod<&Transaction::jsRemove>("remove"),
@@ -111,6 +113,39 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
                         env,
                         couchbase::errc::make_error_code(
                             couchbase::errc::key_value::document_not_found))});
+                    return;
+                }
+
+                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+            });
+        });
+
+    return info.Env().Null();
+}
+
+Napi::Value Transaction::jsGetReplicaFromPreferredServerGroup(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
+
+    auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
+
+    _impl->get_replica_from_preferred_server_group(
+        docId,
+        [this, cookie = std::move(cookie)](
+            std::exception_ptr err,
+            std::optional<cbcoretxns::transaction_get_result> res) mutable {
+            cookie.invoke([err = std::move(err), res = std::move(res)](
+                              Napi::Env env, Napi::Function callback) mutable {
+                // BUG(JSCBC-1024): We should revert to using direct get
+                // operations once the underlying issue has been resolved.
+                if (!err && !res.has_value()) {
+                    callback.Call(
+                        {cbpp_to_js(env, couchbase::errc::make_error_code(
+                                             couchbase::errc::key_value::
+                                                 document_irretrievable))});
                     return;
                 }
 

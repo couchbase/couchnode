@@ -11,7 +11,7 @@ describe('#transactions', function () {
     H.skipIfMissingFeature(this, H.Features.Transactions)
   })
 
-  after(async function() {
+  after(async function () {
     this.timeout(10000)
     const bmgr = H.c.buckets()
     await H.tryNTimes(3, 1000, bmgr.flushBucket.bind(bmgr), H.bucketName)
@@ -621,6 +621,64 @@ describe('#transactions', function () {
         }
         assert.equal(numAttempts, 1)
       }).timeout(15000)
+    })
+  })
+
+  describe('#server-groups', function () {
+    let serverGroupKey
+
+    before(async function () {
+      H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+      serverGroupKey = H.genTestKey()
+      await H.co.insert(serverGroupKey, { foo: 'bar' })
+    })
+
+    after(async function () {
+      try {
+        await H.co.remove(serverGroupKey)
+      } catch (err) {
+        // ignore
+      }
+    })
+
+    it('should raise DocumentUnretrievableError only in lambda', async function () {
+      // the cluster setup does not set a preferred server group, so executing
+      // getReplicaFromPreferredServerGroup should fail
+      let numAttempts = 0
+      await H.throwsHelper(async () => {
+        await H.c.transactions().run(
+          async (attempt) => {
+            numAttempts++
+            await H.throwsHelper(async () => {
+              await attempt.getReplicaFromPreferredServerGroup(
+                H.co,
+                serverGroupKey
+              )
+            }, H.lib.DocumentUnretrievableError)
+            throw new Error('success')
+          },
+          { timeout: 2000 }
+        )
+      }, H.lib.TransactionFailedError)
+      assert.equal(numAttempts, 1)
+
+      numAttempts = 0
+      try {
+        await H.c.transactions().run(
+          async (attempt) => {
+            numAttempts++
+            await attempt.getReplicaFromPreferredServerGroup(
+              H.co,
+              serverGroupKey
+            )
+          },
+          { timeout: 2000 }
+        )
+      } catch (err) {
+        assert.instanceOf(err, H.lib.TransactionFailedError)
+        assert.instanceOf(err.cause, H.lib.DocumentUnretrievableError)
+      }
+      assert.equal(numAttempts, 1)
     })
   })
 })
