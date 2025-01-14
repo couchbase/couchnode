@@ -6,6 +6,10 @@ const { DefaultTranscoder } = require('../lib/transcoders')
 const { SdUtils } = require('../lib/sdutils')
 const H = require('./harness')
 const testdata = require('./testdata')
+const {
+  GetReplicaResult,
+  LookupInReplicaResult,
+} = require('../lib/crudoptypes')
 
 const errorTranscoder = {
   encode: () => {
@@ -954,6 +958,7 @@ function genericTests(collFn) {
 
       assert.isArray(res)
       assert.isAtLeast(res.length, 1)
+      assert.instanceOf(res[0], GetReplicaResult)
       assert.isBoolean(res[0].isReplica)
       assert.isNotEmpty(res[0].cas)
       assert.deepStrictEqual(res[0].content, testObjVal)
@@ -972,6 +977,7 @@ function genericTests(collFn) {
           try {
             assert.isArray(res)
             assert.isAtLeast(res.length, 1)
+            assert.instanceOf(res[0], GetReplicaResult)
             assert.isBoolean(res[0].isReplica)
             assert.isNotEmpty(res[0].cas)
             assert.deepStrictEqual(res[0].content, testObjVal)
@@ -998,6 +1004,7 @@ function genericTests(collFn) {
           try {
             assert.isArray(res)
             assert.isAtLeast(res.length, 1)
+            assert.instanceOf(res[0], GetReplicaResult)
             assert.isBoolean(res[0].isReplica)
             assert.isNotEmpty(res[0].cas)
             assert.deepStrictEqual(res[0].content, testObjVal)
@@ -1012,7 +1019,7 @@ function genericTests(collFn) {
     it('should perform basic get any replica', async function () {
       var res = await collFn().getAnyReplica(replicaTestKey)
 
-      assert.isObject(res)
+      assert.instanceOf(res, GetReplicaResult)
       assert.isNotEmpty(res.cas)
       assert.deepStrictEqual(res.content, testObjVal)
     })
@@ -1023,7 +1030,7 @@ function genericTests(collFn) {
           return done(err)
         }
         try {
-          assert.isObject(res)
+          assert.instanceOf(res, GetReplicaResult)
           assert.isNotEmpty(res.cas)
           assert.deepStrictEqual(res.content, testObjVal)
           done(null)
@@ -1040,7 +1047,7 @@ function genericTests(collFn) {
           return done(err)
         }
         try {
-          assert.isObject(res)
+          assert.instanceOf(res, GetReplicaResult)
           assert.isNotEmpty(res.cas)
           assert.deepStrictEqual(res.content, testObjVal)
           done(null)
@@ -2047,7 +2054,7 @@ function genericTests(collFn) {
           H.lib.LookupInSpec.get('bar'),
           H.lib.LookupInSpec.exists('not-exists'),
         ])
-        assert.isObject(res)
+        assert.instanceOf(res, LookupInReplicaResult)
         assert.isOk(res.cas)
         assert.isBoolean(res.isReplica)
         assert.isArray(res.content)
@@ -2072,6 +2079,7 @@ function genericTests(collFn) {
           if (!replica.isReplica) {
             activeCount++
           }
+          assert.instanceOf(replica, LookupInReplicaResult)
           assert.isOk(replica.cas)
           assert.isArray(replica.content)
           assert.strictEqual(replica.content.length, 3)
@@ -2116,6 +2124,7 @@ function genericTests(collFn) {
           if (!replica.isReplica) {
             activeCount++
           }
+          assert.instanceOf(replica, LookupInReplicaResult)
           assert.isOk(replica.cas)
           assert.isArray(replica.content)
           assert.strictEqual(replica.content.length, 3)
@@ -2139,6 +2148,7 @@ function genericTests(collFn) {
             }
             try {
               assert.isAtLeast(res.length, 1)
+              assert.instanceOf(res[0], LookupInReplicaResult)
               assert.isBoolean(res[0].isReplica)
               assert.isNotEmpty(res[0].cas)
               assert.deepStrictEqual(res[0].content[0].value, 'hello')
@@ -2159,7 +2169,7 @@ function genericTests(collFn) {
               return done(err)
             }
             try {
-              assert.isObject(res)
+              assert.instanceOf(res, LookupInReplicaResult)
               assert.isNotEmpty(res.cas)
               assert.isBoolean(res.isReplica)
               assert.deepStrictEqual(res.content[0].value, 'hello')

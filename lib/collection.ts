@@ -1944,7 +1944,7 @@ export class Collection {
           }
           emitter.emit(
             'replica',
-            new GetReplicaResult({
+            new LookupInReplicaResult({
               content: content,
               cas: resp.cas,
               isReplica: resp.is_replica,
@@ -1971,7 +1971,7 @@ export class Collection {
   lookupInAnyReplica(
     key: string,
     specs: LookupInSpec[],
-    options?: LookupInOptions,
+    options?: LookupInAnyReplicaOptions,
     callback?: NodeCallback<LookupInReplicaResult>
   ): Promise<LookupInReplicaResult> {
     if (options instanceof Function) {
@@ -1997,7 +1997,7 @@ export class Collection {
   lookupInAllReplicas(
     key: string,
     specs: LookupInSpec[],
-    options?: LookupInOptions,
+    options?: LookupInAllReplicasOptions,
     callback?: NodeCallback<LookupInReplicaResult[]>
   ): Promise<LookupInReplicaResult[]> {
     return this._lookupInReplica(key, true, specs, options, callback)
