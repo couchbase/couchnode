@@ -1,6 +1,43 @@
 /* eslint jsdoc/require-jsdoc: off */
 'use strict'
 
+import {
+  CouchbaseError,
+  PathNotFoundError,
+  PathMismatchError,
+  PathInvalidError,
+  PathTooBigError,
+  PathTooDeepError,
+  PathExistsError,
+  ValueTooDeepError,
+  ValueInvalidError,
+  DocumentNotJsonError,
+  NumberTooBigError,
+  DeltaInvalidError,
+} from './errors'
+
+/**
+ * The set of sub-document operation status strings.  This is the single source
+ * of truth shared by {@link subdocumentStatusFromCpp} (which produces these
+ * values) and {@link SdUtils.parseSubdocStatus} (which maps them to errors), so
+ * the two cannot silently drift: a typo or a new status becomes a type error.
+ *
+ * @internal
+ */
+export type SubdocStatus =
+  | 'success'
+  | 'path_not_found'
+  | 'path_mismatch'
+  | 'path_invalid'
+  | 'path_too_big'
+  | 'doc_too_deep'
+  | 'value_cannot_insert'
+  | 'doc_not_json'
+  | 'num_range_error'
+  | 'delta_invalid'
+  | 'path_exists'
+  | 'value_too_deep'
+
 interface SdPathPartProp {
   type: 'property'
   path: string
@@ -135,5 +172,31 @@ export class SdUtils {
   static convertMacroCasToCas(cas: string): string {
     const buf = Buffer.from(cas.startsWith('0x') ? cas.slice(2) : cas, 'hex')
     return `0x${buf.reverse().toString('hex')}`
+  }
+
+  static parseSubdocStatus(status: SubdocStatus): never {
+    // 1:1 map from sub-document status to error.  Declared as a total
+    // Record<SubdocStatus, ...> so adding a status to SubdocStatus without a
+    // mapping here is a compile error.  Mirrors the canonical errc_key_value ->
+    // error mapping in bindingutilities.ts.
+    const errorFactories: Record<SubdocStatus, () => CouchbaseError> = {
+      // Should never reach here (callers handle success before mapping).
+      success: () => new CouchbaseError('parseSubdocStatus called on success'),
+      path_not_found: () => new PathNotFoundError(),
+      path_mismatch: () => new PathMismatchError(),
+      path_invalid: () => new PathInvalidError(),
+      path_too_big: () => new PathTooBigError(),
+      // The core's map_status_code() collapses subdoc_doc_too_deep into
+      // errc::key_value::path_too_deep -> PathTooDeepError.
+      doc_too_deep: () => new PathTooDeepError(),
+      // subdoc_value_cannot_insert -> errc::key_value::value_invalid.
+      value_cannot_insert: () => new ValueInvalidError(),
+      doc_not_json: () => new DocumentNotJsonError(),
+      num_range_error: () => new NumberTooBigError(),
+      delta_invalid: () => new DeltaInvalidError(),
+      path_exists: () => new PathExistsError(),
+      value_too_deep: () => new ValueTooDeepError(),
+    }
+    throw errorFactories[status]()
   }
 }

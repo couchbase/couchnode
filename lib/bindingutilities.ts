@@ -3,6 +3,7 @@ import {
   AnalyticsEncryptionLevel,
   CouchbaseAnalyticsEncryptionSettings,
 } from './analyticsindexmanager'
+import { SubdocStatus } from './sdutils'
 import binding, {
   CppAnalyticsResponseAnalyticsStatus,
   CppAnalyticsScanConsistency,
@@ -11,6 +12,7 @@ import binding, {
   CppDiagPingState,
   CppDurabilityLevel,
   CppError,
+  CppKeyValueStatusCode,
   CppManagementAnalyticsCouchbaseLinkEncryptionLevel,
   CppManagementAnalyticsCouchbaseLinkEncryptionSettings,
   CppManagementClusterBucketCompression,
@@ -1932,4 +1934,50 @@ export function transactionGetMultiReplicasFromPreferredServerGroupModeToCpp(
       'Unrecognized TransactionGetMultiReplicasFromPreferredServerGroupMode.'
     )
   )
+
+}
+
+/**
+ * @internal
+ */
+export function subdocumentStatusFromCpp(
+  status: CppKeyValueStatusCode
+): SubdocStatus {
+  if (status === binding.key_value_status_code.success) {
+    return 'success'
+  }
+  if (status === binding.key_value_status_code.subdoc_path_not_found) {
+    return 'path_not_found'
+  }
+  if (status === binding.key_value_status_code.subdoc_path_mismatch) {
+    return 'path_mismatch'
+  }
+  if (status === binding.key_value_status_code.subdoc_path_invalid) {
+    return 'path_invalid'
+  }
+  if (status === binding.key_value_status_code.subdoc_path_too_big) {
+    return 'path_too_big'
+  }
+  if (status === binding.key_value_status_code.subdoc_doc_too_deep) {
+    return 'doc_too_deep'
+  }
+  if (status === binding.key_value_status_code.subdoc_value_cannot_insert) {
+    return 'value_cannot_insert'
+  }
+  if (status === binding.key_value_status_code.subdoc_doc_not_json) {
+    return 'doc_not_json'
+  }
+  if (status === binding.key_value_status_code.subdoc_num_range_error) {
+    return 'num_range_error'
+  }
+  if (status === binding.key_value_status_code.subdoc_delta_invalid) {
+    return 'delta_invalid'
+  }
+  if (status === binding.key_value_status_code.subdoc_path_exists) {
+    return 'path_exists'
+  }
+  if (status === binding.key_value_status_code.subdoc_value_too_deep) {
+    return 'value_too_deep'
+  }
+  throw new errs.CouchbaseError('Unknown subdocument status code')
 }

@@ -1,6 +1,6 @@
 import { MutationToken } from './mutationstate'
 import { Cas } from './utilities'
-
+import { SdUtils, SubdocStatus } from './sdutils'
 /**
  * Contains the results of a Get operation.
  *
@@ -199,9 +199,15 @@ export class LookupInResultEntry {
   /**
    * @internal
    */
+  status: SubdocStatus
+
+  /**
+   * @internal
+   */
   constructor(data: LookupInResultEntry) {
     this.error = data.error
     this.value = data.value
+    this.status = data.status
   }
 }
 
@@ -239,6 +245,24 @@ export class LookupInResult {
   set results(v: LookupInResultEntry[]) {
     this.content = v
   }
+
+  /**
+   * Indicates whether the subdocument path exists.
+   *
+   * @param index The result index to check.
+   */
+  exists(index: number): boolean {
+    if (index < 0 || index >= this.content.length) {
+      throw new Error('Index out of bounds')
+    }
+    if (this.content[index].status === 'success') {
+      return true
+    }
+    if (this.content[index].status === 'path_not_found') {
+      return false
+    }
+    return SdUtils.parseSubdocStatus(this.content[index].status)
+  }
 }
 
 /**
@@ -269,6 +293,24 @@ export class LookupInReplicaResult {
     this.content = data.content
     this.cas = data.cas
     this.isReplica = data.isReplica
+  }
+
+  /**
+   * Indicates whether the subdocument path exists.
+   *
+   * @param index The result index to check.
+   */
+  exists(index: number): boolean {
+    if (index < 0 || index >= this.content.length) {
+      throw new Error('Index out of bounds')
+    }
+    if (this.content[index].status === 'success') {
+      return true
+    }
+    if (this.content[index].status === 'path_not_found') {
+      return false
+    }
+    return SdUtils.parseSubdocStatus(this.content[index].status)
   }
 }
 

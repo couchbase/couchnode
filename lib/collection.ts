@@ -22,6 +22,7 @@ import {
   replicateToToCpp,
   scanTypeToCpp,
   storeSemanticToCpp,
+  subdocumentStatusFromCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
 import {
@@ -2079,6 +2080,7 @@ export class Collection {
             new LookupInResultEntry({
               error,
               value,
+              status: subdocumentStatusFromCpp(itemRes.status),
             })
           )
         }
@@ -2175,6 +2177,7 @@ export class Collection {
               new LookupInResultEntry({
                 error,
                 value,
+                status: subdocumentStatusFromCpp(itemRes.status),
               })
             )
           }
@@ -2231,6 +2234,7 @@ export class Collection {
             new LookupInResultEntry({
               error,
               value,
+              status: subdocumentStatusFromCpp(itemRes.status),
             })
           )
         }

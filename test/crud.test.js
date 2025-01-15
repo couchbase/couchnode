@@ -1710,6 +1710,21 @@ function genericTests(collFn) {
         assert.strictEqual(res.content[0].value, true)
       })
 
+      it('should use LookupInResult.exist() successfully', async function () {
+        var res = await collFn().lookupIn(testKeySd, [
+          H.lib.LookupInSpec.exists('bar'),
+          H.lib.LookupInSpec.exists('not-exists'),
+        ])
+        assert.isObject(res)
+        assert.isOk(res.cas)
+        assert.isArray(res.content)
+        assert.strictEqual(res.content.length, 2)
+        assert.isTrue(res.exists(0))
+        assert.isTrue(res.content[0].value)
+        assert.isFalse(res.exists(1))
+        assert.isFalse(res.content[1].value)
+      })
+
       describe('#macros', function () {
         const macros = [
           H.lib.LookupInMacro.Cas,
