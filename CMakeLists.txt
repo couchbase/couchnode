@@ -54,9 +54,9 @@ function(download_nodejs_headers)
       nodejs_headers
       URL https://nodejs.org/dist/v${NODE_RUNTIMEVERSION}/node-v${NODE_RUNTIMEVERSION}-headers.tar.gz
       URL_HASH SHA256=${CB_NODE_VERSION_SHA256}
-      )  
+      )
   endif()
-  
+
   message("Downloading Node.js ${NODE_RUNTIMEVERSION} headers...")
   FetchContent_MakeAvailable(nodejs_headers)
   message("Downloaded Node.js ${NODE_RUNTIMEVERSION} headers to ${nodejs_headers_SOURCE_DIR}")
@@ -78,7 +78,7 @@ function(download_nodejs_win_lib)
     endif()
   endif()
   set(NODE_LIB_URL "${NODE_LIB_URL}/node.lib")
-  
+
   FetchContent_Declare(
     nodejs_win_lib
     URL ${NODE_LIB_URL}
@@ -233,7 +233,6 @@ target_link_libraries(${PROJECT_NAME}
   asio
   Microsoft.GSL::GSL
   taocpp::json
-  fmt::fmt
   spdlog::spdlog
 )
 
@@ -254,7 +253,7 @@ if(MSVC)
       # Do we want /OPT:ICF?
       set_target_properties(${PROJECT_NAME} PROPERTIES
         LINK_FLAGS "/INCREMENTAL:NO /DEBUG"
-        COMPILE_PDB_NAME ${PROJECT_NAME} 
+        COMPILE_PDB_NAME ${PROJECT_NAME}
         COMPILE_PDB_OUTPUT_DIR ${CMAKE_BINARY_DIR}
       )
   endif()
