@@ -66,7 +66,7 @@ if (args.length > 0) {
     let rt = undefined
     if (args[runtimeIdx].includes('=')) {
       rt = args[runtimeIdx].split('=')[1]
-    } else if (args.length - 1 <= runtimeIdx + 1) {
+    } else if (args.length - 1 >= runtimeIdx + 1) {
       rt = args[runtimeIdx + 1]
     }
 
@@ -81,7 +81,7 @@ if (args.length > 0) {
     let rtv = undefined
     if (args[runtimeVersionIdx].includes('=')) {
       rtv = args[runtimeVersionIdx].split('=')[1]
-    } else if (args.length - 1 <= runtimeVersionIdx + 1) {
+    } else if (args.length - 1 >= runtimeVersionIdx + 1) {
       rtv = args[runtimeVersionIdx + 1]
     }
 
@@ -112,11 +112,12 @@ if (args.length > 0) {
     let pv = undefined
     if (args[parallelIdx].includes('=')) {
       pv = args[parallelIdx].split('=')[1]
-    } else if (args.length - 1 <= parallelIdx + 1) {
+    } else if (args.length - 1 >= parallelIdx + 1) {
       pv = args[parallelIdx + 1]
     }
 
     if (pv && !isNaN(parseInt(pv))) {
+      const os = require('os')
       const pvi = parseInt(pv)
       if (pvi <= os.cpus().length) {
         cmakeParallel = pvi
