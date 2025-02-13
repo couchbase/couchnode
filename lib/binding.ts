@@ -28,6 +28,14 @@ export interface CppDnsConfig {
   dnsSrvTimeout?: number
 }
 
+export interface CppAppTelemetryConfig {
+  enabled?: boolean
+  endpoint?: string
+  backoff?: number
+  pingInterval?: number
+  pingTimeout?: number
+}
+
 export interface CppDocumentId {
   bucket: string
   scope: string
@@ -3464,6 +3472,7 @@ export interface CppConnection extends CppConnectionAutogen {
     connStr: string,
     credentials: CppClusterCredentials,
     dnsOptions: CppDnsConfig | null,
+    appTelemetryOptions: CppAppTelemetryConfig | null,
     callback: (err: CppError | null) => void
   ): void
   shutdown(callback: (err: CppError | null) => void): void

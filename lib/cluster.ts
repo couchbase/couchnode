@@ -139,6 +139,38 @@ export interface DnsConfig {
 }
 
 /**
+ * Specifies Application Telemetry options for the client.
+ *
+ * @category Core
+ */
+export interface AppTelemetryConfig {
+  /**
+   * Specifies if application telemetry feature should be enabled or not.
+   */
+  enabled?: boolean
+
+  /**
+   * Specifies an endpoint to override the application metrics endpoint discovered during configuration.
+   */
+  endpoint?: string
+
+  /**
+   * Specifies the time to wait before attempting a websocket reconnection, specified in millseconds.
+   */
+  backoff?: number
+
+  /**
+   * Specifies the time to wait between sending consecutive websocket PING commands to the server, specified in millseconds.
+   */
+  pingInterval?: number
+
+  /**
+   * Specifies the time allowed for the server to respond to websocket PING command, specified in millseconds.
+   */
+  pingTimeout?: number
+}
+
+/**
  * Specifies the options which can be specified when connecting
  * to a cluster.
  *
@@ -204,6 +236,12 @@ export interface ConnectOptions {
    * read preference.
    */
   preferredServerGroup?: string
+
+  /**
+   * Specifies the Application Telemetry config for connections of this cluster.
+   *
+   */
+  appTelemetryConfig?: AppTelemetryConfig
 }
 
 /**
@@ -234,6 +272,7 @@ export class Cluster {
   private _openBuckets: string[]
   private _dnsConfig: DnsConfig | null
   private _preferredServerGroup: string | undefined
+  private _appTelemetryConfig: AppTelemetryConfig | null
 
   /**
    * @internal
@@ -419,6 +458,18 @@ export class Cluster {
       }
     } else {
       this._dnsConfig = null
+    }
+
+    if (options.appTelemetryConfig) {
+      this._appTelemetryConfig = {
+        enabled: options.appTelemetryConfig.enabled,
+        endpoint: options.appTelemetryConfig.endpoint,
+        backoff: options.appTelemetryConfig.backoff,
+        pingInterval: options.appTelemetryConfig.pingInterval,
+        pingTimeout: options.appTelemetryConfig.pingTimeout,
+      }
+    } else {
+      this._appTelemetryConfig = null
     }
 
     this._openBuckets = []
@@ -776,13 +827,19 @@ export class Cluster {
         }
       }
 
-      this._conn.connect(connStr, authOpts, this._dnsConfig, (cppErr) => {
-        if (cppErr) {
-          const err = errorFromCpp(cppErr)
-          return reject(err)
+      this._conn.connect(
+        connStr,
+        authOpts,
+        this._dnsConfig,
+        this._appTelemetryConfig,
+        (cppErr) => {
+          if (cppErr) {
+            const err = errorFromCpp(cppErr)
+            return reject(err)
+          }
+          resolve(null)
         }
-        resolve(null)
-      })
+      )
     })
   }
 }

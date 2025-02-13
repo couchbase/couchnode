@@ -279,7 +279,7 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 {
     auto connstr = info[0].ToString().Utf8Value();
     auto credentialsJsObj = info[1].As<Napi::Object>();
-    auto callbackJsFn = info[3].As<Napi::Function>();
+    auto callbackJsFn = info[4].As<Napi::Function>();
 
     auto connstrInfo = couchbase::core::utils::parse_connection_string(connstr);
     auto creds =
@@ -311,6 +311,36 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
         auto cppDnsConfig =
             jsToCbpp<couchbase::core::io::dns::dns_config>(jsDnsConfigObj);
         connstrInfo.options.dns_config = cppDnsConfig;
+    }
+
+    if (!info[3].IsNull()) {
+        auto jsAppTelemetryConfigObj = info[3].As<Napi::Object>();
+        auto jsEnabled = jsAppTelemetryConfigObj.Get("enabled");
+        if (!(jsEnabled.IsNull() || jsEnabled.IsUndefined())) {
+            connstrInfo.options.enable_app_telemetry =
+                js_to_cbpp<bool>(jsEnabled);
+        }
+        auto jsEndpoint = jsAppTelemetryConfigObj.Get("endpoint");
+        if (!(jsEndpoint.IsNull() || jsEndpoint.IsUndefined() ||
+              jsEndpoint.IsEmpty())) {
+            connstrInfo.options.app_telemetry_endpoint =
+                js_to_cbpp<std::string>(jsEndpoint);
+        }
+        auto jsBackoff = jsAppTelemetryConfigObj.Get("backoff");
+        if (!(jsBackoff.IsNull() || jsBackoff.IsUndefined())) {
+            connstrInfo.options.app_telemetry_backoff_interval =
+                js_to_cbpp<std::chrono::milliseconds>(jsBackoff);
+        }
+        auto jsPingInterval = jsAppTelemetryConfigObj.Get("pingInterval");
+        if (!(jsPingInterval.IsNull() || jsPingInterval.IsUndefined())) {
+            connstrInfo.options.app_telemetry_ping_interval =
+                js_to_cbpp<std::chrono::milliseconds>(jsPingInterval);
+        }
+        auto jsPingTimeout = jsAppTelemetryConfigObj.Get("pingTimeout");
+        if (!(jsPingTimeout.IsNull() || jsPingTimeout.IsUndefined())) {
+            connstrInfo.options.app_telemetry_ping_timeout =
+                js_to_cbpp<std::chrono::milliseconds>(jsPingTimeout);
+        }
     }
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbConnectCallback");
