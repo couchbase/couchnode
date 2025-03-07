@@ -1702,7 +1702,6 @@ function genericTests(collFn) {
       })
 
       it('should raise InvalidArgument for empty specs lookupIn', async function () {
-        this.skip('Skip until JSCBC-1322 is fixed')
         await H.throwsHelper(async () => {
           await collFn().lookupIn(testKeySd, [])
         }, H.lib.InvalidArgumentError)
@@ -1812,7 +1811,6 @@ function genericTests(collFn) {
       })
 
       it('should raise InvalidArgument for empty specs mutateIn', async function () {
-        this.skip('Skip until JSCBC-1322 is fixed')
         await H.throwsHelper(async () => {
           await collFn().mutateIn(testKeySd, [])
         }, H.lib.InvalidArgumentError)
@@ -2231,7 +2229,6 @@ function genericTests(collFn) {
       })
 
       it('should raise InvalidArgument for empty specs lookupInAllReplicas', async function () {
-        this.skip('Skip until JSCBC-1322 is fixed')
         await H.throwsHelper(async () => {
           await collFn().lookupInAllReplicas(testKeySdRep, [])
         }, H.lib.InvalidArgumentError)
@@ -2247,7 +2244,6 @@ function genericTests(collFn) {
       })
 
       it('should raise InvalidArgument for empty specs lookupInAnyReplica', async function () {
-        this.skip('Skip until JSCBC-1322 is fixed')
         await H.throwsHelper(async () => {
           await collFn().lookupInAnyReplica(testKeySdRep, [])
         }, H.lib.InvalidArgumentError)

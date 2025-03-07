@@ -1771,6 +1771,12 @@ export class Collection {
       options = {}
     }
 
+    if (specs.length === 0) {
+      throw new InvalidArgumentError(
+        new Error('At least one lookup spec must be provided.')
+      )
+    }
+
     const cppSpecs: CppImplSubdocCommand[] = []
     for (let i = 0; i < specs.length; ++i) {
       cppSpecs.push({
@@ -1857,6 +1863,12 @@ export class Collection {
     }
     if (!options) {
       options = {}
+    }
+
+    if (specs.length === 0) {
+      throw new InvalidArgumentError(
+        new Error('At least one lookup spec must be provided.')
+      )
     }
 
     const emitter = new StreamableReplicasPromise<
@@ -2051,6 +2063,12 @@ export class Collection {
     }
     if (!options) {
       options = {}
+    }
+
+    if (specs.length === 0) {
+      throw new InvalidArgumentError(
+        new Error('At least one lookup spec must be provided.')
+      )
     }
 
     const cppSpecs: CppImplSubdocCommand[] = []
