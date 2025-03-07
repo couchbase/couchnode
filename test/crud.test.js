@@ -1701,6 +1701,13 @@ function genericTests(collFn) {
         assert.strictEqual(res.results, res.content)
       })
 
+      it('should raise InvalidArgument for empty specs lookupIn', async function () {
+        this.skip('Skip until JSCBC-1322 is fixed')
+        await H.throwsHelper(async () => {
+          await collFn().lookupIn(testKeySd, [])
+        }, H.lib.InvalidArgumentError)
+      })
+
       it('should doc-not-found for missing lookupIn', async function () {
         await H.throwsHelper(async () => {
           await collFn().lookupIn('some-document-which-does-not-exist', [
@@ -1802,6 +1809,13 @@ function genericTests(collFn) {
         assert.strictEqual(gres.value.bar, 3)
         assert.strictEqual(gres.value.baz, 'world')
         assert.deepStrictEqual(gres.value.arr, [1, 2, 3, 4, 5, 6])
+      })
+
+      it('should raise InvalidArgument for empty specs mutateIn', async function () {
+        this.skip('Skip until JSCBC-1322 is fixed')
+        await H.throwsHelper(async () => {
+          await collFn().mutateIn(testKeySd, [])
+        }, H.lib.InvalidArgumentError)
       })
 
       it('should cas mismatch when mutatein with wrong cas', async function () {
@@ -2216,6 +2230,13 @@ function genericTests(collFn) {
         }, H.lib.DocumentNotFoundError)
       })
 
+      it('should raise InvalidArgument for empty specs lookupInAllReplicas', async function () {
+        this.skip('Skip until JSCBC-1322 is fixed')
+        await H.throwsHelper(async () => {
+          await collFn().lookupInAllReplicas(testKeySdRep, [])
+        }, H.lib.InvalidArgumentError)
+      })
+
       it('should doc-irretrievable for missing doc lookupInAnyReplica', async function () {
         await H.throwsHelper(async () => {
           await collFn().lookupInAnyReplica(
@@ -2223,6 +2244,13 @@ function genericTests(collFn) {
             [H.lib.LookupInSpec.get('baz')]
           )
         }, H.lib.DocumentUnretrievableError)
+      })
+
+      it('should raise InvalidArgument for empty specs lookupInAnyReplica', async function () {
+        this.skip('Skip until JSCBC-1322 is fixed')
+        await H.throwsHelper(async () => {
+          await collFn().lookupInAnyReplica(testKeySdRep, [])
+        }, H.lib.InvalidArgumentError)
       })
 
       describe('#server-groups', function () {
