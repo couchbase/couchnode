@@ -1059,7 +1059,7 @@ function genericTests(collFn) {
 
     describe('#server-groups', function () {
       before(function () {
-        H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+        H.skipIfMissingFeature(this, H.Features.ServerGroups)
       })
 
       it('should raise DocumentUnretrievableError for getAnyReplica', async function () {
@@ -2251,7 +2251,7 @@ function genericTests(collFn) {
 
       describe('#server-groups', function () {
         before(function () {
-          H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+          H.skipIfMissingFeature(this, H.Features.ServerGroups)
         })
 
         it('should raise DocumentUnretrievableError for lookupInAnyReplica', async function () {

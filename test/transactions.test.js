@@ -628,7 +628,7 @@ describe('#transactions', function () {
     let serverGroupKey
 
     before(async function () {
-      H.skipIfMissingFeature(this, H.Features.ServerGroupts)
+      H.skipIfMissingFeature(this, H.Features.ServerGroups)
       serverGroupKey = H.genTestKey()
       await H.co.insert(serverGroupKey, { foo: 'bar' })
     })

@@ -47,7 +47,7 @@ const ServerFeatures = {
   ScopeSearchIndexManagement: 'scope_search_index_management',
   ScopeEventingFunctionManagement: 'scope_eventing_function_management',
   BinaryTransactions: 'binary_transactions',
-  ServerGroupts: 'server_groups',
+  ServerGroups: 'server_groups',
 }
 
 class ServerVersion {
@@ -408,7 +408,7 @@ class Harness {
       case ServerFeatures.ScopeEventingFunctionManagement:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
       case ServerFeatures.BinaryTransactions:
-      case ServerFeatures.ServerGroupts:
+      case ServerFeatures.ServerGroups:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 2)
     }
 
