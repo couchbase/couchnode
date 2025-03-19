@@ -440,6 +440,7 @@ export interface CppPrependRequest {
   value: Buffer
   partition: number
   opaque: number
+  cas: CppCasInput
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -450,6 +451,7 @@ export interface CppPrependWithLegacyDurabilityRequest {
   value: Buffer
   partition: number
   opaque: number
+  cas: CppCasInput
   timeout?: CppMilliseconds
   // retries
   // parent_span
@@ -564,6 +566,7 @@ export interface CppAppendRequest {
   value: Buffer
   partition: number
   opaque: number
+  cas: CppCasInput
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -574,6 +577,7 @@ export interface CppAppendWithLegacyDurabilityRequest {
   value: Buffer
   partition: number
   opaque: number
+  cas: CppCasInput
   timeout?: CppMilliseconds
   // retries
   // parent_span

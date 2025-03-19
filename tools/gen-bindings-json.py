@@ -32,7 +32,6 @@ CXX_CLIENT_CACHE = os.path.join(pathlib.Path(__file__).parent.parent, 'deps', 'c
 
 CXX_DEPS_INCLUDE_PATHS = {
     'asio': ['-I{0}/asio/{1}/asio/asio/include'],
-    'fmt': ['-I{0}/fmt/{1}/fmt/include'],
     'gsl': ['-I{0}/gsl/{1}/gsl/include'],
     'json': ['-I{0}/json/{1}/json/include',
              '-I{0}/json/{1}/json/external/PEGTL/include'

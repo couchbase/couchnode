@@ -2385,6 +2385,7 @@ export class Collection {
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
+    const cas = options.cas
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -2395,6 +2396,7 @@ export class Collection {
       const appendReq = {
         id: this._cppDocId(key),
         value,
+        cas: cas || zeroCas,
         timeout,
         partition: 0,
         opaque: 0,
@@ -2459,6 +2461,7 @@ export class Collection {
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
+    const cas = options.cas
     const timeout = options.timeout || this.cluster.kvTimeout
 
     return PromiseHelper.wrap((wrapCallback) => {
@@ -2469,6 +2472,7 @@ export class Collection {
       const prependReq = {
         id: this._cppDocId(key),
         value,
+        cas: cas || zeroCas,
         timeout,
         partition: 0,
         opaque: 0,
