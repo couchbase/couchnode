@@ -5,6 +5,8 @@ const util = require('util')
 const assert = require('chai').assert
 
 const { QueryMetaData, QueryResult } = require('../lib/querytypes')
+const { PromiseHelper } = require('../lib/utilities')
+
 const {
   StreamablePromise,
   StreamableRowPromise,
@@ -309,6 +311,61 @@ class StreamablePromiseBuilder {
 
 describe('streamablepromise', function () {
   const streamingTypes = ['streaming', 'non-streaming']
+  let originalListener
+  let rejectionHandler
+
+  function unhandledRejectionListener() {
+    if (rejectionHandler instanceof Function) {
+      rejectionHandler()
+    }
+  }
+
+  function processResults(result, expected, done, otherChecks) {
+    try {
+      if (otherChecks instanceof Function) {
+        otherChecks()
+      }
+      assert.deepStrictEqual(
+        result.success,
+        expected.success,
+        'Success count mismatch'
+      )
+      assert.deepStrictEqual(
+        result.error,
+        expected.error,
+        'Error count mismatch'
+      )
+      assert.deepStrictEqual(
+        result.unhandledRejection,
+        expected.unhandledRejection,
+        'Unhandled Rejection count mismatch'
+      )
+      if (done instanceof Function) {
+        done(null)
+      }
+    } catch (e) {
+      if (done instanceof Function) {
+        done(e)
+      } else {
+        throw e
+      }
+    }
+  }
+
+  before(function () {
+    // remove the initial Mocha listener (it seems to add one globally and for the #utilities suite)
+    // Mocha will remove the suite's listener and then emit the event.  This way we should be the only listener
+    // on the unhandedRejection event.
+    // Github (v10.4.0): https://github.com/mochajs/mocha/blob/ffd9557ee291047f7beef71a24796ea2da256614/lib/runner.js#L175-L197
+    originalListener = process.listeners('unhandledRejection').pop()
+    process.removeListener('unhandledRejection', originalListener)
+    process.on('unhandledRejection', unhandledRejectionListener)
+  })
+
+  after(function () {
+    process.addListener('unhandledRejection', originalListener)
+    process.removeListener('unhandledRejection', unhandledRejectionListener)
+  })
 
   /* eslint-disable mocha/no-setup-in-describe */
   describe('#streamablerowpromise', function () {
@@ -520,23 +577,90 @@ describe('streamablepromise', function () {
 
     describe('#error', function () {
       it('should return rejected promise', async function () {
-        await H.throwsHelper(async () => {
-          await StreamablePromiseBuilder.buildStreamableRowPromise({
-            withError: true,
+        const expected = { unhandledRejection: 0, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        await StreamablePromiseBuilder.buildStreamableRowPromise({
+          withError: true,
+        })
+          .catch((err) => {
+            assert.instanceOf(err, ParsingFailureError)
+            result.error++
           })
-        }, ParsingFailureError)
+          .finally(() => {
+            assert.equal(result.error, expected.error)
+            assert.equal(result.unhandledRejection, expected.unhandledRejection)
+          })
       })
 
       it('should return promise and reject after delayed await', async function () {
-        await H.throwsHelper(async () => {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableRowPromise({
               withError: true,
             })
           await H.sleep(2000)
           await executorPromise
-        }, ParsingFailureError)
+        } catch (err) {
+          assert.instanceOf(err, ParsingFailureError)
+          result.error++
+        }
+
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
       }).timeout(5000)
+
+      it('should raise unhandled rejection if not awaited', async function () {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 0 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
+          StreamablePromiseBuilder.buildStreamableRowPromise({
+            withError: true,
+          })
+        } catch (err) {
+          assert.instanceOf(err, ParsingFailureError)
+          result.error++
+        }
+        // give time for the unhandledRejectionListener
+        await H.sleep(250)
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
+      })
+
+      it('should return error to callback', function (done) {
+        const expected = { success: 0, unhandledRejection: 0, error: 1 }
+        const result = { success: 0, unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        const localCallback = (err, res) => {
+          if (err) {
+            result.error++
+            result.err = err
+          }
+          if (res) {
+            result.success++
+            result.res = res
+          }
+        }
+        const otherChecks = () => {
+          assert.instanceOf(result.err, ParsingFailureError)
+        }
+
+        PromiseHelper.wrapAsync(
+          () =>
+            StreamablePromiseBuilder.buildStreamableRowPromise({
+              withError: true,
+            }),
+          localCallback
+        )
+
+        setTimeout(processResults, 500, result, expected, done, otherChecks)
+      })
 
       it('should raise error via event emitter', async function () {
         const streamRows = () => {
@@ -755,23 +879,90 @@ describe('streamablepromise', function () {
 
     describe('#error', function () {
       it('should return rejected promise', async function () {
-        await H.throwsHelper(async () => {
-          await StreamablePromiseBuilder.buildStreamableReplicaPromise({
-            withError: true,
+        const expected = { unhandledRejection: 0, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        await StreamablePromiseBuilder.buildStreamableReplicaPromise({
+          withError: true,
+        })
+          .catch((err) => {
+            assert.instanceOf(err, DocumentNotFoundError)
+            result.error++
           })
-        }, DocumentNotFoundError)
+          .finally(() => {
+            assert.equal(result.error, expected.error)
+            assert.equal(result.unhandledRejection, expected.unhandledRejection)
+          })
       })
 
       it('should return promise and reject after delayed await', async function () {
-        await H.throwsHelper(async () => {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableReplicaPromise({
               withError: true,
             })
           await H.sleep(2000)
           await executorPromise
-        }, DocumentNotFoundError)
+        } catch (err) {
+          assert.instanceOf(err, DocumentNotFoundError)
+          result.error++
+        }
+
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
       }).timeout(5000)
+
+      it('should raise unhandled rejection if not awaited', async function () {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 0 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
+          StreamablePromiseBuilder.buildStreamableReplicaPromise({
+            withError: true,
+          })
+        } catch (err) {
+          assert.instanceOf(err, DocumentNotFoundError)
+          result.error++
+        }
+        // give time for the unhandledRejectionListener
+        await H.sleep(250)
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
+      })
+
+      it('should return error to callback', function (done) {
+        const expected = { success: 0, unhandledRejection: 0, error: 1 }
+        const result = { success: 0, unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        const localCallback = (err, res) => {
+          if (err) {
+            result.error++
+            result.err = err
+          }
+          if (res) {
+            result.success++
+            result.res = res
+          }
+        }
+        const otherChecks = () => {
+          assert.instanceOf(result.err, DocumentNotFoundError)
+        }
+
+        PromiseHelper.wrapAsync(
+          () =>
+            StreamablePromiseBuilder.buildStreamableReplicaPromise({
+              withError: true,
+            }),
+          localCallback
+        )
+
+        setTimeout(processResults, 500, result, expected, done, otherChecks)
+      })
 
       it('should raise error via event emitter', async function () {
         const streamReplicas = () => {
@@ -977,23 +1168,90 @@ describe('streamablepromise', function () {
 
     describe('#error', function () {
       it('should return rejected promise', async function () {
-        await H.throwsHelper(async () => {
-          await StreamablePromiseBuilder.buildStreamableScanPromise({
-            withError: true,
+        const expected = { unhandledRejection: 0, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        await StreamablePromiseBuilder.buildStreamableScanPromise({
+          withError: true,
+        })
+          .catch((err) => {
+            assert.instanceOf(err, InvalidArgumentError)
+            result.error++
           })
-        }, InvalidArgumentError)
+          .finally(() => {
+            assert.equal(result.error, expected.error)
+            assert.equal(result.unhandledRejection, expected.unhandledRejection)
+          })
       })
 
       it('should return promise and reject after delayed await', async function () {
-        await H.throwsHelper(async () => {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 1 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
           const executorPromise =
             StreamablePromiseBuilder.buildStreamableScanPromise({
               withError: true,
             })
           await H.sleep(2000)
           await executorPromise
-        }, InvalidArgumentError)
+        } catch (err) {
+          assert.instanceOf(err, InvalidArgumentError)
+          result.error++
+        }
+
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
       }).timeout(5000)
+
+      it('should raise unhandled rejection if not awaited', async function () {
+        this.skip('Skip until JSCBC-1334 is fixed')
+        const expected = { unhandledRejection: 1, error: 0 }
+        const result = { unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        try {
+          StreamablePromiseBuilder.buildStreamableScanPromise({
+            withError: true,
+          })
+        } catch (err) {
+          assert.instanceOf(err, InvalidArgumentError)
+          result.error++
+        }
+        // give time for the unhandledRejectionListener
+        await H.sleep(250)
+        assert.equal(result.error, expected.error)
+        assert.equal(result.unhandledRejection, expected.unhandledRejection)
+      })
+
+      it('should return error to callback', function (done) {
+        const expected = { success: 0, unhandledRejection: 0, error: 1 }
+        const result = { success: 0, unhandledRejection: 0, error: 0 }
+        rejectionHandler = () => result.unhandledRejection++
+        const localCallback = (err, res) => {
+          if (err) {
+            result.error++
+            result.err = err
+          }
+          if (res) {
+            result.success++
+            result.res = res
+          }
+        }
+        const otherChecks = () => {
+          assert.instanceOf(result.err, InvalidArgumentError)
+        }
+
+        PromiseHelper.wrapAsync(
+          () =>
+            StreamablePromiseBuilder.buildStreamableScanPromise({
+              withError: true,
+            }),
+          localCallback
+        )
+
+        setTimeout(processResults, 500, result, expected, done, otherChecks)
+      })
 
       it('should raise error via event emitter', async function () {
         const streamScan = () => {
