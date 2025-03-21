@@ -48,11 +48,6 @@ export class StreamablePromise<T> extends EventEmitter implements Promise<T> {
         reject
       )
     })
-
-    // removes potential PromiseRejectionHandledWarning: Promise rejection was handled asynchronously
-    this._promise.catch((reason) => {
-      return reason
-    })
   }
 
   private get promise(): Promise<T> {

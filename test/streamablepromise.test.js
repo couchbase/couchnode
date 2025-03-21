@@ -594,7 +594,6 @@ describe('streamablepromise', function () {
       })
 
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 1 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
@@ -615,7 +614,6 @@ describe('streamablepromise', function () {
       }).timeout(5000)
 
       it('should raise unhandled rejection if not awaited', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 0 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
@@ -896,7 +894,6 @@ describe('streamablepromise', function () {
       })
 
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 1 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
@@ -917,7 +914,6 @@ describe('streamablepromise', function () {
       }).timeout(5000)
 
       it('should raise unhandled rejection if not awaited', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 0 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
@@ -1185,7 +1181,6 @@ describe('streamablepromise', function () {
       })
 
       it('should return promise and reject after delayed await', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 1 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
@@ -1206,7 +1201,6 @@ describe('streamablepromise', function () {
       }).timeout(5000)
 
       it('should raise unhandled rejection if not awaited', async function () {
-        this.skip('Skip until JSCBC-1334 is fixed')
         const expected = { unhandledRejection: 1, error: 0 }
         const result = { unhandledRejection: 0, error: 0 }
         rejectionHandler = () => result.unhandledRejection++
