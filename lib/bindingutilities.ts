@@ -35,6 +35,7 @@ import binding, {
   CppRangeScan,
   CppReadPreference,
   CppReplicateTo,
+  CppRetryReason,
   CppSamplingScan,
   CppSearchHighlightStyle,
   CppSearchScanConsistency,
@@ -692,6 +693,61 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
 /**
  * @internal
  */
+function retryReasonFromCpp(
+  reason: CppRetryReason | undefined
+): string | undefined {
+  if (!reason) return undefined
+
+  if (reason === binding.retry_reason.do_not_retry) {
+    return "do_not_retry"
+  } else if (reason === binding.retry_reason.unknown) {
+    return "unknown"
+  } else if (reason === binding.retry_reason.socket_not_available) {
+    return "socket_not_available"
+  } else if (reason === binding.retry_reason.service_not_available) {
+    return "service_not_available"
+  } else if (reason === binding.retry_reason.node_not_available) {
+    return "node_not_available"
+  } else if (reason === binding.retry_reason.key_value_not_my_vbucket) {
+    return "key_value_not_my_vbucket"
+  } else if (reason === binding.retry_reason.key_value_collection_outdated) {
+    return "key_value_collection_outdated"
+  } else if (reason === binding.retry_reason.key_value_error_map_retry_indicated) {
+    return "key_value_error_map_retry_indicated"
+  } else if (reason === binding.retry_reason.key_value_locked) {
+    return "key_value_locked"
+  } else if (reason === binding.retry_reason.key_value_temporary_failure) {
+    return "key_value_temporary_failure"
+  } else if (reason === binding.retry_reason.key_value_sync_write_in_progress) {
+    return "key_value_sync_write_in_progress"
+  } else if (reason === binding.retry_reason.key_value_sync_write_re_commit_in_progress) {
+    return "key_value_sync_write_re_commit_in_progress"
+  } else if (reason === binding.retry_reason.service_response_code_indicated) {
+    return "service_response_code_indicated"
+  } else if (reason === binding.retry_reason.socket_closed_while_in_flight) {
+    return "socket_closed_while_in_flight"
+  } else if (reason === binding.retry_reason.circuit_breaker_open) {
+    return "circuit_breaker_open"
+  } else if (reason === binding.retry_reason.query_prepared_statement_failure) {
+    return "query_prepared_statement_failure"
+  } else if (reason === binding.retry_reason.query_index_not_found) {
+    return "query_index_not_found"
+  } else if (reason === binding.retry_reason.analytics_temporary_failure) {
+    return "analytics_temporary_failure"
+  } else if (reason === binding.retry_reason.search_too_many_requests) {
+    return "search_too_many_requests"
+  } else if (reason === binding.retry_reason.views_temporary_failure) {
+    return "views_temporary_failure"
+  } else if (reason === binding.retry_reason.views_no_active_partition) {
+    return "views_no_active_partition"
+  } else {
+    return "unknown"
+  }
+}
+
+/**
+ * @internal
+ */
 export function errorFromCpp(err: CppError | null): Error | null {
   if (!err) {
     return null
@@ -737,6 +793,10 @@ export function errorFromCpp(err: CppError | null): Error | null {
   const baseErr = err as any as Error
   const contextOrNull = contextFromCpp(err)
   const context = contextOrNull ? contextOrNull : undefined
+
+  if ('retry_reasons' in baseErr && Array.isArray(baseErr.retry_reasons)) {
+    baseErr.retry_reasons = baseErr.retry_reasons.map(retryReasonFromCpp);
+  }
 
   switch (err.code) {
     case binding.errc_common.request_canceled:
