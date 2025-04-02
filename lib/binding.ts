@@ -194,7 +194,7 @@ export interface CppManagementClusterBucketSettings {
   history_retention_collection_default?: boolean
   history_retention_bytes?: number
   history_retention_duration?: number
-  // num_vbuckets
+  num_vbuckets?: number
   storage_backend: CppManagementClusterBucketStorageBackend
   capabilities: string[]
   nodes: CppManagementClusterBucketSettingsNode[]

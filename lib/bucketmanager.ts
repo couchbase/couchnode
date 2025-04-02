@@ -228,6 +228,11 @@ export interface IBucketSettings {
   historyRetentionDuration?: number
 
   /**
+   * Specifies the number of vBuckets in this bucket
+   */
+  numVBuckets?: number
+
+  /**
    * Same as {@link IBucketSettings.maxExpiry}.
    *
    * @deprecated Use {@link IBucketSettings.maxExpiry} instead.
@@ -337,6 +342,11 @@ export class BucketSettings implements IBucketSettings {
   historyRetentionDuration?: number
 
   /**
+   * Specifies the number of vBuckets in this bucket
+   */
+  numVBuckets?: number
+
+  /**
    * @internal
    */
   constructor(data: BucketSettings) {
@@ -355,6 +365,7 @@ export class BucketSettings implements IBucketSettings {
       data.historyRetentionCollectionDefault
     this.historyRetentionDuration = data.historyRetentionDuration
     this.historyRetentionBytes = data.historyRetentionBytes
+    this.numVBuckets = data.numVBuckets
   }
 
   /**
@@ -413,6 +424,7 @@ export class BucketSettings implements IBucketSettings {
         data.historyRetentionCollectionDefault,
       history_retention_bytes: data.historyRetentionBytes,
       history_retention_duration: data.historyRetentionDuration,
+      num_vbuckets: data.numVBuckets,
     }
   }
 
@@ -438,6 +450,7 @@ export class BucketSettings implements IBucketSettings {
       historyRetentionBytes: data.history_retention_bytes,
       historyRetentionDuration: data.history_retention_duration,
       minimumDurabilityLevel: durabilityFromCpp(data.minimum_durability_level),
+      numVBuckets: data.num_vbuckets,
       maxTTL: 0,
       durabilityMinLevel: '',
       ejectionMethod: '',

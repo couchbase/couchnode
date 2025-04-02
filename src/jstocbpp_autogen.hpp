@@ -296,7 +296,8 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         js_to_cbpp<std::optional<std::uint32_t>>(
             cppObj.history_retention_duration,
             jsObj.Get("history_retention_duration"));
-        // num_vbuckets
+        js_to_cbpp<std::optional<std::uint16_t>>(cppObj.num_vbuckets,
+                                                 jsObj.Get("num_vbuckets"));
         js_to_cbpp<
             couchbase::core::management::cluster::bucket_storage_backend>(
             cppObj.storage_backend, jsObj.Get("storage_backend"));
@@ -354,7 +355,8 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         resObj.Set("history_retention_duration",
                    cbpp_to_js<std::optional<std::uint32_t>>(
                        env, cppObj.history_retention_duration));
-        // num_vbuckets
+        resObj.Set("num_vbuckets", cbpp_to_js<std::optional<std::uint16_t>>(
+                                       env, cppObj.num_vbuckets));
         resObj.Set(
             "storage_backend",
             cbpp_to_js<
