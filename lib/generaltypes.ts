@@ -107,5 +107,5 @@ export enum ReadPreference {
    * cluster instantiation using the `ConnectOptions.preferredServerGroup` option
    * should be excluded.
    */
-  SelectedServerGroup = 'selected_server_group'
+  SelectedServerGroup = 'selected_server_group',
 }

@@ -633,6 +633,11 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
     return null
   }
 
+  let retry_reasons: string[] = []
+  if ('retry_reasons' in err) {
+    retry_reasons = err.retry_reasons.map(retryReasonFromCpp)
+  }
+
   let context = null
   if (err.ctxtype === 'key_value') {
     context = new errctxs.KeyValueErrorContext({
@@ -645,6 +650,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       scope: err.id ? err.id.scope : '',
       context: err.enhanced_error_info ? err.enhanced_error_info.context : '',
       ref: err.enhanced_error_info ? err.enhanced_error_info.reference : '',
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   } else if (err.ctxtype === 'view') {
     context = new errctxs.ViewErrorContext({
@@ -653,6 +664,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       parameters: err.query_string,
       http_response_code: err.http_status,
       http_response_body: err.http_body,
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   } else if (err.ctxtype === 'query') {
     context = new errctxs.QueryErrorContext({
@@ -661,6 +678,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       parameters: err.parameters,
       http_response_code: err.http_status,
       http_response_body: err.http_body,
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   } else if (err.ctxtype === 'search') {
     context = new errctxs.SearchErrorContext({
@@ -669,6 +692,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       parameters: err.parameters,
       http_response_code: err.http_status,
       http_response_body: err.http_body,
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   } else if (err.ctxtype === 'analytics') {
     context = new errctxs.AnalyticsErrorContext({
@@ -677,6 +706,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       parameters: err.parameters,
       http_response_code: err.http_status,
       http_response_body: err.http_body,
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   } else if (err.ctxtype === 'http') {
     context = new errctxs.HttpErrorContext({
@@ -684,6 +719,12 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
       request_path: err.path,
       response_code: err.http_status,
       response_body: err.http_body,
+      last_dispatched_from: err.last_dispatched_from
+        ? err.last_dispatched_from
+        : '',
+      last_dispatched_to: err.last_dispatched_to ? err.last_dispatched_to : '',
+      retry_attempts: err.retry_attempts ? err.retry_attempts : 0,
+      retry_reasons: retry_reasons,
     })
   }
 
@@ -693,55 +734,55 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
 /**
  * @internal
  */
-function retryReasonFromCpp(
-  reason: CppRetryReason | undefined
-): string | undefined {
-  if (!reason) return undefined
-
+function retryReasonFromCpp(reason: CppRetryReason): string {
   if (reason === binding.retry_reason.do_not_retry) {
-    return "do_not_retry"
+    return 'do_not_retry'
   } else if (reason === binding.retry_reason.unknown) {
-    return "unknown"
+    return 'unknown'
   } else if (reason === binding.retry_reason.socket_not_available) {
-    return "socket_not_available"
+    return 'socket_not_available'
   } else if (reason === binding.retry_reason.service_not_available) {
-    return "service_not_available"
+    return 'service_not_available'
   } else if (reason === binding.retry_reason.node_not_available) {
-    return "node_not_available"
+    return 'node_not_available'
   } else if (reason === binding.retry_reason.key_value_not_my_vbucket) {
-    return "key_value_not_my_vbucket"
+    return 'key_value_not_my_vbucket'
   } else if (reason === binding.retry_reason.key_value_collection_outdated) {
-    return "key_value_collection_outdated"
-  } else if (reason === binding.retry_reason.key_value_error_map_retry_indicated) {
-    return "key_value_error_map_retry_indicated"
+    return 'key_value_collection_outdated'
+  } else if (
+    reason === binding.retry_reason.key_value_error_map_retry_indicated
+  ) {
+    return 'key_value_error_map_retry_indicated'
   } else if (reason === binding.retry_reason.key_value_locked) {
-    return "key_value_locked"
+    return 'key_value_locked'
   } else if (reason === binding.retry_reason.key_value_temporary_failure) {
-    return "key_value_temporary_failure"
+    return 'key_value_temporary_failure'
   } else if (reason === binding.retry_reason.key_value_sync_write_in_progress) {
-    return "key_value_sync_write_in_progress"
-  } else if (reason === binding.retry_reason.key_value_sync_write_re_commit_in_progress) {
-    return "key_value_sync_write_re_commit_in_progress"
+    return 'key_value_sync_write_in_progress'
+  } else if (
+    reason === binding.retry_reason.key_value_sync_write_re_commit_in_progress
+  ) {
+    return 'key_value_sync_write_re_commit_in_progress'
   } else if (reason === binding.retry_reason.service_response_code_indicated) {
-    return "service_response_code_indicated"
+    return 'service_response_code_indicated'
   } else if (reason === binding.retry_reason.socket_closed_while_in_flight) {
-    return "socket_closed_while_in_flight"
+    return 'socket_closed_while_in_flight'
   } else if (reason === binding.retry_reason.circuit_breaker_open) {
-    return "circuit_breaker_open"
+    return 'circuit_breaker_open'
   } else if (reason === binding.retry_reason.query_prepared_statement_failure) {
-    return "query_prepared_statement_failure"
+    return 'query_prepared_statement_failure'
   } else if (reason === binding.retry_reason.query_index_not_found) {
-    return "query_index_not_found"
+    return 'query_index_not_found'
   } else if (reason === binding.retry_reason.analytics_temporary_failure) {
-    return "analytics_temporary_failure"
+    return 'analytics_temporary_failure'
   } else if (reason === binding.retry_reason.search_too_many_requests) {
-    return "search_too_many_requests"
+    return 'search_too_many_requests'
   } else if (reason === binding.retry_reason.views_temporary_failure) {
-    return "views_temporary_failure"
+    return 'views_temporary_failure'
   } else if (reason === binding.retry_reason.views_no_active_partition) {
-    return "views_no_active_partition"
+    return 'views_no_active_partition'
   } else {
-    return "unknown"
+    return 'unknown'
   }
 }
 
@@ -795,7 +836,7 @@ export function errorFromCpp(err: CppError | null): Error | null {
   const context = contextOrNull ? contextOrNull : undefined
 
   if ('retry_reasons' in baseErr && Array.isArray(baseErr.retry_reasons)) {
-    baseErr.retry_reasons = baseErr.retry_reasons.map(retryReasonFromCpp);
+    baseErr.retry_reasons = baseErr.retry_reasons.map(retryReasonFromCpp)
   }
 
   switch (err.code) {

@@ -2,7 +2,6 @@
 import binding from './binding'
 import { CppConnection } from './binding'
 import { errorFromCpp } from './bindingutilities'
-import { HttpErrorContext } from './errorcontexts'
 import * as events from 'events'
 
 /**
@@ -169,15 +168,6 @@ export class HttpExecutor {
           body: dataCache,
         })
       })
-    })
-  }
-
-  static errorContextFromResponse(resp: HttpResponse): HttpErrorContext {
-    return new HttpErrorContext({
-      method: resp.requestOptions.method,
-      request_path: resp.requestOptions.path,
-      response_code: resp.statusCode,
-      response_body: resp.body.toString(),
     })
   }
 }

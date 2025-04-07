@@ -1,11 +1,51 @@
 import { Cas } from './utilities'
 
 /**
+ * Specific error context types.
+ *
+ * @category Error Handling
+ */
+type ErrorContextTypes =
+  | KeyValueErrorContext
+  | ViewErrorContext
+  | QueryErrorContext
+  | SearchErrorContext
+  | AnalyticsErrorContext
+  | HttpErrorContext
+
+/**
  * Generic base class for all known error context types.
  *
  * @category Error Handling
  */
-export class ErrorContext {}
+export class ErrorContext {
+  /**
+   * The host and port that the request was last sent to.
+   */
+  last_dispatched_to: string
+
+  /**
+   * The host and port that the request was last sent from.
+   */
+  last_dispatched_from: string
+
+  /**
+   * The number of times the operation has been retried.
+   */
+  retry_attempts: number
+
+  /**
+   * A list of the reasons for retrying the operation.
+   */
+  retry_reasons: string[]
+
+  constructor(data: ErrorContextTypes) {
+    this.last_dispatched_to = data.last_dispatched_to || ''
+    this.last_dispatched_from = data.last_dispatched_from || ''
+    this.retry_attempts = data.retry_attempts || 0
+    this.retry_reasons = data.retry_reasons || []
+  }
+}
 
 /**
  * The error context information for a key-value operation.
@@ -62,7 +102,7 @@ export class KeyValueErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: KeyValueErrorContext) {
-    super()
+    super(data)
 
     this.status_code = data.status_code
     this.opaque = data.opaque
@@ -111,7 +151,7 @@ export class ViewErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: ViewErrorContext) {
-    super()
+    super(data)
 
     this.design_document = data.design_document
     this.view = data.view
@@ -157,7 +197,7 @@ export class QueryErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: QueryErrorContext) {
-    super()
+    super(data)
 
     this.statement = data.statement
     this.client_context_id = data.client_context_id
@@ -202,7 +242,7 @@ export class SearchErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: SearchErrorContext) {
-    super()
+    super(data)
 
     this.index_name = data.index_name
     this.query = data.query
@@ -248,7 +288,7 @@ export class AnalyticsErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: QueryErrorContext) {
-    super()
+    super(data)
 
     this.statement = data.statement
     this.client_context_id = data.client_context_id
@@ -288,7 +328,7 @@ export class HttpErrorContext extends ErrorContext {
    * @internal
    */
   constructor(data: HttpErrorContext) {
-    super()
+    super(data)
 
     this.method = data.method
     this.request_path = data.request_path
