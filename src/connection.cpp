@@ -442,15 +442,15 @@ Napi::Value Connection::jsScan(const Napi::CallbackInfo &info)
         bucketName,
         [barrier](
             std::error_code ec,
-            const couchbase::core::topology::configuration &config) mutable {
+            std::shared_ptr<couchbase::core::topology::configuration> config) mutable {
             if (ec) {
                 return barrier->set_value(tl::unexpected(ec));
             }
-            if (!config.vbmap || config.vbmap->empty()) {
+            if (!config->vbmap || config->vbmap->empty()) {
                 return barrier->set_value(tl::unexpected(
                     couchbase::errc::common::feature_not_available));
             }
-            barrier->set_value(config.vbmap.value());
+            barrier->set_value(config->vbmap.value());
         });
     auto vbucket_map = f.get();
     if (!vbucket_map.has_value()) {
