@@ -66,6 +66,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
             couchbase::core::logger::configuration configuration{};
             configuration.filename = logFileStr;
             configuration.log_level = cbppLogLevel;
+            const char *enableConsoleLoggingCstr = getenv("CBPPENABLECONSOLE");
+            configuration.console = enableConsoleLoggingCstr != nullptr;
             couchbase::core::logger::create_file_logger(configuration);
 
         } else {
