@@ -1692,6 +1692,7 @@ struct js_to_cbpp_t<couchbase::core::operations::prepend_request> {
         js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<couchbase::durability_level>(cppObj.durability_level,
                                                 jsObj.Get("durability_level"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -1712,6 +1713,7 @@ struct js_to_cbpp_t<couchbase::core::operations::prepend_request> {
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("durability_level", cbpp_to_js<couchbase::durability_level>(
                                            env, cppObj.durability_level));
         resObj.Set("timeout",
@@ -1737,6 +1739,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
@@ -1759,6 +1762,7 @@ struct js_to_cbpp_t<
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
@@ -2263,6 +2267,7 @@ struct js_to_cbpp_t<couchbase::core::operations::append_request> {
         js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<couchbase::durability_level>(cppObj.durability_level,
                                                 jsObj.Get("durability_level"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -2283,6 +2288,7 @@ struct js_to_cbpp_t<couchbase::core::operations::append_request> {
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("durability_level", cbpp_to_js<couchbase::durability_level>(
                                            env, cppObj.durability_level));
         resObj.Set("timeout",
@@ -2308,6 +2314,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
@@ -2331,6 +2338,7 @@ struct js_to_cbpp_t<
         resObj.Set("partition",
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));

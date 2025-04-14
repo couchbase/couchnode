@@ -1,7 +1,7 @@
 import { Collection } from './collection'
 import { CounterResult, MutationResult } from './crudoptypes'
 import { DurabilityLevel } from './generaltypes'
-import { NodeCallback } from './utilities'
+import { CasInput, NodeCallback } from './utilities'
 
 /**
  * @category Key-Value
@@ -109,6 +109,12 @@ export interface AppendOptions {
   durabilityReplicateTo?: number
 
   /**
+   * If specified, indicates that operation should be failed if the CAS
+   * has changed from this value, indicating that the document has changed.
+   */
+  cas?: CasInput
+
+  /**
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
@@ -136,6 +142,12 @@ export interface PrependOptions {
    * exclusive of {@link durabilityLevel}.
    */
   durabilityReplicateTo?: number
+
+  /**
+   * If specified, indicates that operation should be failed if the CAS
+   * has changed from this value, indicating that the document has changed.
+   */
+  cas?: CasInput
 
   /**
    * The timeout for this operation, represented in milliseconds.
