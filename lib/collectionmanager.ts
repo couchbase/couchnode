@@ -59,7 +59,7 @@ export class CollectionSpec {
    *
    * @see {@link IBucketSettings.maxExpiry}
    */
-  maxExpiry: number
+  maxExpiry?: number
 
   /**
    * The history retention override setting in this collection.
@@ -393,8 +393,8 @@ export class CollectionManager {
 
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
-    const maxExpiry = settings.maxExpiry || 0
-    const history = settings.history || undefined
+    const maxExpiry = settings?.maxExpiry
+    const history = settings?.history
 
     return PromiseHelper.wrap((wrapCallback) => {
       this._cluster.conn.managementCollectionCreate(
