@@ -376,6 +376,9 @@ function matchingPlatformPrebuild(filename, useElectronRuntime = false) {
     _runtime = 'electron'
   } else if (runtime === 'node') {
     _runtime = 'napi'
+  } else if (runtime === 'electron') {
+    // NOTE: electron support is experimental
+    _runtime = 'electron'
   } else {
     console.log(`Unsupported runtime: ${runtime}`)
     return false
@@ -439,6 +442,9 @@ function resolvePrebuild(
     _runtime = 'electron'
   } else if (runtime === 'node') {
     _runtime = 'napi'
+  } else if (runtime === 'electron') {
+    // NOTE: electron support is experimental
+    _runtime = 'electron'
   } else {
     throw new Error(`Unsupported runtime: ${runtime}`)
   }
