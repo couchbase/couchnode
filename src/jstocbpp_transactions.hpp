@@ -8,6 +8,8 @@
 #include <core/error_context/transaction_error_context.hxx>
 #include <core/transactions.hxx>
 #include <core/transactions/internal/exceptions_internal.hxx>
+#include <core/transactions/transaction_get_multi_replicas_from_preferred_server_group_result.hxx>
+#include <core/transactions/transaction_get_multi_result.hxx>
 #include <core/utils/json.hxx>
 
 namespace cbtxns = couchbase::transactions;
@@ -264,6 +266,55 @@ struct js_to_cbpp_t<cbcoretxns::transaction_get_result> {
 };
 
 template <>
+struct js_to_cbpp_t<cbcoretxns::transaction_get_multi_result> {
+    static inline cbcoretxns::transaction_get_multi_result
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        return cbcoretxns::transaction_get_multi_result(
+            js_to_cbpp<
+                std::vector<std::optional<couchbase::codec::encoded_value>>>(
+                jsObj.Get("content")));
+    }
+
+    static inline Napi::Value
+    to_js(Napi::Env env, const cbcoretxns::transaction_get_multi_result &res)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("content", cbpp_to_js(env, res.content()));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    cbcoretxns::
+        transaction_get_multi_replicas_from_preferred_server_group_result> {
+    static inline cbcoretxns::
+        transaction_get_multi_replicas_from_preferred_server_group_result
+        from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        return cbcoretxns::
+            transaction_get_multi_replicas_from_preferred_server_group_result(
+                js_to_cbpp<std::vector<
+                    std::optional<couchbase::codec::encoded_value>>>(
+                    jsObj.Get("content")));
+    }
+
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const cbcoretxns::
+              transaction_get_multi_replicas_from_preferred_server_group_result
+                  &res)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("content", cbpp_to_js(env, res.content()));
+        return resObj;
+    }
+};
+
+template <>
 struct js_to_cbpp_t<cbtxns::transaction_query_options> {
     static inline cbtxns::transaction_query_options from_js(Napi::Value jsVal)
     {
@@ -436,16 +487,17 @@ struct js_to_cbpp_t<cbcoretxns::op_exception> {
 template <>
 struct js_to_cbpp_t<couchbase::core::transaction_op_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::transaction_op_error_context &res)
+    to_js(Napi::Env env,
+          const couchbase::core::transaction_op_error_context &res)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("code", cbpp_to_js(env, res.ec()));
         resObj.Set(
             "cause",
-            cbpp_to_js<
-                std::variant<std::monostate, couchbase::core::key_value_error_context,
-                             couchbase::core::query_error_context>>(env,
-                                                              res.cause()));
+            cbpp_to_js<std::variant<std::monostate,
+                                    couchbase::core::key_value_error_context,
+                                    couchbase::core::query_error_context>>(
+                env, res.cause()));
         return resObj;
     }
 };

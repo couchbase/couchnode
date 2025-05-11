@@ -28,6 +28,9 @@ public:
     Napi::Value jsGet(const Napi::CallbackInfo &info);
     Napi::Value
     jsGetReplicaFromPreferredServerGroup(const Napi::CallbackInfo &info);
+    Napi::Value jsGetMulti(const Napi::CallbackInfo &info);
+    Napi::Value
+    jsGetMultiReplicasFromPreferredServerGroup(const Napi::CallbackInfo &info);
     Napi::Value jsInsert(const Napi::CallbackInfo &info);
     Napi::Value jsReplace(const Napi::CallbackInfo &info);
     Napi::Value jsRemove(const Napi::CallbackInfo &info);

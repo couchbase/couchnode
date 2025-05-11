@@ -1,7 +1,10 @@
 import {
+  CppDocumentId,
   CppGenericError,
   CppTransactions,
   CppTransaction,
+  CppTransactionGetMultiReplicasFromPreferredServerGroupResult,
+  CppTransactionGetMultiResult,
   CppTransactionGetResult,
   CppQueryResponse,
   CppTransactionLinks,
@@ -13,11 +16,14 @@ import {
   errorFromCpp,
   queryProfileToCpp,
   queryScanConsistencyToCpp,
+  transactionGetMultiModeToCpp,
+  transactionGetMultiReplicasFromPreferredServerGroupModeToCpp,
   transactionKeyspaceToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
 import {
+  DocumentNotFoundError,
   TransactionFailedError,
   TransactionOperationFailedError,
 } from './errors'
@@ -87,6 +93,46 @@ export interface TransactionKeyspace {
    * The name of the collection for the Keyspace.
    */
   collection?: string
+}
+
+/**
+ * Represents the mode of the Transactional GetMulti operation.
+ *
+ * @category Transactions
+ */
+export enum TransactionGetMultiMode {
+  /**
+   * Indicates that the Transactional GetMulti op should prioritise latency.
+   */
+  PrioritiseLatency = 'prioritise_latency',
+  /**
+   * Indicates that the Transactional GetMulti op should disable read skew detection.
+   */
+  DisableReadSkewDetection = 'disable_read_skew_detection',
+  /**
+   * Indicates that the Transactional GetMulti op should prioritise read skew detection.
+   */
+  PrioritiseReadSkewDetection = 'prioritise_read_skew_detection',
+}
+
+/**
+ * Represents the mode of the Transactional GetMultiReplicasFromPreferredServerGroup operation.
+ *
+ * @category Transactions
+ */
+export enum TransactionGetMultiReplicasFromPreferredServerGroupMode {
+  /**
+   * Indicates that the Transactional GetMultiReplicasFromPreferredServerGroup op should prioritise latency.
+   */
+  PrioritiseLatency = 'prioritise_latency',
+  /**
+   * Indicates that the Transactional GetMultiReplicasFromPreferredServerGroup op should disable read skew detection.
+   */
+  DisableReadSkewDetection = 'disable_read_skew_detection',
+  /**
+   * Indicates that the Transactional GetMultiReplicasFromPreferredServerGroup op should prioritise read skew detection.
+   */
+  PrioritiseReadSkewDetection = 'prioritise_read_skew_detection',
 }
 
 /**
@@ -180,6 +226,86 @@ export interface TransactionOptions {
 }
 
 /**
+ * Represents the path to a document.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiSpec {
+  constructor(collection: Collection, id: string, transcoder?: Transcoder) {
+    this.collection = collection
+    this.id = id
+    this.transcoder = transcoder
+  }
+
+  /**
+   * The Collection where the document belongs.
+   */
+  collection: Collection
+
+  /**
+   * The id (or key) of the document.
+   */
+  id: string
+
+  /**
+   * The Transcoder to encode/decode the document.
+   */
+  transcoder?: Transcoder
+
+  /**
+   * @internal
+   */
+  _toCppDocumentId(): CppDocumentId {
+    return {
+      bucket: this.collection.scope.bucket.name,
+      scope: this.collection.scope.name || '_default',
+      collection: this.collection.name || '_default',
+      key: this.id,
+    }
+  }
+}
+
+/**
+ * Represents the path to a document.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiReplicasFromPreferredServerGroupSpec {
+  constructor(collection: Collection, id: string, transcoder?: Transcoder) {
+    this.collection = collection
+    this.id = id
+    this.transcoder = transcoder
+  }
+
+  /**
+   * The Collection where the document belongs.
+   */
+  collection: Collection
+
+  /**
+   * The id (or key) of the document.
+   */
+  id: string
+
+  /**
+   * The Transcoder to encode/decode the document.
+   */
+  transcoder?: Transcoder
+
+  /**
+   * @internal
+   */
+  _toCppDocumentId(): CppDocumentId {
+    return {
+      bucket: this.collection.scope.bucket.name,
+      scope: this.collection.scope.name || '_default',
+      collection: this.collection.name || '_default',
+      key: this.id,
+    }
+  }
+}
+
+/**
  * Contains the results of a Transaction.
  *
  * @category Transactions
@@ -246,6 +372,155 @@ export class TransactionGetResult {
    * @internal
    */
   _metadata: CppTransactionGetMetaData
+}
+
+/**
+ * Contains the results of a specific sub-operation within a transactional GetMulti operation.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiResultEntry {
+  /**
+   * The error, if any, which occured when attempting to perform this sub-operation.
+   */
+  error: Error | null
+
+  /**
+   * The value returned by the sub-operation.
+   */
+  value?: any
+
+  /**
+   * @internal
+   */
+  constructor(data: { value?: any; error?: Error }) {
+    this.error = data.error || null
+    this.value = data.value
+  }
+}
+
+/**
+ * Contains the results of a transactional GetMulti operation.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiResult {
+  /**
+   * @internal
+   */
+  constructor(data: { content: TransactionGetMultiResultEntry[] }) {
+    this.content = data.content
+  }
+
+  /**
+   * The content of the document.
+   */
+  content: TransactionGetMultiResultEntry[]
+
+  /**
+   * Indicates whether the document at the specified index exists.
+   *
+   * @param index The result index to check.
+   */
+  exists(index: number): boolean {
+    if (index < 0 || index >= this.content.length) {
+      throw new Error(`Index (${index}) out of bounds.`)
+    }
+    return this.content[index].value !== undefined
+  }
+
+  /**
+   * Provides the content at the specified index, if it exists.
+   *
+   * @param index The result index to check.
+   */
+  contentAt(index: number): any {
+    if (!this.exists(index)) {
+      throw (
+        this.content[index].error ||
+        new DocumentNotFoundError(
+          new Error(`Document does not exist at index=${index}.`)
+        )
+      )
+    }
+    return this.content[index].value
+  }
+}
+
+/**
+ * Contains the results of a specific sub-operation within
+ * a transactional GetMultiReplicasFromPreferredServerGroup operation.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiReplicasFromPreferredServerGroupResultEntry {
+  /**
+   * The error, if any, which occured when attempting to access the document.
+   */
+  error: Error | null
+
+  /**
+   * The value of the document.
+   */
+  value?: any
+
+  /**
+   * @internal
+   */
+  constructor(data: { value?: any; error?: Error }) {
+    this.error = data.error || null
+    this.value = data.value
+  }
+}
+
+/**
+ * Contains the results of a transactional GetMultiReplicasFromPreferredServerGroup operation.
+ *
+ * @category Transactions
+ */
+export class TransactionGetMultiReplicasFromPreferredServerGroupResult {
+  /**
+   * @internal
+   */
+  constructor(data: {
+    content: TransactionGetMultiReplicasFromPreferredServerGroupResultEntry[]
+  }) {
+    this.content = data.content
+  }
+
+  /**
+   * The content of the document.
+   */
+  content: TransactionGetMultiReplicasFromPreferredServerGroupResultEntry[]
+
+  /**
+   * Indicates whether the document at the specified index exists.
+   *
+   * @param index The result index to check.
+   */
+  exists(index: number): boolean {
+    if (index < 0 || index >= this.content.length) {
+      throw new Error(`Index (${index}) out of bounds.`)
+    }
+    return this.content[index].value !== undefined
+  }
+
+  /**
+   * Provides the content at the specified index, if it exists.
+   *
+   * @param index The result index to check.
+   */
+  contentAt(index: number): any {
+    if (!this.exists(index)) {
+      throw (
+        this.content[index].error ||
+        new DocumentNotFoundError(
+          new Error(`Document does not exist at index=${index}.`)
+        )
+      )
+    }
+    return this.content[index].value
+  }
 }
 
 /**
@@ -383,6 +658,26 @@ export interface TransactionGetReplicaFromPreferredServerGroupOptions {
 /**
  * @category Transactions
  */
+export interface TransactionGetMultiOptions {
+  /**
+   * Specifies a mode to use for this specific operation.
+   */
+  mode?: TransactionGetMultiMode
+}
+
+/**
+ * @category Transactions
+ */
+export interface TransactionGetMultiReplicasFromPreferredServerGroupOptions {
+  /**
+   * Specifies a mode to use for this specific operation.
+   */
+  mode?: TransactionGetMultiReplicasFromPreferredServerGroupMode
+}
+
+/**
+ * @category Transactions
+ */
 export interface TransactionInsertOptions {
   /**
    * Specifies an explicit transcoder to use for this specific operation.
@@ -422,6 +717,75 @@ function translateGetResult(
     cas: cppRes.cas,
     _links: cppRes.links,
     _metadata: cppRes.metadata,
+  })
+}
+
+/**
+ * @internal
+ */
+function translateGetMultiResult(
+  cppRes: CppTransactionGetMultiResult | null,
+  transcoders: Transcoder[]
+): TransactionGetMultiResult | null {
+  if (!cppRes) {
+    return null
+  }
+  const content: TransactionGetMultiResultEntry[] = []
+  for (let i = 0; i < cppRes.content.length; ++i) {
+    const cppEntry = cppRes.content[i]
+    let resultEntry, resultError
+    if (cppEntry && cppEntry.data && cppEntry.data.length > 0) {
+      resultEntry = transcoders[i].decode(cppEntry.data, cppEntry.flags)
+    }
+    if (!resultEntry) {
+      resultError = new DocumentNotFoundError(
+        new Error(`Document not found at index=${i}.`)
+      )
+    }
+    content.push(
+      new TransactionGetMultiResultEntry({
+        value: resultEntry,
+        error: resultError,
+      })
+    )
+  }
+  return new TransactionGetMultiResult({
+    content,
+  })
+}
+
+/**
+ * @internal
+ */
+function translateGetMultiReplicasFromPreferredServerGroupResult(
+  cppRes: CppTransactionGetMultiReplicasFromPreferredServerGroupResult | null,
+  transcoders: Transcoder[]
+): TransactionGetMultiReplicasFromPreferredServerGroupResult | null {
+  if (!cppRes) {
+    return null
+  }
+  const content: TransactionGetMultiReplicasFromPreferredServerGroupResultEntry[] =
+    []
+  for (let i = 0; i < cppRes.content.length; ++i) {
+    const cppEntry = cppRes.content[i]
+    let resultEntry, resultError
+    if (cppEntry && cppEntry.data && cppEntry.data.length > 0) {
+      resultEntry = transcoders[i].decode(cppEntry.data, cppEntry.flags)
+    }
+    if (!resultEntry) {
+      resultError = new DocumentNotFoundError(
+        new Error(`Document not found at index=${i}.`)
+      )
+    }
+    content.push(
+      new TransactionGetMultiReplicasFromPreferredServerGroupResultEntry({
+        value: resultEntry,
+        error: resultError,
+      })
+    )
+  }
+  return new TransactionGetMultiReplicasFromPreferredServerGroupResult({
+    content,
   })
 }
 
@@ -525,6 +889,74 @@ export class TransactionAttemptContext {
           }
 
           wrapCallback(err, translateGetResult(cppRes, transcoder))
+        }
+      )
+    })
+  }
+
+  /**
+   * Retrieves the documents specified in the list of specs.
+   *
+   * @param specs The documents to retrieve.
+   * @param options Optional parameters for this operation.
+   */
+  async getMultiReplicasFromPreferredServerGroup(
+    specs: TransactionGetMultiReplicasFromPreferredServerGroupSpec[],
+    options?: TransactionGetMultiReplicasFromPreferredServerGroupOptions
+  ): Promise<TransactionGetMultiReplicasFromPreferredServerGroupResult> {
+    const ids = specs.map((spec) => spec._toCppDocumentId())
+    const transcoders = specs.map((spec) => spec.transcoder || this._transcoder)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._impl.getMultiReplicasFromPreferredServerGroup(
+        {
+          ids,
+          mode: transactionGetMultiReplicasFromPreferredServerGroupModeToCpp(
+            options?.mode
+          ),
+        },
+        (cppErr, cppRes) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(
+            err,
+            translateGetMultiReplicasFromPreferredServerGroupResult(
+              cppRes,
+              transcoders
+            )
+          )
+        }
+      )
+    })
+  }
+
+  /**
+   * Retrieves the documents specified in the list of specs.
+   *
+   * @param specs The documents to retrieve.
+   * @param options Optional parameters for this operation.
+   */
+  async getMulti(
+    specs: TransactionGetMultiSpec[],
+    options?: TransactionGetMultiOptions
+  ): Promise<TransactionGetMultiResult> {
+    const ids = specs.map((spec) => spec._toCppDocumentId())
+    const transcoders = specs.map((spec) => spec.transcoder || this._transcoder)
+    return PromiseHelper.wrap((wrapCallback) => {
+      this._impl.getMulti(
+        {
+          ids,
+          mode: transactionGetMultiModeToCpp(options?.mode),
+        },
+        (cppErr, cppRes) => {
+          const err = errorFromCpp(cppErr)
+          if (err) {
+            return wrapCallback(err, null)
+          }
+
+          wrapCallback(err, translateGetMultiResult(cppRes, transcoders))
         }
       )
     })

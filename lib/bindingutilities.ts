@@ -43,6 +43,8 @@ import binding, {
   CppStoreSemantics,
   CppTransactionKeyspace,
   CppTransactionsExternalException,
+  CppTransactionsTransactionGetMultiMode,
+  CppTransactionsTransactionGetMultiReplicasFromPreferredServerGroupMode,
   CppTxnOpException,
   CppVectorQueryCombination,
   CppViewScanConsistency,
@@ -69,7 +71,11 @@ import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
 import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
 import { HighlightStyle, SearchScanConsistency } from './searchtypes'
-import { TransactionKeyspace } from './transactions'
+import {
+  TransactionGetMultiMode,
+  TransactionGetMultiReplicasFromPreferredServerGroupMode,
+  TransactionKeyspace,
+} from './transactions'
 import { nsServerStrToDuraLevel } from './utilities'
 import { VectorQueryCombination } from './vectorsearch'
 import {
@@ -1854,4 +1860,69 @@ export function readPreferenceToCpp(
   }
 
   throw new errs.InvalidArgumentError(new Error('Unrecognized ReadPreference.'))
+}
+
+/**
+ * @internal
+ */
+export function transactionGetMultiModeToCpp(
+  mode: TransactionGetMultiMode | undefined
+): CppTransactionsTransactionGetMultiMode | undefined {
+  if (mode === null || mode === undefined) {
+    return undefined
+  }
+
+  if (mode === TransactionGetMultiMode.PrioritiseLatency) {
+    return binding.transactions_transaction_get_multi_mode.prioritise_latency
+  } else if (mode === TransactionGetMultiMode.DisableReadSkewDetection) {
+    return binding.transactions_transaction_get_multi_mode
+      .disable_read_skew_detection
+  } else if (mode === TransactionGetMultiMode.PrioritiseReadSkewDetection) {
+    return binding.transactions_transaction_get_multi_mode
+      .prioritise_read_skew_detection
+  }
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized TransactionGetMultiMode.')
+  )
+}
+
+/**
+ * @internal
+ */
+export function transactionGetMultiReplicasFromPreferredServerGroupModeToCpp(
+  mode: TransactionGetMultiReplicasFromPreferredServerGroupMode | undefined
+):
+  | CppTransactionsTransactionGetMultiReplicasFromPreferredServerGroupMode
+  | undefined {
+  if (mode === null || mode === undefined) {
+    return undefined
+  }
+
+  if (
+    mode ===
+    TransactionGetMultiReplicasFromPreferredServerGroupMode.PrioritiseLatency
+  ) {
+    return binding
+      .transactions_transaction_get_multi_replicas_from_preferred_server_group_mode
+      .prioritise_latency
+  } else if (
+    mode ===
+    TransactionGetMultiReplicasFromPreferredServerGroupMode.DisableReadSkewDetection
+  ) {
+    return binding
+      .transactions_transaction_get_multi_replicas_from_preferred_server_group_mode
+      .disable_read_skew_detection
+  } else if (
+    mode ===
+    TransactionGetMultiReplicasFromPreferredServerGroupMode.PrioritiseReadSkewDetection
+  ) {
+    return binding
+      .transactions_transaction_get_multi_replicas_from_preferred_server_group_mode
+      .prioritise_read_skew_detection
+  }
+  throw new errs.InvalidArgumentError(
+    new Error(
+      'Unrecognized TransactionGetMultiReplicasFromPreferredServerGroupMode.'
+    )
+  )
 }

@@ -4,6 +4,8 @@
 #include "transactions.hpp"
 #include <core/transactions/internal/exceptions_internal.hxx>
 #include <core/transactions/internal/utils.hxx>
+#include <core/transactions/transaction_get_multi_replicas_from_preferred_server_group_result.hxx>
+#include <core/transactions/transaction_get_multi_result.hxx>
 #include <type_traits>
 
 namespace couchnode
@@ -41,6 +43,10 @@ void Transaction::Init(Napi::Env env, Napi::Object exports)
             InstanceMethod<&Transaction::jsGet>("get"),
             InstanceMethod<&Transaction::jsGetReplicaFromPreferredServerGroup>(
                 "getReplicaFromPreferredServerGroup"),
+            InstanceMethod<&Transaction::jsGetMulti>("getMulti"),
+            InstanceMethod<
+                &Transaction::jsGetMultiReplicasFromPreferredServerGroup>(
+                "getMultiReplicasFromPreferredServerGroup"),
             InstanceMethod<&Transaction::jsInsert>("insert"),
             InstanceMethod<&Transaction::jsReplace>("replace"),
             InstanceMethod<&Transaction::jsRemove>("remove"),
@@ -149,6 +155,66 @@ Napi::Value Transaction::jsGetReplicaFromPreferredServerGroup(
                     return;
                 }
 
+                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+            });
+        });
+
+    return info.Env().Null();
+}
+
+Napi::Value Transaction::jsGetMulti(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn, "txnGetMultiCallback");
+
+    auto docIds = jsToCbpp<std::vector<couchbase::core::document_id>>(
+        optsJsObj.Get("ids"));
+    auto mode =
+        jsToCbpp<cbcoretxns::transaction_get_multi_mode>(optsJsObj.Get("mode"));
+
+    _impl->get_multi(
+        docIds, mode,
+        [this, cookie = std::move(cookie)](
+            std::exception_ptr err,
+            std::optional<cbcoretxns::transaction_get_multi_result>
+                res) mutable {
+            cookie.invoke([err = std::move(err), res = std::move(res)](
+                              Napi::Env env, Napi::Function callback) mutable {
+                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+            });
+        });
+
+    return info.Env().Null();
+}
+
+Napi::Value Transaction::jsGetMultiReplicasFromPreferredServerGroup(
+    const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn,
+                      "txnGetMultiReplicasFromPreferredServerGroupCallback");
+
+    auto docIds = jsToCbpp<std::vector<couchbase::core::document_id>>(
+        optsJsObj.Get("ids"));
+    auto mode = jsToCbpp<
+        cbcoretxns::
+            transaction_get_multi_replicas_from_preferred_server_group_mode>(
+        optsJsObj.Get("mode"));
+
+    _impl->get_multi_replicas_from_preferred_server_group(
+        docIds, mode,
+        [this, cookie = std::move(cookie)](
+            std::exception_ptr err,
+            std::optional<
+                cbcoretxns::
+                    transaction_get_multi_replicas_from_preferred_server_group_result>
+                res) mutable {
+            cookie.invoke([err = std::move(err), res = std::move(res)](
+                              Napi::Env env, Napi::Function callback) mutable {
                 callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
             });
         });

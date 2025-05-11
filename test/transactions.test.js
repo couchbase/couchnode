@@ -1,10 +1,36 @@
 'use strict'
 
 const assert = require('chai').assert
-
+const testdata = require('./testdata')
 const H = require('./harness')
 
 const { RawBinaryTranscoder } = require('../lib/transcoders')
+const {
+  TransactionGetMultiSpec,
+  TransactionGetMultiMode,
+  TransactionGetMultiResult,
+  TransactionGetMultiReplicasFromPreferredServerGroupMode,
+  TransactionGetMultiReplicasFromPreferredServerGroupResult,
+  TransactionGetMultiReplicasFromPreferredServerGroupSpec,
+} = require('../lib/transactions')
+
+async function upsertTestData(target, testUid) {
+  var promises = []
+
+  for (var i = 0; i < 5; ++i) {
+    promises.push(
+      (async () => {
+        var testDocKey = testUid + '::' + i
+        var testDoc = { id: testDocKey }
+
+        await target.upsert(testDocKey, testDoc)
+        return { id: testDocKey, testDoc: testDoc }
+      })()
+    )
+  }
+
+  return await Promise.all(promises)
+}
 
 describe('#transactions', function () {
   before(async function () {
@@ -679,6 +705,304 @@ describe('#transactions', function () {
         assert.instanceOf(err.cause, H.lib.DocumentUnretrievableError)
       }
       assert.equal(numAttempts, 1)
+    })
+  })
+
+  describe('#getMulti', function () {
+    let testUid, testDocsAndIds
+
+    before(async function () {
+      this.timeout(5000)
+      testUid = H.genTestKey()
+      testDocsAndIds = await upsertTestData(H.co, testUid)
+    })
+
+    after(async function () {
+      try {
+        await testdata.removeTestData(
+          H.co,
+          testDocsAndIds.map((doc) => doc.id)
+        )
+      } catch (e) {
+        // ignore
+      }
+    })
+
+    it('should successfully execute getMulti operation', async function () {
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[0].id),
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[1].id),
+        ]
+        const getRes = await attempt.getMulti(specs)
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testDocsAndIds[0].testDoc)
+        assert.deepEqual(getRes.content[0].value, testDocsAndIds[0].testDoc)
+        assert.isNull(getRes.content[0].error)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[1].testDoc)
+        assert.deepEqual(getRes.content[1].value, testDocsAndIds[1].testDoc)
+        assert.isNull(getRes.content[1].error)
+      })
+    })
+
+    it('should allow binary txn', async function () {
+      H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
+      const testkey = H.genTestKey()
+      const testBinVal = Buffer.from(
+        '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+        'hex'
+      )
+      const tc = new RawBinaryTranscoder()
+      await H.co.insert(testkey, testBinVal, {
+        transcoder: tc,
+      })
+
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testkey, tc),
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[0].id),
+        ]
+        const getRes = await attempt.getMulti(specs)
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.deepEqual(getRes.contentAt(0), testBinVal)
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[0].testDoc)
+      })
+    })
+
+    it('should allow handle missing document', async function () {
+      const testkey = 'i-dont-exist'
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[0].id),
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[1].id),
+          new TransactionGetMultiSpec(H.co, testkey),
+        ]
+        const getRes = await attempt.getMulti(specs)
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.isTrue(getRes.exists(0))
+        assert.isTrue(getRes.exists(1))
+        assert.isFalse(getRes.exists(2))
+        try {
+          getRes.contentAt(2)
+        } catch (err) {
+          assert.instanceOf(err, H.lib.DocumentNotFoundError)
+        }
+      })
+    })
+
+    it('should allow raise error if invalid index', async function () {
+      const idxOutOfBounds = 2
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[0].id),
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[1].id),
+        ]
+        const getRes = await attempt.getMulti(specs)
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.isTrue(getRes.exists(0))
+        assert.isTrue(getRes.exists(1))
+        try {
+          getRes.exists(idxOutOfBounds)
+        } catch (err) {
+          assert.equal(err.message, `Index (${idxOutOfBounds}) out of bounds.`)
+        }
+      })
+    })
+
+    it('should allow different mode', async function () {
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[0].id),
+          new TransactionGetMultiSpec(H.co, testDocsAndIds[1].id),
+        ]
+        const getRes = await attempt.getMulti(specs, {
+          mode: TransactionGetMultiMode.DisableReadSkewDetection,
+        })
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testDocsAndIds[0].testDoc)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[1].testDoc)
+      })
+    })
+  })
+
+  describe('#getMultiReplicasFromPreferredServerGroup', function () {
+    let testUid, testDocsAndIds
+
+    before(async function () {
+      this.timeout(5000)
+      testUid = H.genTestKey()
+      testDocsAndIds = await upsertTestData(H.co, testUid)
+    })
+
+    after(async function () {
+      try {
+        await testdata.removeTestData(
+          H.co,
+          testDocsAndIds.map((doc) => doc.id)
+        )
+      } catch (e) {
+        // ignore
+      }
+    })
+
+    it('should successfully execute getMulti operation', async function () {
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[0].id
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[1].id
+          ),
+        ]
+        const getRes =
+          await attempt.getMultiReplicasFromPreferredServerGroup(specs)
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testDocsAndIds[0].testDoc)
+        assert.deepEqual(getRes.content[0].value, testDocsAndIds[0].testDoc)
+        assert.isNull(getRes.content[0].error)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[1].testDoc)
+        assert.deepEqual(getRes.content[1].value, testDocsAndIds[1].testDoc)
+        assert.isNull(getRes.content[1].error)
+      })
+    })
+
+    it('should allow binary txn', async function () {
+      H.skipIfMissingFeature(this, H.Features.BinaryTransactions)
+      const testkey = H.genTestKey()
+      const testBinVal = Buffer.from(
+        '00092bc691fb824300a6871ceddf7090d7092bc691fb824300a6871ceddf7090d7',
+        'hex'
+      )
+      const tc = new RawBinaryTranscoder()
+      await H.co.insert(testkey, testBinVal, {
+        transcoder: tc,
+      })
+
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testkey,
+            tc
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[0].id
+          ),
+        ]
+        const getRes =
+          await attempt.getMultiReplicasFromPreferredServerGroup(specs)
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.deepEqual(getRes.contentAt(0), testBinVal)
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[0].testDoc)
+      })
+    })
+
+    it('should allow handle missing document', async function () {
+      const testkey = 'i-dont-exist'
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[0].id
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[1].id
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testkey
+          ),
+        ]
+        const getRes =
+          await attempt.getMultiReplicasFromPreferredServerGroup(specs)
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.isTrue(getRes.exists(0))
+        assert.isTrue(getRes.exists(1))
+        assert.isFalse(getRes.exists(2))
+        try {
+          getRes.contentAt(2)
+        } catch (err) {
+          assert.instanceOf(err, H.lib.DocumentNotFoundError)
+        }
+      })
+    })
+
+    it('should allow raise error if invalid index', async function () {
+      const idxOutOfBounds = 2
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[0].id
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[1].id
+          ),
+        ]
+        const getRes =
+          await attempt.getMultiReplicasFromPreferredServerGroup(specs)
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.isTrue(getRes.exists(0))
+        assert.isTrue(getRes.exists(1))
+        try {
+          getRes.exists(idxOutOfBounds)
+        } catch (err) {
+          assert.equal(err.message, `Index (${idxOutOfBounds}) out of bounds.`)
+        }
+      })
+    })
+
+    it('should allow different mode', async function () {
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[0].id
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testDocsAndIds[1].id
+          ),
+        ]
+        const getRes = await attempt.getMultiReplicasFromPreferredServerGroup(
+          specs,
+          {
+            mode: TransactionGetMultiReplicasFromPreferredServerGroupMode.DisableReadSkewDetection,
+          }
+        )
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testDocsAndIds[0].testDoc)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testDocsAndIds[1].testDoc)
+      })
     })
   })
 })

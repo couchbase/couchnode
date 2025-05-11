@@ -3647,6 +3647,14 @@ export interface CppTransactionGetResult {
   metadata: CppTransactionGetMetaData
 }
 
+export interface CppTransactionGetMultiResult {
+  content: (CppEncodedValue | undefined)[]
+}
+
+export interface CppTransactionGetMultiReplicasFromPreferredServerGroupResult {
+  content: (CppEncodedValue | undefined)[]
+}
+
 export interface CppTransactionResult {
   transaction_id: string
   unstaging_complete: boolean
@@ -3678,6 +3686,28 @@ export interface CppTransaction {
     callback: (
       err: CppError | null,
       result: CppTransactionGetResult | null
+    ) => void
+  ): void
+
+  getMulti(
+    options: {
+      ids: CppDocumentId[]
+      mode?: CppTransactionsTransactionGetMultiMode
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetMultiResult | null
+    ) => void
+  ): void
+
+  getMultiReplicasFromPreferredServerGroup(
+    options: {
+      ids: CppDocumentId[]
+      mode?: CppTransactionsTransactionGetMultiReplicasFromPreferredServerGroupMode
+    },
+    callback: (
+      err: CppError | null,
+      result: CppTransactionGetMultiReplicasFromPreferredServerGroupResult | null
     ) => void
   ): void
 
