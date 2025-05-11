@@ -42,7 +42,7 @@ import binding, {
   CppServiceType,
   CppStoreSemantics,
   CppTransactionKeyspace,
-  CppTxnExternalException,
+  CppTransactionsExternalException,
   CppTxnOpException,
   CppVectorQueryCombination,
   CppViewScanConsistency,
@@ -489,85 +489,111 @@ export function endpointStateFromCpp(
  * @internal
  */
 export function txnExternalExceptionStringFromCpp(
-  cause: CppTxnExternalException
+  cause: CppTransactionsExternalException
 ): string {
-  if (cause === binding.txn_external_exception.unknown) {
+  if (cause === binding.transactions_external_exception.UNKNOWN) {
     return 'unknown'
   } else if (
     cause ===
-    binding.txn_external_exception.active_transaction_record_entry_not_found
+    binding.transactions_external_exception
+      .ACTIVE_TRANSACTION_RECORD_ENTRY_NOT_FOUND
   ) {
     return 'active_transaction_record_entry_not_found'
   } else if (
-    cause === binding.txn_external_exception.active_transaction_record_full
+    cause ===
+    binding.transactions_external_exception.ACTIVE_TRANSACTION_RECORD_FULL
   ) {
     return 'active_transaction_record_full'
   } else if (
-    cause === binding.txn_external_exception.active_transaction_record_not_found
+    cause ===
+    binding.transactions_external_exception.ACTIVE_TRANSACTION_RECORD_NOT_FOUND
   ) {
     return 'active_transaction_record_not_found'
   } else if (
-    cause === binding.txn_external_exception.document_already_in_transaction
+    cause ===
+    binding.transactions_external_exception.DOCUMENT_ALREADY_IN_TRANSACTION
   ) {
     return 'document_already_in_transaction'
   } else if (
-    cause === binding.txn_external_exception.document_exists_exception
+    cause === binding.transactions_external_exception.DOCUMENT_EXISTS_EXCEPTION
   ) {
     return 'document_exists_exception'
   } else if (
-    cause === binding.txn_external_exception.document_not_found_exception
+    cause ===
+    binding.transactions_external_exception.DOCUMENT_NOT_FOUND_EXCEPTION
   ) {
     return 'document_not_found_exception'
-  } else if (cause === binding.txn_external_exception.not_set) {
+  } else if (cause === binding.transactions_external_exception.NOT_SET) {
     return 'not_set'
   } else if (
-    cause === binding.txn_external_exception.feature_not_available_exception
+    cause ===
+    binding.transactions_external_exception.FEATURE_NOT_AVAILABLE_EXCEPTION
   ) {
     return 'feature_not_available_exception'
   } else if (
-    cause === binding.txn_external_exception.transaction_aborted_externally
+    cause ===
+    binding.transactions_external_exception.TRANSACTION_ABORTED_EXTERNALLY
   ) {
     return 'transaction_aborted_externally'
   } else if (
-    cause === binding.txn_external_exception.previous_operation_failed
+    cause === binding.transactions_external_exception.PREVIOUS_OPERATION_FAILED
   ) {
     return 'previous_operation_failed'
   } else if (
-    cause === binding.txn_external_exception.forward_compatibility_failure
+    cause ===
+    binding.transactions_external_exception.FORWARD_COMPATIBILITY_FAILURE
   ) {
     return 'forward_compatibility_failure'
-  } else if (cause === binding.txn_external_exception.parsing_failure) {
+  } else if (
+    cause === binding.transactions_external_exception.PARSING_FAILURE
+  ) {
     return 'parsing_failure'
-  } else if (cause === binding.txn_external_exception.illegal_state_exception) {
+  } else if (
+    cause === binding.transactions_external_exception.ILLEGAL_STATE_EXCEPTION
+  ) {
     return 'illegal_state_exception'
-  } else if (cause === binding.txn_external_exception.couchbase_exception) {
+  } else if (
+    cause === binding.transactions_external_exception.COUCHBASE_EXCEPTION
+  ) {
     return 'couchbase_exception'
   } else if (
-    cause === binding.txn_external_exception.service_not_available_exception
+    cause ===
+    binding.transactions_external_exception.SERVICE_NOT_AVAILABLE_EXCEPTION
   ) {
     return 'service_not_available_exception'
   } else if (
-    cause === binding.txn_external_exception.request_canceled_exception
+    cause === binding.transactions_external_exception.REQUEST_CANCELED_EXCEPTION
   ) {
     return 'request_canceled_exception'
   } else if (
     cause ===
-    binding.txn_external_exception
-      .concurrent_operations_detected_on_same_document
+    binding.transactions_external_exception
+      .CONCURRENT_OPERATIONS_DETECTED_ON_SAME_DOCUMENT
   ) {
     return 'concurrent_operations_detected_on_same_document'
-  } else if (cause === binding.txn_external_exception.commit_not_permitted) {
+  } else if (
+    cause === binding.transactions_external_exception.COMMIT_NOT_PERMITTED
+  ) {
     return 'commit_not_permitted'
-  } else if (cause === binding.txn_external_exception.rollback_not_permitted) {
+  } else if (
+    cause === binding.transactions_external_exception.ROLLBACK_NOT_PERMITTED
+  ) {
     return 'rollback_not_permitted'
   } else if (
-    cause === binding.txn_external_exception.transaction_already_aborted
+    cause ===
+    binding.transactions_external_exception.TRANSACTION_ALREADY_ABORTED
   ) {
     return 'transaction_already_aborted'
   } else if (
-    cause === binding.txn_external_exception.transaction_already_committed
+    cause ===
+    binding.transactions_external_exception.TRANSACTION_ALREADY_COMMITTED
   ) {
     return 'transaction_already_committed'
+  } else if (
+    cause ===
+    binding.transactions_external_exception.DOCUMENT_UNRETRIEVABLE_EXCEPTION
+  ) {
+    return 'document_unretrievable_exception'
   }
 
   throw new errs.InvalidArgumentError()
@@ -585,26 +611,42 @@ export function txnOpExeptionFromCpp(
   }
 
   const context = ctx ? ctx : undefined
-  if (err.cause === binding.txn_external_exception.document_exists_exception) {
+  if (
+    err.cause ===
+    binding.transactions_external_exception.DOCUMENT_EXISTS_EXCEPTION
+  ) {
     return new errs.DocumentExistsError(
       new Error(txnExternalExceptionStringFromCpp(err.cause)),
       context
     )
   } else if (
-    err.cause === binding.txn_external_exception.document_not_found_exception
+    err.cause ===
+    binding.transactions_external_exception.DOCUMENT_NOT_FOUND_EXCEPTION
   ) {
     return new errs.DocumentNotFoundError(
       new Error(txnExternalExceptionStringFromCpp(err.cause)),
       context
     )
-  } else if (err.cause === binding.txn_external_exception.parsing_failure) {
+  } else if (
+    err.cause === binding.transactions_external_exception.PARSING_FAILURE
+  ) {
     return new errs.ParsingFailureError(
       new Error(txnExternalExceptionStringFromCpp(err.cause)),
       context
     )
-  } else if (err.cause === binding.txn_external_exception.couchbase_exception) {
+  } else if (
+    err.cause === binding.transactions_external_exception.COUCHBASE_EXCEPTION
+  ) {
     const cause = txnExternalExceptionStringFromCpp(err.cause)
     return new errs.CouchbaseError(cause, new Error(cause), context)
+  } else if (
+    err.cause ===
+    binding.transactions_external_exception.DOCUMENT_UNRETRIEVABLE_EXCEPTION
+  ) {
+    return new errs.DocumentUnretrievableError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      context
+    )
   }
 
   return err as any as Error
@@ -814,15 +856,17 @@ export function errorFromCpp(err: CppError | null): Error | null {
     }
     return txnOpExeptionFromCpp(err, txnContext)
   } else if (err.ctxtype === 'transaction_exception') {
-    if (err.type === binding.txn_failure_type.fail) {
+    if (err.type === binding.transactions_failure_type.FAIL) {
       return new errs.TransactionFailedError(
         new Error(txnExternalExceptionStringFromCpp(err.cause))
       )
-    } else if (err.type === binding.txn_failure_type.expiry) {
+    } else if (err.type === binding.transactions_failure_type.EXPIRY) {
       return new errs.TransactionExpiredError(
         new Error(txnExternalExceptionStringFromCpp(err.cause))
       )
-    } else if (err.type === binding.txn_failure_type.commit_ambiguous) {
+    } else if (
+      err.type === binding.transactions_failure_type.COMMIT_AMBIGUOUS
+    ) {
       return new errs.TransactionCommitAmbiguousError(
         new Error(txnExternalExceptionStringFromCpp(err.cause))
       )

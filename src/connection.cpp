@@ -470,9 +470,9 @@ Napi::Value Connection::jsScan(const Napi::CallbackInfo &info)
     auto f = barrier->get_future();
     this->_instance->_cluster.with_bucket_configuration(
         bucketName,
-        [barrier](
-            std::error_code ec,
-            std::shared_ptr<couchbase::core::topology::configuration> config) mutable {
+        [barrier](std::error_code ec,
+                  std::shared_ptr<couchbase::core::topology::configuration>
+                      config) mutable {
             if (ec) {
                 return barrier->set_value(tl::unexpected(ec));
             }

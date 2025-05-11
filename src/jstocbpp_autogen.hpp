@@ -296,6 +296,7 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         js_to_cbpp<std::optional<std::uint32_t>>(
             cppObj.history_retention_duration,
             jsObj.Get("history_retention_duration"));
+        // num_vbuckets
         js_to_cbpp<
             couchbase::core::management::cluster::bucket_storage_backend>(
             cppObj.storage_backend, jsObj.Get("storage_backend"));
@@ -353,6 +354,7 @@ struct js_to_cbpp_t<couchbase::core::management::cluster::bucket_settings> {
         resObj.Set("history_retention_duration",
                    cbpp_to_js<std::optional<std::uint32_t>>(
                        env, cppObj.history_retention_duration));
+        // num_vbuckets
         resObj.Set(
             "storage_backend",
             cbpp_to_js<
@@ -4915,6 +4917,7 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_request> {
         js_to_cbpp<bool>(cppObj.access_deleted, jsObj.Get("access_deleted"));
         js_to_cbpp<bool>(cppObj.create_as_deleted,
                          jsObj.Get("create_as_deleted"));
+        // revive_document
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.expiry,
                                                  jsObj.Get("expiry"));
         js_to_cbpp<couchbase::store_semantics>(cppObj.store_semantics,
@@ -4947,6 +4950,7 @@ struct js_to_cbpp_t<couchbase::core::operations::mutate_in_request> {
                    cbpp_to_js<bool>(env, cppObj.access_deleted));
         resObj.Set("create_as_deleted",
                    cbpp_to_js<bool>(env, cppObj.create_as_deleted));
+        // revive_document
         resObj.Set("expiry", cbpp_to_js<std::optional<std::uint32_t>>(
                                  env, cppObj.expiry));
         resObj.Set("store_semantics", cbpp_to_js<couchbase::store_semantics>(
@@ -4987,6 +4991,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<bool>(cppObj.access_deleted, jsObj.Get("access_deleted"));
         js_to_cbpp<bool>(cppObj.create_as_deleted,
                          jsObj.Get("create_as_deleted"));
+        // revive_document
         js_to_cbpp<std::optional<std::uint32_t>>(cppObj.expiry,
                                                  jsObj.Get("expiry"));
         js_to_cbpp<couchbase::store_semantics>(cppObj.store_semantics,
@@ -5021,6 +5026,7 @@ struct js_to_cbpp_t<
                    cbpp_to_js<bool>(env, cppObj.access_deleted));
         resObj.Set("create_as_deleted",
                    cbpp_to_js<bool>(env, cppObj.create_as_deleted));
+        // revive_document
         resObj.Set("expiry", cbpp_to_js<std::optional<std::uint32_t>>(
                                  env, cppObj.expiry));
         resObj.Set("store_semantics", cbpp_to_js<couchbase::store_semantics>(

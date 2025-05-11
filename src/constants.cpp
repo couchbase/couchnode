@@ -4,6 +4,8 @@
 #include <core/impl/subdoc/path_flags.hxx>
 #include <core/transactions.hxx>
 #include <core/transactions/internal/exceptions_internal.hxx>
+#include <core/transactions/transaction_get_multi_mode.hxx>
+#include <core/transactions/transaction_get_multi_replicas_from_preferred_server_group_result.hxx>
 #include <couchbase/error_context.hxx>
 #include <set>
 #include <vector>
@@ -1100,6 +1102,128 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                  couchbase::core::vector_query_combination::combination_and},
                 {"combination_or",
                  couchbase::core::vector_query_combination::combination_or},
+            }));
+
+    exports.Set(
+        "transactions_failure_type",
+        cbppEnumToJs<couchbase::core::transactions::failure_type>(
+            env,
+            {
+                {"FAIL", couchbase::core::transactions::failure_type::FAIL},
+                {"EXPIRY", couchbase::core::transactions::failure_type::EXPIRY},
+                {"COMMIT_AMBIGUOUS",
+                 couchbase::core::transactions::failure_type::COMMIT_AMBIGUOUS},
+            }));
+
+    exports.Set(
+        "transactions_external_exception",
+        cbppEnumToJs<couchbase::core::transactions::external_exception>(
+            env,
+            {
+                {"UNKNOWN",
+                 couchbase::core::transactions::external_exception::UNKNOWN},
+                {"ACTIVE_TRANSACTION_RECORD_ENTRY_NOT_FOUND",
+                 couchbase::core::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_ENTRY_NOT_FOUND},
+                {"ACTIVE_TRANSACTION_RECORD_FULL",
+                 couchbase::core::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_FULL},
+                {"ACTIVE_TRANSACTION_RECORD_NOT_FOUND",
+                 couchbase::core::transactions::external_exception::
+                     ACTIVE_TRANSACTION_RECORD_NOT_FOUND},
+                {"DOCUMENT_ALREADY_IN_TRANSACTION",
+                 couchbase::core::transactions::external_exception::
+                     DOCUMENT_ALREADY_IN_TRANSACTION},
+                {"DOCUMENT_EXISTS_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     DOCUMENT_EXISTS_EXCEPTION},
+                {"DOCUMENT_NOT_FOUND_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     DOCUMENT_NOT_FOUND_EXCEPTION},
+                {"NOT_SET",
+                 couchbase::core::transactions::external_exception::NOT_SET},
+                {"FEATURE_NOT_AVAILABLE_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     FEATURE_NOT_AVAILABLE_EXCEPTION},
+                {"TRANSACTION_ABORTED_EXTERNALLY",
+                 couchbase::core::transactions::external_exception::
+                     TRANSACTION_ABORTED_EXTERNALLY},
+                {"PREVIOUS_OPERATION_FAILED",
+                 couchbase::core::transactions::external_exception::
+                     PREVIOUS_OPERATION_FAILED},
+                {"FORWARD_COMPATIBILITY_FAILURE",
+                 couchbase::core::transactions::external_exception::
+                     FORWARD_COMPATIBILITY_FAILURE},
+                {"PARSING_FAILURE", couchbase::core::transactions::
+                                        external_exception::PARSING_FAILURE},
+                {"ILLEGAL_STATE_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     ILLEGAL_STATE_EXCEPTION},
+                {"COUCHBASE_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     COUCHBASE_EXCEPTION},
+                {"SERVICE_NOT_AVAILABLE_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     SERVICE_NOT_AVAILABLE_EXCEPTION},
+                {"REQUEST_CANCELED_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     REQUEST_CANCELED_EXCEPTION},
+                {"CONCURRENT_OPERATIONS_DETECTED_ON_SAME_DOCUMENT",
+                 couchbase::core::transactions::external_exception::
+                     CONCURRENT_OPERATIONS_DETECTED_ON_SAME_DOCUMENT},
+                {"COMMIT_NOT_PERMITTED",
+                 couchbase::core::transactions::external_exception::
+                     COMMIT_NOT_PERMITTED},
+                {"ROLLBACK_NOT_PERMITTED",
+                 couchbase::core::transactions::external_exception::
+                     ROLLBACK_NOT_PERMITTED},
+                {"TRANSACTION_ALREADY_ABORTED",
+                 couchbase::core::transactions::external_exception::
+                     TRANSACTION_ALREADY_ABORTED},
+                {"TRANSACTION_ALREADY_COMMITTED",
+                 couchbase::core::transactions::external_exception::
+                     TRANSACTION_ALREADY_COMMITTED},
+                {"DOCUMENT_UNRETRIEVABLE_EXCEPTION",
+                 couchbase::core::transactions::external_exception::
+                     DOCUMENT_UNRETRIEVABLE_EXCEPTION},
+            }));
+
+    exports.Set(
+        "transactions_transaction_get_multi_mode",
+        cbppEnumToJs<couchbase::core::transactions::transaction_get_multi_mode>(
+            env,
+            {
+                {"prioritise_latency",
+                 couchbase::core::transactions::transaction_get_multi_mode::
+                     prioritise_latency},
+                {"disable_read_skew_detection",
+                 couchbase::core::transactions::transaction_get_multi_mode::
+                     disable_read_skew_detection},
+                {"prioritise_read_skew_detection",
+                 couchbase::core::transactions::transaction_get_multi_mode::
+                     prioritise_read_skew_detection},
+            }));
+
+    exports.Set(
+        "transactions_transaction_get_multi_replicas_from_preferred_server_"
+        "group_mode",
+        cbppEnumToJs<
+            couchbase::core::transactions::
+                transaction_get_multi_replicas_from_preferred_server_group_mode>(
+            env,
+            {
+                {"prioritise_latency",
+                 couchbase::core::transactions::
+                     transaction_get_multi_replicas_from_preferred_server_group_mode::
+                         prioritise_latency},
+                {"disable_read_skew_detection",
+                 couchbase::core::transactions::
+                     transaction_get_multi_replicas_from_preferred_server_group_mode::
+                         disable_read_skew_detection},
+                {"prioritise_read_skew_detection",
+                 couchbase::core::transactions::
+                     transaction_get_multi_replicas_from_preferred_server_group_mode::
+                         prioritise_read_skew_detection},
             }));
 
     //#endregion Autogenerated Constants

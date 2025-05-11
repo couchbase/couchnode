@@ -88,6 +88,9 @@ FILE_LIST = [
     "core/range_scan_orchestrator_options.hxx",
     "core/query_context.hxx",
     "core/vector_query_combination.hxx",
+    "core/transactions/exceptions.hxx",
+    "core/transactions/transaction_get_multi_mode.hxx",
+    "core/transactions/transaction_get_multi_replicas_from_preferred_server_group_mode.hxx"
 ]
 
 TYPE_LIST = [
@@ -182,7 +185,11 @@ TYPE_LIST = [
     "couchbase::core::range_scan_cancel_result",
     "couchbase::core::query_context",
     "couchbase::core::vector_query_combination",
-    "couchbase::read_preference"
+    "couchbase::read_preference",
+    "couchbase::core::transactions::failure_type",
+    "couchbase::core::transactions::external_exception",
+    "couchbase::core::transactions::transaction_get_multi_mode",
+    "couchbase::core::transactions::transaction_get_multi_replicas_from_preferred_server_group_mode",
 ]
 
 STD_COMPARATOR_TEMPLATES = ["std::less<{0}>", "std::greater<{0}>", "std::less_equal<{0}>", "std::greater_equal<{0}>"]
@@ -242,6 +249,20 @@ class BindingsGenerator:
         if version is None:
             raise ValueError('Missing LLVM version.')
 
+        print(f'Using version={version}')
+        llvm_root_dir = f'/opt/homebrew/Cellar/llvm/{version}'
+        if not os.path.exists(llvm_root_dir):
+            print(f'LLVM root directory ({llvm_root_dir}) does not exist. Attempting to find it.')
+            llvm_root_dir = None
+            for d in os.listdir(f'/opt/homebrew/Cellar/llvm'):
+                if d.startswith(version):
+                    llvm_root_dir = os.path.join('/opt/homebrew/Cellar/llvm', d)
+                    print(f'Found LLVM root directory: {llvm_root_dir}')
+                    break
+            if llvm_root_dir is None:
+                raise ValueError((f'Unable to find LLVM root directory for version {version}.'
+                                  'Please use CN_LLVM_VERSION to override.'))
+
         if includedir is None:
             includedir = os.environ.get('CN_LLVM_INCLUDE')
         if includedir is None:
@@ -270,7 +291,7 @@ class BindingsGenerator:
         self._include_paths = [
             '-I/opt/homebrew/opt/llvm/include/c++/v1',
             f'-I{CXX_CLIENT_ROOT}/',
-            f'-I/opt/homebrew/Cellar/llvm/{version}/lib/clang/{version[:2]}/include',
+            f'-I{llvm_root_dir}/lib/clang/{version[:2]}/include',
             f'-I{system_headers}/usr/include'
         ]
 
@@ -731,12 +752,16 @@ if __name__ == '__main__':
     ap.add_argument('-s',
                     '--system-headers',
                     help='SET CN_SYS_HEADERS, or use command: xcrun --show-sdk-path')
+    ap.add_argument('--verbose',
+                    action='store_true',
+                    help='Run in verbose mode',)
     options = ap.parse_args()
 
     generator = BindingsGenerator(options.version,
                                   options.libdir,
                                   options.includedir,
-                                  options.system_headers)
+                                  options.system_headers,
+                                  options.verbose)
     generator.gen_bindings()
 
 
