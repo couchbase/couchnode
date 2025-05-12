@@ -482,9 +482,13 @@ export function endpointStateFromCpp(
  * @internal
  */
 export function txnExternalExceptionStringFromCpp(
-  cause: CppTxnExternalException
+  cause: CppTxnExternalException,
+  message?: string
 ): string {
   if (cause === binding.txn_external_exception.unknown) {
+    if (message) {
+      return message
+    }
     return 'unknown'
   } else if (
     cause ===
@@ -563,7 +567,7 @@ export function txnExternalExceptionStringFromCpp(
     return 'transaction_already_committed'
   }
 
-  throw new errs.InvalidArgumentError()
+  return 'unknown'
 }
 
 /**
@@ -580,23 +584,23 @@ export function txnOpExeptionFromCpp(
   const context = ctx ? ctx : undefined
   if (err.cause === binding.txn_external_exception.document_exists_exception) {
     return new errs.DocumentExistsError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (
     err.cause === binding.txn_external_exception.document_not_found_exception
   ) {
     return new errs.DocumentNotFoundError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (err.cause === binding.txn_external_exception.parsing_failure) {
     return new errs.ParsingFailureError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (err.cause === binding.txn_external_exception.couchbase_exception) {
-    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    const cause = txnExternalExceptionStringFromCpp(err.cause, err.message)
     return new errs.CouchbaseError(cause, new Error(cause), context)
   }
 
@@ -693,7 +697,7 @@ export function errorFromCpp(err: CppError | null): Error | null {
 
   // BUG(JSCBC-1010): We shouldn't need to special case these.
   if (err.ctxtype === 'transaction_operation_failed') {
-    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    const cause = txnExternalExceptionStringFromCpp(err.cause, err.message)
     if (cause == 'feature_not_available_exception') {
       const msg =
         'Possibly attempting a binary transaction operation with a server version < 7.6.2'
@@ -702,7 +706,7 @@ export function errorFromCpp(err: CppError | null): Error | null {
       )
     }
     return new errs.TransactionOperationFailedError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause))
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
     )
   } else if (err.ctxtype === 'transaction_op_exception') {
     let txnContext: ErrorContext | null = null
@@ -713,19 +717,21 @@ export function errorFromCpp(err: CppError | null): Error | null {
   } else if (err.ctxtype === 'transaction_exception') {
     if (err.type === binding.txn_failure_type.fail) {
       return new errs.TransactionFailedError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     } else if (err.type === binding.txn_failure_type.expiry) {
       return new errs.TransactionExpiredError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     } else if (err.type === binding.txn_failure_type.commit_ambiguous) {
       return new errs.TransactionCommitAmbiguousError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     }
 
-    throw new errs.InvalidArgumentError()
+    return new errs.TransactionFailedError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
+    )
   }
 
   const baseErr = err as any as Error

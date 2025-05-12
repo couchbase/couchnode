@@ -782,6 +782,8 @@ export class Transactions {
         await txn._rollback()
         if (e instanceof TransactionOperationFailedError) {
           throw new TransactionFailedError(e.cause, e.context)
+        } else if (e instanceof TransactionFailedError) {
+          throw e
         }
         throw new TransactionFailedError(e as Error)
       }

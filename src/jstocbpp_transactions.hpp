@@ -374,6 +374,7 @@ struct js_to_cbpp_t<cbcoretxns::transaction_operation_failed> {
         jsErr.Set("should_not_rollback",
                   cbpp_to_js(env, !err.should_rollback()));
         jsErr.Set("cause", cbpp_to_js(env, err.cause()));
+        jsErr.Set("message", cbpp_to_js(env, std::string(err.what())));
         return jsErr.Value();
     }
 };
@@ -436,16 +437,17 @@ struct js_to_cbpp_t<cbcoretxns::op_exception> {
 template <>
 struct js_to_cbpp_t<couchbase::core::transaction_op_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::transaction_op_error_context &res)
+    to_js(Napi::Env env,
+          const couchbase::core::transaction_op_error_context &res)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("code", cbpp_to_js(env, res.ec()));
         resObj.Set(
             "cause",
-            cbpp_to_js<
-                std::variant<std::monostate, couchbase::core::key_value_error_context,
-                             couchbase::core::query_error_context>>(env,
-                                                              res.cause()));
+            cbpp_to_js<std::variant<std::monostate,
+                                    couchbase::core::key_value_error_context,
+                                    couchbase::core::query_error_context>>(
+                env, res.cause()));
         return resObj;
     }
 };

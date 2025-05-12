@@ -11,7 +11,7 @@ describe('#transactions', function () {
     H.skipIfMissingFeature(this, H.Features.Transactions)
   })
 
-  after(async function() {
+  after(async function () {
     this.timeout(10000)
     const bmgr = H.c.buckets()
     await H.tryNTimes(3, 1000, bmgr.flushBucket.bind(bmgr), H.bucketName)
@@ -288,22 +288,24 @@ describe('#transactions', function () {
       await H.c.transactions().run(
         async (attempt) => {
           numAttempts++
-          const remDoc = await attempt.get(H.co, testDocId)
-          await attempt.replace(remDoc, { foo: 'baz' })
+          const repDoc = await attempt.get(H.co, testDocId)
+          await attempt.replace(repDoc, { foo: 'baz' })
           // This should fail due to CAS Mismatch
-          // Note that atm the cause is set as unknown in the txn lib
           try {
-            await attempt.replace(remDoc, { foo: 'qux' })
+            await attempt.replace(repDoc, { foo: 'qux' })
           } catch (err) {
             assert.instanceOf(err, H.lib.TransactionOperationFailedError)
-            assert.equal(err.cause.message, 'unknown')
+            assert.isTrue(
+              err.cause.message.includes('transaction expired') ||
+                err.cause.message.includes('cas_mismatch')
+            )
           }
         },
         { timeout: 2000 }
       )
     } catch (err) {
       assert.instanceOf(err, H.lib.TransactionFailedError)
-      assert.equal(err.cause.message, 'unknown')
+      assert.isTrue(err.cause.message.includes('transaction expired'))
     }
     assert.isTrue(numAttempts > 1)
 
@@ -326,19 +328,21 @@ describe('#transactions', function () {
           const remDoc = await attempt.get(H.co, testDocId)
           await attempt.replace(remDoc, { foo: 'baz' })
           // This should fail due to CAS Mismatch
-          // Note that atm the cause is set as unknown in the txn lib
           try {
             await attempt.remove(remDoc)
           } catch (err) {
             assert.instanceOf(err, H.lib.TransactionOperationFailedError)
-            assert.equal(err.cause.message, 'unknown')
+            assert.isTrue(
+              err.cause.message.includes('transaction expired') ||
+                err.cause.message.includes('cas_mismatch')
+            )
           }
         },
         { timeout: 2000 }
       )
     } catch (err) {
       assert.instanceOf(err, H.lib.TransactionFailedError)
-      assert.equal(err.cause.message, 'unknown')
+      assert.isTrue(err.cause.message.includes('transaction expired'))
     }
     assert.isTrue(numAttempts > 1)
 
