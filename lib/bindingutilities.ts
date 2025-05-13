@@ -495,9 +495,13 @@ export function endpointStateFromCpp(
  * @internal
  */
 export function txnExternalExceptionStringFromCpp(
-  cause: CppTransactionsExternalException
+  cause: CppTransactionsExternalException,
+  message?: string
 ): string {
   if (cause === binding.transactions_external_exception.UNKNOWN) {
+    if (message) {
+      return message
+    }
     return 'unknown'
   } else if (
     cause ===
@@ -602,7 +606,7 @@ export function txnExternalExceptionStringFromCpp(
     return 'document_unretrievable_exception'
   }
 
-  throw new errs.InvalidArgumentError()
+  return 'unknown'
 }
 
 /**
@@ -622,7 +626,7 @@ export function txnOpExeptionFromCpp(
     binding.transactions_external_exception.DOCUMENT_EXISTS_EXCEPTION
   ) {
     return new errs.DocumentExistsError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (
@@ -630,27 +634,27 @@ export function txnOpExeptionFromCpp(
     binding.transactions_external_exception.DOCUMENT_NOT_FOUND_EXCEPTION
   ) {
     return new errs.DocumentNotFoundError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (
     err.cause === binding.transactions_external_exception.PARSING_FAILURE
   ) {
     return new errs.ParsingFailureError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   } else if (
     err.cause === binding.transactions_external_exception.COUCHBASE_EXCEPTION
   ) {
-    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    const cause = txnExternalExceptionStringFromCpp(err.cause, err.message)
     return new errs.CouchbaseError(cause, new Error(cause), context)
   } else if (
     err.cause ===
     binding.transactions_external_exception.DOCUMENT_UNRETRIEVABLE_EXCEPTION
   ) {
     return new errs.DocumentUnretrievableError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause)),
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message)),
       context
     )
   }
@@ -844,7 +848,7 @@ export function errorFromCpp(err: CppError | null): Error | null {
 
   // BUG(JSCBC-1010): We shouldn't need to special case these.
   if (err.ctxtype === 'transaction_operation_failed') {
-    const cause = txnExternalExceptionStringFromCpp(err.cause)
+    const cause = txnExternalExceptionStringFromCpp(err.cause, err.message)
     if (cause == 'feature_not_available_exception') {
       const msg =
         'Possibly attempting a binary transaction operation with a server version < 7.6.2'
@@ -853,7 +857,7 @@ export function errorFromCpp(err: CppError | null): Error | null {
       )
     }
     return new errs.TransactionOperationFailedError(
-      new Error(txnExternalExceptionStringFromCpp(err.cause))
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
     )
   } else if (err.ctxtype === 'transaction_op_exception') {
     let txnContext: ErrorContext | null = null
@@ -864,21 +868,23 @@ export function errorFromCpp(err: CppError | null): Error | null {
   } else if (err.ctxtype === 'transaction_exception') {
     if (err.type === binding.transactions_failure_type.FAIL) {
       return new errs.TransactionFailedError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     } else if (err.type === binding.transactions_failure_type.EXPIRY) {
       return new errs.TransactionExpiredError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     } else if (
       err.type === binding.transactions_failure_type.COMMIT_AMBIGUOUS
     ) {
       return new errs.TransactionCommitAmbiguousError(
-        new Error(txnExternalExceptionStringFromCpp(err.cause))
+        new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
       )
     }
 
-    throw new errs.InvalidArgumentError()
+    return new errs.TransactionFailedError(
+      new Error(txnExternalExceptionStringFromCpp(err.cause, err.message))
+    )
   }
 
   const baseErr = err as any as Error

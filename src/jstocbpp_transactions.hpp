@@ -419,12 +419,36 @@ struct js_to_cbpp_t<cbcoretxns::transaction_operation_failed> {
     to_js(Napi::Env env, const cbcoretxns::transaction_operation_failed &err)
     {
         Napi::Error jsErr = Napi::Error::New(env, "transaction_exception");
-        jsErr.Set("ctxtype",
-                  Napi::String::New(env, "transaction_operation_failed"));
+
         jsErr.Set("should_not_retry", cbpp_to_js(env, !err.should_retry()));
         jsErr.Set("should_not_rollback",
                   cbpp_to_js(env, !err.should_rollback()));
+        if (err.cause() == cbcoretxns::external_exception::UNKNOWN) {
+            if (err.to_raise() == cbcoretxns::final_error::EXPIRED) {
+                jsErr.Set("ctxtype",
+                          Napi::String::New(env, "transaction_exception"));
+                jsErr.Set("type",
+                          cbpp_to_js(env, cbcoretxns::failure_type::EXPIRY));
+            } else if (err.to_raise() == cbcoretxns::final_error::AMBIGUOUS) {
+                jsErr.Set("ctxtype",
+                          Napi::String::New(env, "transaction_exception"));
+                jsErr.Set("type",
+                          cbpp_to_js(
+                              env, cbcoretxns::failure_type::COMMIT_AMBIGUOUS));
+            } else {
+                jsErr.Set("ctxtype", Napi::String::New(
+                                         env, "transaction_operation_failed"));
+            }
+        } else if (err.cause() == cbcoretxns::external_exception::
+                                      DOCUMENT_UNRETRIEVABLE_EXCEPTION) {
+            jsErr.Set("ctxtype",
+                      Napi::String::New(env, "transaction_op_exception"));
+        } else {
+            jsErr.Set("ctxtype",
+                      Napi::String::New(env, "transaction_operation_failed"));
+        }
         jsErr.Set("cause", cbpp_to_js(env, err.cause()));
+        jsErr.Set("message", cbpp_to_js(env, std::string(err.what())));
         return jsErr.Value();
     }
 };

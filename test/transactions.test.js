@@ -314,22 +314,25 @@ describe('#transactions', function () {
       await H.c.transactions().run(
         async (attempt) => {
           numAttempts++
-          const remDoc = await attempt.get(H.co, testDocId)
-          await attempt.replace(remDoc, { foo: 'baz' })
+          const repDoc = await attempt.get(H.co, testDocId)
+          await attempt.replace(repDoc, { foo: 'baz' })
           // This should fail due to CAS Mismatch
           // Note that atm the cause is set as unknown in the txn lib
           try {
-            await attempt.replace(remDoc, { foo: 'qux' })
+            await attempt.replace(repDoc, { foo: 'qux' })
           } catch (err) {
             assert.instanceOf(err, H.lib.TransactionOperationFailedError)
-            assert.equal(err.cause.message, 'unknown')
+            assert.isTrue(
+              err.cause.message.includes('transaction expired') ||
+                err.cause.message.includes('cas_mismatch')
+            )
           }
         },
         { timeout: 2000 }
       )
     } catch (err) {
-      assert.instanceOf(err, H.lib.TransactionFailedError)
-      assert.equal(err.cause.message, 'unknown')
+      assert.instanceOf(err, H.lib.TransactionExpiredError)
+      assert.isTrue(err.cause.message.includes('transaction expired'))
     }
     assert.isTrue(numAttempts > 1)
 
@@ -357,14 +360,17 @@ describe('#transactions', function () {
             await attempt.remove(remDoc)
           } catch (err) {
             assert.instanceOf(err, H.lib.TransactionOperationFailedError)
-            assert.equal(err.cause.message, 'unknown')
+            assert.isTrue(
+              err.cause.message.includes('transaction expired') ||
+                err.cause.message.includes('cas_mismatch')
+            )
           }
         },
         { timeout: 2000 }
       )
     } catch (err) {
-      assert.instanceOf(err, H.lib.TransactionFailedError)
-      assert.equal(err.cause.message, 'unknown')
+      assert.instanceOf(err, H.lib.TransactionExpiredError)
+      assert.isTrue(err.cause.message.includes('transaction expired'))
     }
     assert.isTrue(numAttempts > 1)
 
@@ -651,25 +657,10 @@ describe('#transactions', function () {
   })
 
   describe('#server-groups', function () {
-    let serverGroupKey
-
-    before(async function () {
-      H.skipIfMissingFeature(this, H.Features.ServerGroups)
-      serverGroupKey = H.genTestKey()
-      await H.co.insert(serverGroupKey, { foo: 'bar' })
-    })
-
-    after(async function () {
-      try {
-        await H.co.remove(serverGroupKey)
-      } catch (err) {
-        // ignore
-      }
-    })
-
     it('should raise DocumentUnretrievableError only in lambda', async function () {
       // the cluster setup does not set a preferred server group, so executing
       // getReplicaFromPreferredServerGroup should fail
+      const serverGroupKey = 'i-dont-exist'
       let numAttempts = 0
       await H.throwsHelper(async () => {
         await H.c.transactions().run(

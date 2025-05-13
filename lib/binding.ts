@@ -3478,12 +3478,14 @@ export interface CppTxnOperationFailed extends CppErrorBase {
   should_not_retry: boolean
   should_not_rollback: boolean
   cause: CppTransactionsExternalException
+  message?: string
 }
 
 export interface CppTxnOpException extends CppErrorBase {
   ctxtype: 'transaction_op_exception'
   ctx: CppTransactionOpErrorContext | undefined
   cause: CppTransactionsExternalException
+  message?: string
 }
 
 export interface CppTxnError extends CppErrorBase {
@@ -3491,6 +3493,7 @@ export interface CppTxnError extends CppErrorBase {
   result: CppTransactionResult
   cause: CppTransactionsExternalException
   type: CppTransactionsFailureType
+  message?: string
 }
 
 export interface CppTransactionErrorContext {

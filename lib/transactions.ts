@@ -24,6 +24,8 @@ import { Cluster } from './cluster'
 import { Collection } from './collection'
 import {
   DocumentNotFoundError,
+  TransactionCommitAmbiguousError,
+  TransactionExpiredError,
   TransactionFailedError,
   TransactionOperationFailedError,
 } from './errors'
@@ -1255,6 +1257,11 @@ export class Transactions {
         await txn._rollback()
         if (e instanceof TransactionOperationFailedError) {
           throw new TransactionFailedError(e.cause, e.context)
+        } else if (
+          e instanceof TransactionExpiredError ||
+          e instanceof TransactionCommitAmbiguousError
+        ) {
+          throw e
         }
         throw new TransactionFailedError(e as Error)
       }
