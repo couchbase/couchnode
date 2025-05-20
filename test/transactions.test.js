@@ -32,6 +32,29 @@ async function upsertTestData(target, testUid) {
   return await Promise.all(promises)
 }
 
+class AllowUndefinedTranscoder {
+  encode(value) {
+    if (typeof value === 'undefined') {
+      return [Buffer.from('undefined'), (0x04 << 24) | 0x04]
+    }
+    if (typeof value === 'string') {
+      return [Buffer.from(value), (0x04 << 24) | 0x04]
+    }
+
+    throw new Error('Only string data supported.')
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  decode(bytes, flags) {
+    // NOTE: only for testing, ignoring flags
+    const result = bytes.toString('utf8')
+    if (result === 'undefined') {
+      return undefined
+    }
+    return result
+  }
+}
+
 describe('#transactions', function () {
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Transactions)
@@ -658,6 +681,7 @@ describe('#transactions', function () {
 
   describe('#server-groups', function () {
     it('should raise DocumentUnretrievableError only in lambda', async function () {
+      H.skipIfMissingFeature(this, H.Features.ServerGroups)
       // the cluster setup does not set a preferred server group, so executing
       // getReplicaFromPreferredServerGroup should fail
       const serverGroupKey = 'i-dont-exist'
@@ -762,6 +786,49 @@ describe('#transactions', function () {
       })
     })
 
+    it('should allow custom undefined transcoder', async function () {
+      const testkey1 = H.genTestKey()
+      const testkey2 = H.genTestKey()
+      const testVal1 = 'test-value'
+      const testVal2 = undefined
+      const tc = new AllowUndefinedTranscoder()
+      await H.co.insert(testkey1, testVal1, {
+        transcoder: tc,
+      })
+
+      await H.co.insert(testkey2, testVal2, {
+        transcoder: tc,
+      })
+
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiSpec(H.co, testkey1, tc),
+          new TransactionGetMultiSpec(H.co, testkey2, tc),
+          new TransactionGetMultiSpec(H.co, 'not-a-key'),
+        ]
+        const getRes = await attempt.getMulti(specs)
+        assert.instanceOf(getRes, TransactionGetMultiResult)
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testVal1)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testVal2)
+        assert.isFalse(getRes.exists(2))
+        assert.isOk(getRes.content[2].error)
+        try {
+          getRes.contentAt(2)
+        } catch (err) {
+          assert.instanceOf(err, H.lib.DocumentNotFoundError)
+        }
+      })
+
+      try {
+        await H.co.remove(testkey1)
+        await H.co.remove(testkey2)
+      } catch (err) {
+        // ignore
+      }
+    })
+
     it('should allow handle missing document', async function () {
       const testkey = 'i-dont-exist'
       await H.c.transactions().run(async (attempt) => {
@@ -824,6 +891,9 @@ describe('#transactions', function () {
     let testUid, testDocsAndIds
 
     before(async function () {
+      H.skipIfMissingFeature(this, H.Features.SubdocReadReplica)
+      H.skipIfMissingFeature(this, H.Features.Replicas)
+      H.skipIfMissingFeature(this, H.Features.ServerGroups)
       this.timeout(5000)
       testUid = H.genTestKey()
       testDocsAndIds = await upsertTestData(H.co, testUid)
@@ -902,6 +972,64 @@ describe('#transactions', function () {
         assert.deepEqual(getRes.contentAt(0), testBinVal)
         assert.deepEqual(getRes.contentAt(1), testDocsAndIds[0].testDoc)
       })
+    })
+
+    it('should allow custom undefined transcoder', async function () {
+      const testkey1 = H.genTestKey()
+      const testkey2 = H.genTestKey()
+      const testVal1 = 'test-value'
+      const testVal2 = undefined
+      const tc = new AllowUndefinedTranscoder()
+      await H.co.insert(testkey1, testVal1, {
+        transcoder: tc,
+      })
+
+      await H.co.insert(testkey2, testVal2, {
+        transcoder: tc,
+      })
+
+      await H.c.transactions().run(async (attempt) => {
+        const specs = [
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testkey1,
+            tc
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            testkey2,
+            tc
+          ),
+          new TransactionGetMultiReplicasFromPreferredServerGroupSpec(
+            H.co,
+            'not-a-key'
+          ),
+        ]
+        const getRes =
+          await attempt.getMultiReplicasFromPreferredServerGroup(specs)
+        assert.instanceOf(
+          getRes,
+          TransactionGetMultiReplicasFromPreferredServerGroupResult
+        )
+        assert.isTrue(getRes.exists(0))
+        assert.deepEqual(getRes.contentAt(0), testVal1)
+        assert.isTrue(getRes.exists(1))
+        assert.deepEqual(getRes.contentAt(1), testVal2)
+        assert.isFalse(getRes.exists(2))
+        assert.isOk(getRes.content[2].error)
+        try {
+          getRes.contentAt(2)
+        } catch (err) {
+          assert.instanceOf(err, H.lib.DocumentNotFoundError)
+        }
+      })
+
+      try {
+        await H.co.remove(testkey1)
+        await H.co.remove(testkey2)
+      } catch (err) {
+        // ignore
+      }
     })
 
     it('should allow handle missing document', async function () {

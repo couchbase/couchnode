@@ -428,7 +428,10 @@ export class TransactionGetMultiResult {
     if (index < 0 || index >= this.content.length) {
       throw new Error(`Index (${index}) out of bounds.`)
     }
-    return this.content[index].value !== undefined
+    return (
+      this.content[index].error === undefined ||
+      this.content[index].error === null
+    )
   }
 
   /**
@@ -504,7 +507,10 @@ export class TransactionGetMultiReplicasFromPreferredServerGroupResult {
     if (index < 0 || index >= this.content.length) {
       throw new Error(`Index (${index}) out of bounds.`)
     }
-    return this.content[index].value !== undefined
+    return (
+      this.content[index].error === undefined ||
+      this.content[index].error === null
+    )
   }
 
   /**
@@ -738,8 +744,7 @@ function translateGetMultiResult(
     let resultEntry, resultError
     if (cppEntry && cppEntry.data && cppEntry.data.length > 0) {
       resultEntry = transcoders[i].decode(cppEntry.data, cppEntry.flags)
-    }
-    if (!resultEntry) {
+    } else {
       resultError = new DocumentNotFoundError(
         new Error(`Document not found at index=${i}.`)
       )
@@ -773,8 +778,7 @@ function translateGetMultiReplicasFromPreferredServerGroupResult(
     let resultEntry, resultError
     if (cppEntry && cppEntry.data && cppEntry.data.length > 0) {
       resultEntry = transcoders[i].decode(cppEntry.data, cppEntry.flags)
-    }
-    if (!resultEntry) {
+    } else {
       resultError = new DocumentNotFoundError(
         new Error(`Document not found at index=${i}.`)
       )
