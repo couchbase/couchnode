@@ -48,6 +48,7 @@ const ServerFeatures = {
   ScopeEventingFunctionManagement: 'scope_eventing_function_management',
   BinaryTransactions: 'binary_transactions',
   ServerGroups: 'server_groups',
+  NumVbucketsSetting: 'num_vbuckets_setting',
 }
 
 class ServerVersion {
@@ -409,6 +410,7 @@ class Harness {
         return !this._version.isMock && this._version.isAtLeast(7, 6, 0)
       case ServerFeatures.BinaryTransactions:
       case ServerFeatures.ServerGroups:
+      case ServerFeatures.NumVbucketsSetting:
         return !this._version.isMock && this._version.isAtLeast(7, 6, 2)
     }
 
@@ -419,6 +421,10 @@ class Harness {
     if (this.supportsFeature(feature)) {
       cb()
     }
+  }
+
+  isServerVersionAtLeast(major, minor, patch) {
+    return this._version.isAtLeast(major, minor, patch)
   }
 
   skipIfMissingFeature(test, feature) {

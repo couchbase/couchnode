@@ -228,7 +228,7 @@ export interface IBucketSettings {
   historyRetentionDuration?: number
 
   /**
-   * Specifies the number of vBuckets in this bucket
+   * Specifies the number of vBuckets in this bucket.
    */
   numVBuckets?: number
 
@@ -342,7 +342,7 @@ export class BucketSettings implements IBucketSettings {
   historyRetentionDuration?: number
 
   /**
-   * Specifies the number of vBuckets in this bucket
+   * Specifies the number of vBuckets in this bucket.
    */
   numVBuckets?: number
 

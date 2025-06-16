@@ -58,6 +58,19 @@ describe('#bucketmanager', function () {
     if (!H.supportsFeature(H.Features.StorageBackend)) {
       expected.storageBackend = undefined
     }
+    if (H.supportsFeature(H.Features.NumVbucketsSetting)) {
+      expected.numVBuckets = 1024
+    } else {
+      expected.numVBuckets = undefined
+    }
+    if (H.isServerVersionAtLeast(8, 0, 0)) {
+      expected.storageBackend = 'magma'
+      expected.historyRetentionCollectionDefault = true
+      expected.historyRetentionBytes = 0
+      expected.historyRetentionDuration = 0
+      expected.replicaIndexes = undefined
+      expected.numVBuckets = 128
+    }
     assert.deepStrictEqual(res, expected)
   })
 
@@ -99,14 +112,31 @@ describe('#bucketmanager', function () {
   it('should return an InvalidArgument error when updating a couchstore bucket with history', async function () {
     H.skipIfMissingFeature(this, H.Features.BucketDedup)
 
+    let bucketName = testBucket
     var bmgr = H.c.buckets()
+    if (H.isServerVersionAtLeast(8, 0, 0)) {
+      bucketName = H.genTestKey()
+      await bmgr.createBucket({
+        name: bucketName,
+        flushEnabled: true,
+        ramQuotaMB: 256,
+        storageBackend: StorageBackend.Couchstore,
+      })
+      await H.consistencyUtils.waitUntilBucketPresent(bucketName)
+    }
+
     await H.throwsHelper(async () => {
       await bmgr.updateBucket({
-        name: testBucket,
+        name: bucketName,
         historyRetentionCollectionDefault: true,
         ramQuotaMB: 1024,
       })
     }, H.lib.InvalidArgumentError)
+
+    if (H.isServerVersionAtLeast(8, 0, 0)) {
+      await bmgr.dropBucket(bucketName)
+      await H.consistencyUtils.waitUntilBucketDropped(bucketName)
+    }
   })
 
   it('should error when trying to flush an unflushable bucket', async function () {
@@ -131,12 +161,16 @@ describe('#bucketmanager', function () {
 
   it('should successfully create a bucket with flush and replicaIndexes disabled', async function () {
     var bmgr = H.c.buckets()
-    await bmgr.createBucket({
+    const settings = {
       name: testBucket,
       flushEnabled: false,
       replicaIndexes: false,
       ramQuotaMB: 256,
-    })
+    }
+    if (H.isServerVersionAtLeast(8, 0, 0)) {
+      settings.storageBackend = StorageBackend.Couchstore
+    }
+    await bmgr.createBucket(settings)
     await H.consistencyUtils.waitUntilBucketPresent(testBucket)
 
     var res = await bmgr.getBucket(testBucket)
@@ -159,6 +193,11 @@ describe('#bucketmanager', function () {
     }
     if (!H.supportsFeature(H.Features.StorageBackend)) {
       expected.storageBackend = undefined
+    }
+    if (H.supportsFeature(H.Features.NumVbucketsSetting)) {
+      expected.numVBuckets = 1024
+    } else {
+      expected.numVBuckets = undefined
     }
     assert.deepStrictEqual(res, expected)
 
@@ -197,6 +236,11 @@ describe('#bucketmanager', function () {
       historyRetentionBytes: 2147483648,
       historyRetentionDuration: 13000,
     }
+    if (H.supportsFeature(H.Features.NumVbucketsSetting)) {
+      expected.numVBuckets = H.isServerVersionAtLeast(8, 0, 0) ? 128 : 1024
+    } else {
+      expected.numVBuckets = undefined
+    }
 
     assert.deepStrictEqual(res, expected)
   }).timeout(10 * 1000)
@@ -230,6 +274,11 @@ describe('#bucketmanager', function () {
       historyRetentionCollectionDefault: false,
       historyRetentionBytes: 0,
       historyRetentionDuration: 14000,
+    }
+    if (H.supportsFeature(H.Features.NumVbucketsSetting)) {
+      expected.numVBuckets = H.isServerVersionAtLeast(8, 0, 0) ? 128 : 1024
+    } else {
+      expected.numVBuckets = undefined
     }
 
     assert.deepStrictEqual(res, expected)
