@@ -383,6 +383,10 @@ describe('#vectorsearch', function () {
       vQuery.numCandidates(-1)
     }, H.lib.InvalidArgumentError)
     assert.throws(() => {
+      const vQuery = new VectorQuery('vector_field', testVector)
+      vQuery.prefilter(new VectorQuery('vector_field1', testVector))
+    }, H.lib.InvalidArgumentError)
+    assert.throws(() => {
       new VectorQuery('', testVector)
     }, H.lib.InvalidArgumentError)
     assert.throws(() => {
