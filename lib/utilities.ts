@@ -211,13 +211,55 @@ export function cbQsStringify(
   return qs.stringify(cbValues)
 }
 
+// See JSCBC-1357 For more details on the expiry handling.
 const thirtyDaysInSeconds = 30 * 24 * 60 * 60
+const fiftyYearsInSeconds = 50 * 365 * 24 * 60 * 60
+// The server treats values <= 259200 (30 days) as relative to the current time.
+// So, the minimum expiry date is 259201 which corresponds to 1970-01-31T00:00:01Z
+const minExpiryDate = new Date('1970-01-31T00:00:01Z')
+const minExpiry = 259201
+// 2106-02-07T06:28:15Z in seconds which is max 32-bit unsigned integer (server max expiry)
+const maxExpiry = 4294967295
+const maxExpiryDate = new Date('2106-02-07T06:28:15Z')
+const zeroSecondDate = new Date('1970-01-31T00:00:00Z')
+
 /**
  * @internal
  */
-export function expiryToTimestamp(expiry: number): number {
-  if (typeof expiry !== 'number') {
-    throw new InvalidArgumentError(new Error('Expected expiry to be a number.'))
+export function parseExpiry(expiry?: number | Date): number {
+  if (!expiry) {
+    return 0
+  }
+
+  if (typeof expiry !== 'number' && !(expiry instanceof Date)) {
+    throw new InvalidArgumentError(
+      new Error('Expected expiry to be a number or Date.')
+    )
+  }
+
+  if (expiry instanceof Date) {
+    if (isNaN(expiry.getTime())) {
+      throw new InvalidArgumentError(
+        new Error('Expected expiry to be a valid Date.')
+      )
+    }
+
+    if (expiry.getTime() == zeroSecondDate.getTime()) {
+      return 0
+    }
+
+    // A Date expiry MUST represent an absolute expiry time; therefore, it must be between 259201 and 4294967295
+    if (
+      expiry.getTime() < minExpiryDate.getTime() ||
+      expiry.getTime() > maxExpiryDate.getTime()
+    ) {
+      const msg = `Expected expiry to be greater than ${minExpiryDate.toISOString()} (${minExpiry}) 
+      and less than ${maxExpiryDate.toISOString()} (${maxExpiry}) but got ${expiry.toISOString()}.`
+      throw new InvalidArgumentError(new Error(msg))
+    }
+
+    // return the Date as an epoch second (value is between 259201 and 4294967295)
+    return Math.floor(expiry.getTime() / 1000)
   }
 
   if (expiry < 0) {
@@ -228,8 +270,29 @@ export function expiryToTimestamp(expiry: number): number {
     )
   }
 
+  if (expiry > maxExpiry) {
+    throw new InvalidArgumentError(
+      new Error(
+        `Expected expiry to be less than ${maxExpiry} (${maxExpiryDate.toISOString()}) but got ${expiry}.`
+      )
+    )
+  }
+
+  if (expiry > fiftyYearsInSeconds) {
+    const msg = `The specified expiry (${expiry}) is greater than 50 years (in seconds). 
+    Unix timestamps passed directly as a number are not supported as an expiry. Instead, construct a Date from the timestamp (e.g. new Date(UNIX_TIMESTAMP * 1000)).`
+    process.emitWarning(msg)
+  }
+
   if (expiry < thirtyDaysInSeconds) {
     return expiry
   }
-  return expiry + Math.floor(Date.now() / 1000)
+  // The relative expiry is >= 30 days, convert it to an absolute expiry and confirm it will not exceed the maximum expiry
+  const unixTimeSecs = Math.floor(Date.now() / 1000)
+  const maxExpiryDuration = maxExpiry - unixTimeSecs
+  if (expiry > maxExpiryDuration) {
+    const msg = `Expected expiry duration to be less than ${maxExpiryDuration} but got ${expiry}.`
+    throw new InvalidArgumentError(new Error(msg))
+  }
+  return expiry + unixTimeSecs
 }

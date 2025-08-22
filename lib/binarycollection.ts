@@ -15,9 +15,15 @@ export interface IncrementOptions {
   initial?: number
 
   /**
-   * The expiry time that should be set for the document, expressed in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time.
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies the level of synchronous durability for this operation.
@@ -56,9 +62,15 @@ export interface DecrementOptions {
   initial?: number
 
   /**
-   * The expiry time that should be set for the document, expressed in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time.
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies the level of synchronous durability for this operation.

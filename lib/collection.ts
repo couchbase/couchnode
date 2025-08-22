@@ -66,12 +66,7 @@ import {
   StreamableScanPromise,
 } from './streamablepromises'
 import { Transcoder } from './transcoders'
-import {
-  expiryToTimestamp,
-  NodeCallback,
-  PromiseHelper,
-  CasInput,
-} from './utilities'
+import { parseExpiry, NodeCallback, PromiseHelper, CasInput } from './utilities'
 
 /**
  * @category Key-Value
@@ -116,9 +111,15 @@ export interface ExistsOptions {
  */
 export interface InsertOptions {
   /**
-   * Specifies the expiry time for this document, specified in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time.
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies the level of synchronous durability for this operation.
@@ -155,9 +156,15 @@ export interface InsertOptions {
  */
 export interface UpsertOptions {
   /**
-   * Specifies the expiry time for this document, specified in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time.
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies that any existing expiry on the document should be preserved.
@@ -199,9 +206,15 @@ export interface UpsertOptions {
  */
 export interface ReplaceOptions {
   /**
-   * Specifies the expiry time for this document, specified in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time (recommended).
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies that any existing expiry on the document should be preserved.
@@ -426,9 +439,15 @@ export interface LookupInAllReplicasOptions {
  */
 export interface MutateInOptions {
   /**
-   * Specifies the expiry time for this document, specified in seconds.
+   * Specifies the expiry time for the document.
+   *
+   * The expiry can be provided as:
+   * - A `number` of seconds relative to the current time (recommended).
+   * - A `Date` object for an absolute expiry time.
+   *
+   * **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    */
-  expiry?: number
+  expiry?: number | Date
 
   /**
    * Specifies that any existing expiry on the document should be preserved.
@@ -1055,7 +1074,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
+    const expiry = parseExpiry(options.expiry)
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
@@ -1141,7 +1160,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
+    const expiry = parseExpiry(options.expiry)
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
     const durabilityLevel = options.durabilityLevel
@@ -1228,7 +1247,7 @@ export class Collection {
       options = {}
     }
 
-    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
+    const expiry = parseExpiry(options.expiry)
     const cas = options.cas
     const preserve_expiry = options.preserveExpiry
     const transcoder = options.transcoder || this.transcoder
@@ -1374,13 +1393,18 @@ export class Collection {
    * for the same document.
    *
    * @param key The document to fetch and touch.
-   * @param expiry The new expiry to apply to the document, specified in seconds.
+   * @param expiry The new expiry to apply to the document.
+   *   The expiry can be provided as:
+   *   - A `number` of seconds relative to the current time.
+   *   - A `Date` object for an absolute expiry time.
+   *
+   *   **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   getAndTouch(
     key: string,
-    expiry: number,
+    expiry: number | Date,
     options?: GetAndTouchOptions,
     callback?: NodeCallback<GetResult>
   ): Promise<GetResult> {
@@ -1399,7 +1423,7 @@ export class Collection {
       this._conn.getAndTouch(
         {
           id: this._cppDocId(key),
-          expiry: expiryToTimestamp(expiry),
+          expiry: parseExpiry(expiry),
           timeout,
           partition: 0,
           opaque: 0,
@@ -1438,12 +1462,17 @@ export class Collection {
    *
    * @param key The document key to touch.
    * @param expiry The new expiry to set for the document, specified in seconds.
+   *   The expiry can be provided as:
+   *   - A `number` of seconds relative to the current time.
+   *   - A `Date` object for an absolute expiry time.
+   *
+   *   **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   touch(
     key: string,
-    expiry: number,
+    expiry: number | Date,
     options?: TouchOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
@@ -1461,7 +1490,7 @@ export class Collection {
       this._conn.touch(
         {
           id: this._cppDocId(key),
-          expiry: expiryToTimestamp(expiry),
+          expiry: parseExpiry(expiry),
           timeout,
           partition: 0,
           opaque: 0,
@@ -2087,9 +2116,7 @@ export class Collection {
     const storeSemantics = options.upsertDocument
       ? StoreSemantics.Upsert
       : options.storeSemantics
-    const expiry = options.expiry
-      ? expiryToTimestamp(options.expiry)
-      : undefined
+    const expiry = parseExpiry(options.expiry)
     const preserveExpiry = options.preserveExpiry
     const cas = options.cas
     const durabilityLevel = options.durabilityLevel
@@ -2233,7 +2260,7 @@ export class Collection {
     }
 
     const initial_value = options.initial
-    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
+    const expiry = parseExpiry(options.expiry)
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
@@ -2308,7 +2335,7 @@ export class Collection {
     }
 
     const initial_value = options.initial
-    const expiry = options.expiry ? expiryToTimestamp(options.expiry) : 0
+    const expiry = parseExpiry(options.expiry)
     const durabilityLevel = options.durabilityLevel
     const persistTo = options.durabilityPersistTo
     const replicateTo = options.durabilityReplicateTo
