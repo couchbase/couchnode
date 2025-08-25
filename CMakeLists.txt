@@ -140,6 +140,7 @@ if(CMAKE_JS_VERSION VERSION_GREATER_EQUAL "7.0.0")
 else()
   set(NODEJS_INC_DIR "${CMAKE_JS_INC}")
 endif()
+list(REMOVE_DUPLICATES NODEJS_INC_DIR)
 
 message(STATUS "NODEJS_INC_DIR=${NODEJS_INC_DIR}")
 message(STATUS "NODEJS_LIB=${NODEJS_LIB}")
@@ -151,7 +152,7 @@ if(WIN32)
 endif()
 
 # We need to import headers globally for our dependant libraries such as couchbase-cxx-client.
-include_directories(${NODEJS_INC_DIR})
+include_directories(SYSTEM ${NODEJS_INC_DIR})
 
 get_couchnode_version()
 message(STATUS "COUCHNODE_VERSION=${COUCHNODE_VERSION}")
@@ -229,7 +230,7 @@ set_target_properties(${PROJECT_NAME} PROPERTIES PREFIX "" SUFFIX ".node")
 
 target_link_libraries(${PROJECT_NAME}
   ${NODEJS_LIB}
-  couchbase_cxx_client::couchbase_cxx_client_static
+  couchbase_cxx_client_static_intermediate
   asio
   Microsoft.GSL::GSL
   taocpp::json
