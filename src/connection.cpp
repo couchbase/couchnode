@@ -279,7 +279,7 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 {
     auto connstr = info[0].ToString().Utf8Value();
     auto credentialsJsObj = info[1].As<Napi::Object>();
-    auto callbackJsFn = info[4].As<Napi::Function>();
+    auto callbackJsFn = info[6].As<Napi::Function>();
 
     auto connstrInfo = couchbase::core::utils::parse_connection_string(connstr);
     auto creds =
@@ -340,6 +340,113 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
         if (!(jsPingTimeout.IsNull() || jsPingTimeout.IsUndefined())) {
             connstrInfo.options.app_telemetry_ping_timeout =
                 js_to_cbpp<std::chrono::milliseconds>(jsPingTimeout);
+        }
+    }
+
+    if (!info[4].IsNull()) {
+        auto jsTracingConfigObj = info[4].As<Napi::Object>();
+        auto jsEnableTracing = jsTracingConfigObj.Get("enableTracing");
+        if (!(jsEnableTracing.IsNull() || jsEnableTracing.IsUndefined())) {
+            connstrInfo.options.enable_tracing =
+                js_to_cbpp<bool>(jsEnableTracing);
+        }
+        couchbase::core::tracing::threshold_logging_options tracing_options{};
+        bool has_tracing_options = false;
+
+        auto jsEmitInterval = jsTracingConfigObj.Get("emitInterval");
+        if (!(jsEmitInterval.IsNull() || jsEmitInterval.IsUndefined())) {
+            tracing_options.threshold_emit_interval =
+                js_to_cbpp<std::chrono::milliseconds>(jsEmitInterval);
+            has_tracing_options = true;
+        }
+        auto jsSampleSize = jsTracingConfigObj.Get("sampleSize");
+        if (!(jsSampleSize.IsNull() || jsSampleSize.IsUndefined())) {
+            tracing_options.threshold_sample_size =
+                js_to_cbpp<std::size_t>(jsSampleSize);
+            has_tracing_options = true;
+        }
+        auto jsOrphanEmitInterval =
+            jsTracingConfigObj.Get("orphanEmitInterval");
+        if (!(jsOrphanEmitInterval.IsNull() ||
+              jsOrphanEmitInterval.IsUndefined())) {
+            tracing_options.orphaned_emit_interval =
+                js_to_cbpp<std::chrono::milliseconds>(jsOrphanEmitInterval);
+            has_tracing_options = true;
+        }
+        auto jsOrphanSampleSize = jsTracingConfigObj.Get("orphanSampleSize");
+        if (!(jsOrphanSampleSize.IsNull() ||
+              jsOrphanSampleSize.IsUndefined())) {
+            tracing_options.orphaned_sample_size =
+                js_to_cbpp<std::size_t>(jsOrphanSampleSize);
+            has_tracing_options = true;
+        }
+        auto jsKvThreshold = jsTracingConfigObj.Get("kvThreshold");
+        if (!(jsKvThreshold.IsNull() || jsKvThreshold.IsUndefined())) {
+            tracing_options.key_value_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsKvThreshold);
+            has_tracing_options = true;
+        }
+        auto jsQueryThreshold = jsTracingConfigObj.Get("queryThreshold");
+        if (!(jsQueryThreshold.IsNull() || jsQueryThreshold.IsUndefined())) {
+            tracing_options.query_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsQueryThreshold);
+            has_tracing_options = true;
+        }
+        auto jsSearchThreshold = jsTracingConfigObj.Get("searchThreshold");
+        if (!(jsSearchThreshold.IsNull() || jsSearchThreshold.IsUndefined())) {
+            tracing_options.search_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsSearchThreshold);
+            has_tracing_options = true;
+        }
+        auto jsAnalyticsThreshold =
+            jsTracingConfigObj.Get("analyticsThreshold");
+        if (!(jsAnalyticsThreshold.IsNull() ||
+              jsAnalyticsThreshold.IsUndefined())) {
+            tracing_options.analytics_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsAnalyticsThreshold);
+            has_tracing_options = true;
+        }
+        auto jsManagementThreshold =
+            jsTracingConfigObj.Get("managementThreshold");
+        if (!(jsManagementThreshold.IsNull() ||
+              jsManagementThreshold.IsUndefined())) {
+            tracing_options.management_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsManagementThreshold);
+            has_tracing_options = true;
+        }
+        auto jsEventingThreshold = jsTracingConfigObj.Get("eventingThreshold");
+        if (!(jsEventingThreshold.IsNull() ||
+              jsEventingThreshold.IsUndefined())) {
+            tracing_options.eventing_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsEventingThreshold);
+            has_tracing_options = true;
+        }
+        auto jsViewsThreshold = jsTracingConfigObj.Get("viewsThreshold");
+        if (!(jsViewsThreshold.IsNull() || jsViewsThreshold.IsUndefined())) {
+            tracing_options.view_threshold =
+                js_to_cbpp<std::chrono::milliseconds>(jsViewsThreshold);
+            has_tracing_options = true;
+        }
+
+        if (has_tracing_options) {
+            connstrInfo.options.tracing_options = tracing_options;
+        }
+    }
+
+    if (!info[5].IsNull()) {
+        auto jsMetricsConfigObj = info[5].As<Napi::Object>();
+        auto jsEnableMetrics = jsMetricsConfigObj.Get("enableMetrics");
+        if (!(jsEnableMetrics.IsNull() || jsEnableMetrics.IsUndefined())) {
+            connstrInfo.options.enable_metrics =
+                js_to_cbpp<bool>(jsEnableMetrics);
+        }
+
+        auto jsEmitInterval = jsMetricsConfigObj.Get("emitInterval");
+        if (!(jsEmitInterval.IsNull() || jsEmitInterval.IsUndefined())) {
+            couchbase::core::metrics::logging_meter_options logging_options{};
+            logging_options.emit_interval =
+                js_to_cbpp<std::chrono::milliseconds>(jsEmitInterval);
+            connstrInfo.options.metrics_options = logging_options;
         }
     }
 

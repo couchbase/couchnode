@@ -171,6 +171,108 @@ export interface AppTelemetryConfig {
 }
 
 /**
+ * Specifies threshold logging options for the client.
+ *
+ * NOTE:  These options are used to configure the underlying C++ core threshold logging.
+ *
+ * @category Core
+ */
+export interface TracingConfig {
+  /**
+   * Specifies to enable or disable threshold logging.
+   * Defaults to true (enabled) if not specified.
+   */
+  enableTracing?: boolean
+
+  /**
+   * Specifies the interval after which the aggregated trace information is logged, specified in millseconds.
+   * Defaults to 10000 (10 seconds) if not specified.
+   */
+  emitInterval?: number
+
+  /**
+   * Specifies how many entries to sample per service in each emit interval.
+   * Defaults to 64 if not specified.
+   */
+  sampleSize?: number
+
+  /**
+   * Specifies the interval after which the aggregated orphaned response information is logged, specified in millseconds.
+   * Defaults to 10000 (10 seconds) if not specified.
+   */
+  orphanEmitInterval?: number
+
+  /**
+   * Specifies how many orphaned response entries to sample per service in each emit interval.
+   * Defaults to 64 if not specified.
+   */
+  orphanSampleSize?: number
+
+  /**
+   * Threshold over which the request is taken into account for the KV service, specified in millseconds.
+   * Defaults to 500ms if not specified.
+   */
+  kvThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for the query service, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  queryThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for the search service, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  searchThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for the analytics service, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  analyticsThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for management operations, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  managementThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for eventing service, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  eventingThreshold?: number
+
+  /**
+   * Threshold over which the request is taken into account for the views service, specified in millseconds.
+   * Defaults to 1000ms if not specified.
+   */
+  viewsThreshold?: number
+}
+
+/**
+ * Specifies metrics logging options for the client.
+ *
+ * NOTE:  These options are used to configure the underlying C++ core metrics logging.
+ *
+ * @category Core
+ */
+export interface MetricsConfig {
+  /**
+   * Specifies to enable or disable metrics logging.
+   * Defaults to true (enabled) if not specified.
+   */
+  enableMetrics?: boolean
+
+  /**
+   * Specifies the interval after which metrics information is logged, specified in millseconds.
+   * Defaults to 10 minutes if not specified.
+   */
+  emitInterval?: number
+}
+
+/**
  * Specifies the options which can be specified when connecting
  * to a cluster.
  *
@@ -242,6 +344,16 @@ export interface ConnectOptions {
    *
    */
   appTelemetryConfig?: AppTelemetryConfig
+
+  /**
+   * Specifies the tracing (threshold logging) config for connections of this cluster.
+   */
+  tracingConfig?: TracingConfig
+
+  /**
+   * Specifies the metrics config for connections of this cluster.
+   */
+  metricsConfig?: MetricsConfig
 }
 
 /**
@@ -273,6 +385,8 @@ export class Cluster {
   private _dnsConfig: DnsConfig | null
   private _preferredServerGroup: string | undefined
   private _appTelemetryConfig: AppTelemetryConfig | null
+  private _tracingConfig: TracingConfig | null
+  private _metricsConfig: MetricsConfig | null
 
   /**
    * @internal
@@ -470,6 +584,34 @@ export class Cluster {
       }
     } else {
       this._appTelemetryConfig = null
+    }
+
+    if (options.tracingConfig) {
+      this._tracingConfig = {
+        enableTracing: options.tracingConfig.enableTracing,
+        emitInterval: options.tracingConfig.emitInterval,
+        sampleSize: options.tracingConfig.sampleSize,
+        orphanEmitInterval: options.tracingConfig.orphanEmitInterval,
+        orphanSampleSize: options.tracingConfig.orphanSampleSize,
+        kvThreshold: options.tracingConfig.kvThreshold,
+        queryThreshold: options.tracingConfig.queryThreshold,
+        searchThreshold: options.tracingConfig.searchThreshold,
+        analyticsThreshold: options.tracingConfig.analyticsThreshold,
+        managementThreshold: options.tracingConfig.managementThreshold,
+        eventingThreshold: options.tracingConfig.eventingThreshold,
+        viewsThreshold: options.tracingConfig.viewsThreshold,
+      }
+    } else {
+      this._tracingConfig = null
+    }
+
+    if (options.metricsConfig) {
+      this._metricsConfig = {
+        enableMetrics: options.metricsConfig.enableMetrics,
+        emitInterval: options.metricsConfig.emitInterval,
+      }
+    } else {
+      this._metricsConfig = null
     }
 
     this._openBuckets = []
@@ -832,6 +974,8 @@ export class Cluster {
         authOpts,
         this._dnsConfig,
         this._appTelemetryConfig,
+        this._tracingConfig,
+        this._metricsConfig,
         (cppErr) => {
           if (cppErr) {
             const err = errorFromCpp(cppErr)

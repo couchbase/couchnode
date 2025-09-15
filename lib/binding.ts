@@ -36,6 +36,26 @@ export interface CppAppTelemetryConfig {
   pingTimeout?: number
 }
 
+export interface CppTracingConfig {
+  enableTracing?: boolean
+  emitInterval?: number
+  sampleSize?: number
+  orphanEmitInterval?: number
+  orphanSampleSize?: number
+  kvThreshold?: number
+  queryThreshold?: number
+  searchThreshold?: number
+  analyticsThreshold?: number
+  managementThreshold?: number
+  eventingThreshold?: number
+  viewsThreshold?: number
+}
+
+export interface CppMetricsConfig {
+  enableMetrics?: boolean
+  emitInterval?: number
+}
+
 export interface CppDocumentId {
   bucket: string
   scope: string
@@ -3524,6 +3544,8 @@ export interface CppConnection extends CppConnectionAutogen {
     credentials: CppClusterCredentials,
     dnsOptions: CppDnsConfig | null,
     appTelemetryOptions: CppAppTelemetryConfig | null,
+    tracingOptions: CppTracingConfig | null,
+    metricsOptions: CppMetricsConfig | null,
     callback: (err: CppError | null) => void
   ): void
   shutdown(callback: (err: CppError | null) => void): void
