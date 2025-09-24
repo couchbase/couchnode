@@ -197,18 +197,6 @@ export interface TracingConfig {
   sampleSize?: number
 
   /**
-   * Specifies the interval after which the aggregated orphaned response information is logged, specified in millseconds.
-   * Defaults to 10000 (10 seconds) if not specified.
-   */
-  orphanEmitInterval?: number
-
-  /**
-   * Specifies how many orphaned response entries to sample per service in each emit interval.
-   * Defaults to 64 if not specified.
-   */
-  orphanSampleSize?: number
-
-  /**
    * Threshold over which the request is taken into account for the KV service, specified in millseconds.
    * Defaults to 500ms if not specified.
    */
@@ -249,6 +237,27 @@ export interface TracingConfig {
    * Defaults to 1000ms if not specified.
    */
   viewsThreshold?: number
+}
+
+/**
+ * Specifies orphan report logging options for the client.
+ *
+ * NOTE:  These options are used to configure the underlying C++ core orphan report logging.
+ *
+ * @category Core
+ */
+export interface OrphanReporterConfig {
+  /**
+   * Specifies the interval after which the aggregated orphaned response information is logged, specified in millseconds.
+   * Defaults to 10000 (10 seconds) if not specified.
+   */
+  emitInterval?: number
+
+  /**
+   * Specifies how many orphaned response entries to sample per service in each emit interval.
+   * Defaults to 64 if not specified.
+   */
+  sampleSize?: number
 }
 
 /**
@@ -351,6 +360,11 @@ export interface ConnectOptions {
   tracingConfig?: TracingConfig
 
   /**
+   * Specifies the orphan report logging config for connections of this cluster.
+   */
+  orphanReporterConfig?: OrphanReporterConfig
+
+  /**
    * Specifies the metrics config for connections of this cluster.
    */
   metricsConfig?: MetricsConfig
@@ -386,6 +400,7 @@ export class Cluster {
   private _preferredServerGroup: string | undefined
   private _appTelemetryConfig: AppTelemetryConfig | null
   private _tracingConfig: TracingConfig | null
+  private _orphanReporterConfig: OrphanReporterConfig | null
   private _metricsConfig: MetricsConfig | null
 
   /**
@@ -591,8 +606,6 @@ export class Cluster {
         enableTracing: options.tracingConfig.enableTracing,
         emitInterval: options.tracingConfig.emitInterval,
         sampleSize: options.tracingConfig.sampleSize,
-        orphanEmitInterval: options.tracingConfig.orphanEmitInterval,
-        orphanSampleSize: options.tracingConfig.orphanSampleSize,
         kvThreshold: options.tracingConfig.kvThreshold,
         queryThreshold: options.tracingConfig.queryThreshold,
         searchThreshold: options.tracingConfig.searchThreshold,
@@ -603,6 +616,16 @@ export class Cluster {
       }
     } else {
       this._tracingConfig = null
+    }
+
+    if (options.orphanReporterConfig) {
+      // TODO(JSCBC-1364):  Add enableReporting to config when supported in C++ core
+      this._orphanReporterConfig = {
+        emitInterval: options.orphanReporterConfig.emitInterval,
+        sampleSize: options.orphanReporterConfig.sampleSize,
+      }
+    } else {
+      this._orphanReporterConfig = null
     }
 
     if (options.metricsConfig) {
@@ -975,6 +998,7 @@ export class Cluster {
         this._dnsConfig,
         this._appTelemetryConfig,
         this._tracingConfig,
+        this._orphanReporterConfig,
         this._metricsConfig,
         (cppErr) => {
           if (cppErr) {

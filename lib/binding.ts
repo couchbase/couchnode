@@ -40,8 +40,6 @@ export interface CppTracingConfig {
   enableTracing?: boolean
   emitInterval?: number
   sampleSize?: number
-  orphanEmitInterval?: number
-  orphanSampleSize?: number
   kvThreshold?: number
   queryThreshold?: number
   searchThreshold?: number
@@ -49,6 +47,11 @@ export interface CppTracingConfig {
   managementThreshold?: number
   eventingThreshold?: number
   viewsThreshold?: number
+}
+
+export interface CppOrphanReporterConfig {
+  emitInterval?: number
+  sampleSize?: number
 }
 
 export interface CppMetricsConfig {
@@ -3545,6 +3548,7 @@ export interface CppConnection extends CppConnectionAutogen {
     dnsOptions: CppDnsConfig | null,
     appTelemetryOptions: CppAppTelemetryConfig | null,
     tracingOptions: CppTracingConfig | null,
+    orphanReporterOptions: CppOrphanReporterConfig | null,
     metricsOptions: CppMetricsConfig | null,
     callback: (err: CppError | null) => void
   ): void
