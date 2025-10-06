@@ -408,12 +408,14 @@ export class MutateInSpec {
     value: any | MutateInMacro,
     options?: { xattr?: boolean }
   ): MutateInSpec {
-    return this._create(
-      binding.protocol_subdoc_opcode.replace,
-      path,
-      value,
-      options
-    )
+    let opCode = binding.protocol_subdoc_opcode.replace
+
+    // On an empty path we replace the whole document
+    if (path.length === 0) {
+      opCode = binding.protocol_subdoc_opcode.set_doc
+    }
+
+    return this._create(opCode, path, value, options)
   }
 
   /**
