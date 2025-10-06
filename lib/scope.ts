@@ -148,7 +148,7 @@ export class Scope {
       () =>
         exec.query<TRow>(statement, {
           ...options_,
-          queryContext: `${bucket.name}.${this.name}`,
+          queryContext: `\`${bucket.name}\`.\`${this.name}\``,
         }),
       callback
     )
@@ -182,7 +182,7 @@ export class Scope {
       () =>
         exec.query<TRow>(statement, {
           ...options_,
-          queryContext: `${bucket.name}.${this.name}`,
+          queryContext: `\`${bucket.name}\`.\`${this.name}\``,
         }),
       callback
     )
