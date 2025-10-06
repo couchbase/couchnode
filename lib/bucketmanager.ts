@@ -406,6 +406,14 @@ export class BucketSettings implements IBucketSettings {
    * @internal
    */
   static _toCppData(data: IBucketSettings): any {
+    let durabilityInput: DurabilityLevel | string | undefined
+
+    if (data.durabilityMinLevel !== undefined) {
+      durabilityInput = nsServerStrToDuraLevel(data.durabilityMinLevel)
+    } else if (data.minimumDurabilityLevel !== undefined) {
+      durabilityInput = data.minimumDurabilityLevel
+    }
+
     return {
       name: data.name,
       bucket_type: bucketTypeToCpp(data.bucketType),
@@ -413,8 +421,9 @@ export class BucketSettings implements IBucketSettings {
       max_expiry: data.maxTTL || data.maxExpiry,
       compression_mode: bucketCompressionModeToCpp(data.compressionMode),
       minimum_durability_level:
-        durabilityToCpp(nsServerStrToDuraLevel(data.durabilityMinLevel)) ||
-        durabilityToCpp(data.minimumDurabilityLevel),
+        durabilityInput !== undefined
+          ? durabilityToCpp(durabilityInput)
+          : durabilityInput,
       num_replicas: data.numReplicas,
       replica_indexes: data.replicaIndexes,
       flush_enabled: data.flushEnabled,

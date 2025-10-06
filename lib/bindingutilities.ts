@@ -1102,7 +1102,7 @@ export function bucketTypeToCpp(
   type: BucketType | string | undefined
 ): CppManagementClusterBucketType {
   if (type === null || type === undefined) {
-    return binding.management_cluster_bucket_type.couchbase
+    return binding.management_cluster_bucket_type.unknown
   }
 
   if (type === BucketType.Couchbase) {
