@@ -248,6 +248,12 @@ export interface TracingConfig {
  */
 export interface OrphanReporterConfig {
   /**
+   * Specifies to enable or disable orphaned response logging.
+   * Defaults to true (enabled) if not specified.
+   */
+  enableOrphanReporting?: boolean
+
+  /**
    * Specifies the interval after which the aggregated orphaned response information is logged, specified in millseconds.
    * Defaults to 10000 (10 seconds) if not specified.
    */
@@ -619,8 +625,9 @@ export class Cluster {
     }
 
     if (options.orphanReporterConfig) {
-      // TODO(JSCBC-1364):  Add enableReporting to config when supported in C++ core
       this._orphanReporterConfig = {
+        enableOrphanReporting:
+          options.orphanReporterConfig.enableOrphanReporting,
         emitInterval: options.orphanReporterConfig.emitInterval,
         sampleSize: options.orphanReporterConfig.sampleSize,
       }

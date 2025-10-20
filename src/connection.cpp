@@ -343,10 +343,9 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
         }
     }
 
-    couchbase::core::tracing::threshold_logging_options tracing_options{};
-    bool has_tracing_options = false;
-
     if (!info[4].IsNull()) {
+        couchbase::core::tracing::threshold_logging_options tracing_options{};
+        bool has_tracing_options = false;
         auto jsTracingConfigObj = info[4].As<Napi::Object>();
         auto jsEnableTracing = jsTracingConfigObj.Get("enableTracing");
         if (!(jsEnableTracing.IsNull() || jsEnableTracing.IsUndefined())) {
@@ -412,30 +411,42 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
                 js_to_cbpp<std::chrono::milliseconds>(jsViewsThreshold);
             has_tracing_options = true;
         }
+
+        if (has_tracing_options) {
+            connstrInfo.options.tracing_options = tracing_options;
+        }
     }
 
     if (!info[5].IsNull()) {
+        couchbase::core::orphan_reporter_options orphan_options{};
+        bool has_orphan_options = false;
         auto jsOrphanReporterConfigObj = info[5].As<Napi::Object>();
-        // TODO(JSCBC-1364):  Migrate to orphan reporting config when available in C++ core
+        auto jsEnableOrphanReporting =
+            jsOrphanReporterConfigObj.Get("enableOrphanReporting");
+        if (!(jsEnableOrphanReporting.IsNull() ||
+              jsEnableOrphanReporting.IsUndefined())) {
+            connstrInfo.options.enable_orphan_reporting =
+                js_to_cbpp<bool>(jsEnableOrphanReporting);
+        }
         auto jsOrphanEmitInterval =
             jsOrphanReporterConfigObj.Get("emitInterval");
         if (!(jsOrphanEmitInterval.IsNull() ||
               jsOrphanEmitInterval.IsUndefined())) {
-            tracing_options.orphaned_emit_interval =
+            orphan_options.emit_interval =
                 js_to_cbpp<std::chrono::milliseconds>(jsOrphanEmitInterval);
-            has_tracing_options = true;
+            has_orphan_options = true;
         }
         auto jsOrphanSampleSize = jsOrphanReporterConfigObj.Get("sampleSize");
         if (!(jsOrphanSampleSize.IsNull() ||
               jsOrphanSampleSize.IsUndefined())) {
-            tracing_options.orphaned_sample_size =
+            orphan_options.sample_size =
                 js_to_cbpp<std::size_t>(jsOrphanSampleSize);
-            has_tracing_options = true;
+            has_orphan_options = true;
         }
-    }
 
-    if (has_tracing_options) {
-        connstrInfo.options.tracing_options = tracing_options;
+        if (has_orphan_options) {
+            connstrInfo.options.orphan_options = orphan_options;
+        }
     }
 
     if (!info[6].IsNull()) {
