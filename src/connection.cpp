@@ -35,6 +35,8 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
         env, "Connection",
         {
             InstanceMethod<&Connection::jsConnect>("connect"),
+            InstanceMethod<&Connection::jsUpdateCredentials>(
+                "updateCredentials"),
             InstanceMethod<&Connection::jsShutdown>("shutdown"),
             InstanceMethod<&Connection::jsOpenBucket>("openBucket"),
             InstanceMethod<&Connection::jsDiagnostics>("diagnostics"),
@@ -468,13 +470,25 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 
     auto cookie = CallCookie(info.Env(), callbackJsFn, "cbConnectCallback");
     this->_instance->_cluster.open(
-        couchbase::core::origin(creds, connstrInfo),
+        couchbase::core::origin(std::move(creds), std::move(connstrInfo)),
         [cookie = std::move(cookie)](std::error_code ec) mutable {
             cookie.invoke([ec](Napi::Env env, Napi::Function callback) {
                 callback.Call({cbpp_to_js(env, ec)});
             });
         });
 
+    return info.Env().Null();
+}
+
+Napi::Value Connection::jsUpdateCredentials(const Napi::CallbackInfo &info)
+{
+    auto credentialsJsObj = info[0].As<Napi::Object>();
+    auto creds =
+        jsToCbpp<couchbase::core::cluster_credentials>(credentialsJsObj);
+    auto err = this->_instance->_cluster.update_credentials(std::move(creds));
+    if (err.ec) {
+        return cbpp_to_js(info.Env(), err.ec);
+    }
     return info.Env().Null();
 }
 

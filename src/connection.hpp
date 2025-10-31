@@ -66,6 +66,7 @@ public:
 
     Napi::Value jsConnect(const Napi::CallbackInfo &info);
     Napi::Value jsShutdown(const Napi::CallbackInfo &info);
+    Napi::Value jsUpdateCredentials(const Napi::CallbackInfo &info);
     Napi::Value jsOpenBucket(const Napi::CallbackInfo &info);
     Napi::Value jsDiagnostics(const Napi::CallbackInfo &info);
     Napi::Value jsPing(const Napi::CallbackInfo &info);

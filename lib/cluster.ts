@@ -932,6 +932,43 @@ export class Cluster {
     }, callback)
   }
 
+  /**
+   * Update the credentials used by this cluster.
+   *
+   * @param auth The new credentials to use.
+   */
+  updateCredentials(auth: Authenticator): void {
+    const cppErr = this._conn.updateCredentials(this._getCppCredentials(auth))
+    if (cppErr) {
+      const err = errorFromCpp(cppErr)
+      throw err
+    }
+  }
+
+  private _getCppCredentials(auth: Authenticator, saslMechanisms?: string[]): CppClusterCredentials {
+    const authOpts: CppClusterCredentials = {}
+
+    if (auth) {
+      const passAuth = auth as PasswordAuthenticator
+      if (passAuth.username || passAuth.password) {
+        authOpts.username = passAuth.username
+        authOpts.password = passAuth.password
+
+        if (saslMechanisms) {
+          authOpts.allowed_sasl_mechanisms = saslMechanisms
+        }
+      }
+
+      const certAuth = auth as CertificateAuthenticator
+      if (certAuth.certificatePath || certAuth.keyPath) {
+        authOpts.certificate_path = certAuth.certificatePath
+        authOpts.key_path = certAuth.keyPath
+      }
+    }
+
+    return authOpts;
+  }
+
   private async _connect() {
     return new Promise((resolve, reject) => {
       const dsnObj = ConnSpec.parse(this._connStr)
@@ -965,39 +1002,21 @@ export class Cluster {
       }
 
       const connStr = dsnObj.toString()
-
-      const authOpts: CppClusterCredentials = {}
-
       // lets allow `allowed_sasl_mechanisms` to override legacy connstr option
+      let saslMechansims: string[] | undefined
       for (const saslKey of ['sasl_mech_force', 'allowed_sasl_mechanisms']) {
         if (!(saslKey in dsnObj.options)) {
           continue
         }
         if (typeof dsnObj.options[saslKey] === 'string') {
-          authOpts.allowed_sasl_mechanisms = [dsnObj.options[saslKey] as string]
+          saslMechansims = [dsnObj.options[saslKey] as string]
         } else {
-          authOpts.allowed_sasl_mechanisms = dsnObj.options[saslKey] as string[]
+          saslMechansims = dsnObj.options[saslKey] as string[]
         }
         delete dsnObj.options[saslKey]
       }
 
-      if (this._auth) {
-        const passAuth = this._auth as PasswordAuthenticator
-        if (passAuth.username || passAuth.password) {
-          authOpts.username = passAuth.username
-          authOpts.password = passAuth.password
-
-          if (passAuth.allowed_sasl_mechanisms) {
-            authOpts.allowed_sasl_mechanisms = passAuth.allowed_sasl_mechanisms
-          }
-        }
-
-        const certAuth = this._auth as CertificateAuthenticator
-        if (certAuth.certificatePath || certAuth.keyPath) {
-          authOpts.certificate_path = certAuth.certificatePath
-          authOpts.key_path = certAuth.keyPath
-        }
-      }
+      const authOpts = this._getCppCredentials(this._auth, saslMechansims)
 
       this._conn.connect(
         connStr,

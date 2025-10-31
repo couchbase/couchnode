@@ -3552,6 +3552,9 @@ export interface CppConnection extends CppConnectionAutogen {
     metricsOptions: CppMetricsConfig | null,
     callback: (err: CppError | null) => void
   ): void
+
+  updateCredentials(credentials: CppClusterCredentials): CppError | null
+
   shutdown(callback: (err: CppError | null) => void): void
 
   openBucket(bucketName: string, callback: (err: CppError | null) => void): void
