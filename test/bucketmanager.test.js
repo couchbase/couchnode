@@ -65,6 +65,7 @@ describe('#bucketmanager', function () {
     }
     if (H.isServerVersionAtLeast(8, 0, 0)) {
       expected.storageBackend = 'magma'
+      expected.evictionPolicy = 'fullEviction'
       expected.historyRetentionCollectionDefault = true
       expected.historyRetentionBytes = 0
       expected.historyRetentionDuration = 0
