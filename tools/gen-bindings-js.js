@@ -249,7 +249,6 @@ function isIgnoredField(st, fieldName) {
     fieldName === 'retry_strategy' ||
     fieldName === 'internal' ||
     fieldName === 'revive_document' ||
-    fieldName === 'num_vbuckets' ||
     (fieldName.endsWith('_') &&
       !StructsWithAllowedPrivateField.includes(st.name))
   ) {

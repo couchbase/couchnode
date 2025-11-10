@@ -308,10 +308,11 @@ class BindingsGenerator:
         for headerPath in self._full_file_list:
             print("processing " + headerPath)
             index = clang.cindex.Index.create()
+            suppress_warnings = ['-Wno-nullability-completeness', '-Wno-deprecated-literal-operator']
             if self._verbose is True:
-                args = ['-std=c++17', '-v', f'-isysroot{os.getcwd()}'] + self._include_paths
+                args = ['-std=c++17', '-v', f'-isysroot{os.getcwd()}'] + self._include_paths + suppress_warnings
             else:
-                args = ['-std=c++17', f'-isysroot{os.getcwd()}'] + self._include_paths
+                args = ['-std=c++17', f'-isysroot{os.getcwd()}'] + self._include_paths + suppress_warnings
             translation_unit = index.parse(headerPath, args=args)
 
             # output clang compiler diagnostics information (for debugging)
@@ -482,10 +483,14 @@ class BindingsGenerator:
     @staticmethod
     def set_cxx_deps_include_paths(dep, includes):
         cpm_path = os.path.join(CXX_CLIENT_CACHE, dep)
-        dir_pattern = r'[0-9a-z]{40}'
-        cpm_hash_dir = next((d for d in os.listdir(cpm_path)
-                            if os.path.isdir(os.path.join(cpm_path, d)) and re.match(dir_pattern, d)),
-                            None)
+        dir_patterns = [r'[0-9a-z]{40}', r'[0-9a-z]{4}']
+        cpm_hash_dir = None
+        for dir_pattern in dir_patterns:
+            cpm_hash_dir = next((d for d in os.listdir(cpm_path)
+                                if os.path.isdir(os.path.join(cpm_path, d)) and re.match(dir_pattern, d)),
+                                None)
+            if cpm_hash_dir:
+                break
         if not cpm_hash_dir:
             raise Exception(f'Unable to find CPM hash directory for path: {cpm_path}.')
         return list(map(lambda p: p.format(CXX_CLIENT_CACHE, cpm_hash_dir), includes))

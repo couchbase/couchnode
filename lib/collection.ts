@@ -1924,6 +1924,7 @@ export class Collection {
           specs: cppSpecs,
           timeout: timeout,
           read_preference: readPreferenceToCpp(options.readPreference),
+          access_deleted: false, // only used in core transactions; false otherwise
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)
@@ -1978,6 +1979,7 @@ export class Collection {
           specs: cppSpecs,
           timeout: timeout,
           read_preference: readPreferenceToCpp(options.readPreference),
+          access_deleted: false, // only used in core transactions; false otherwise
         },
         (cppErr, resp) => {
           const err = errorFromCpp(cppErr)

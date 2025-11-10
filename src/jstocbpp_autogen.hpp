@@ -1885,6 +1885,7 @@ struct js_to_cbpp_t<couchbase::core::operations::http_noop_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -1899,6 +1900,7 @@ struct js_to_cbpp_t<couchbase::core::operations::http_noop_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -2031,6 +2033,7 @@ struct js_to_cbpp_t<couchbase::core::operations::get_all_replicas_request> {
             cppObj.timeout, jsObj.Get("timeout"));
         js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
                                                jsObj.Get("read_preference"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -2045,6 +2048,7 @@ struct js_to_cbpp_t<couchbase::core::operations::get_all_replicas_request> {
                        env, cppObj.timeout));
         resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
                                           env, cppObj.read_preference));
+        // parent_span
         return resObj;
     }
 };
@@ -3156,6 +3160,7 @@ struct js_to_cbpp_t<
         // parent_span
         js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
                                                jsObj.Get("read_preference"));
+        js_to_cbpp<bool>(cppObj.access_deleted, jsObj.Get("access_deleted"));
         return cppObj;
     }
     static inline Napi::Value
@@ -3176,6 +3181,8 @@ struct js_to_cbpp_t<
         // parent_span
         resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
                                           env, cppObj.read_preference));
+        resObj.Set("access_deleted",
+                   cbpp_to_js<bool>(env, cppObj.access_deleted));
         return resObj;
     }
 };
@@ -4809,6 +4816,7 @@ struct js_to_cbpp_t<
         // parent_span
         js_to_cbpp<couchbase::read_preference>(cppObj.read_preference,
                                                jsObj.Get("read_preference"));
+        js_to_cbpp<bool>(cppObj.access_deleted, jsObj.Get("access_deleted"));
         return cppObj;
     }
     static inline Napi::Value
@@ -4829,6 +4837,8 @@ struct js_to_cbpp_t<
         // parent_span
         resObj.Set("read_preference", cbpp_to_js<couchbase::read_preference>(
                                           env, cppObj.read_preference));
+        resObj.Set("access_deleted",
+                   cbpp_to_js<bool>(env, cppObj.access_deleted));
         return resObj;
     }
 };
@@ -5222,6 +5232,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5238,6 +5249,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5292,6 +5304,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5309,6 +5322,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5363,6 +5377,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5383,6 +5398,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5433,6 +5449,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -5456,6 +5473,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5510,6 +5528,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5527,6 +5546,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5575,6 +5595,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5589,6 +5610,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5636,6 +5658,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5649,6 +5672,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5734,6 +5758,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5754,6 +5779,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5912,6 +5938,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -5925,6 +5952,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -5981,6 +6009,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -5997,6 +6026,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6051,6 +6081,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6071,6 +6102,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6159,6 +6191,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -6185,6 +6218,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6244,6 +6278,7 @@ struct js_to_cbpp_t<
             cppObj.timeout, jsObj.Get("timeout"));
         js_to_cbpp<bool>(cppObj.ignore_if_exists,
                          jsObj.Get("ignore_if_exists"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6266,6 +6301,7 @@ struct js_to_cbpp_t<
                        env, cppObj.timeout));
         resObj.Set("ignore_if_exists",
                    cbpp_to_js<bool>(env, cppObj.ignore_if_exists));
+        // parent_span
         return resObj;
     }
 };
@@ -6305,6 +6341,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6319,6 +6356,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6376,6 +6414,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6396,6 +6435,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6489,6 +6529,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6522,6 +6563,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6577,6 +6619,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6596,6 +6639,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6655,6 +6699,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6667,6 +6712,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6725,6 +6771,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6737,6 +6784,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6792,6 +6840,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6804,6 +6853,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6859,6 +6909,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6875,6 +6926,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -6981,6 +7033,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -6997,6 +7050,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7045,6 +7099,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7061,6 +7116,7 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
         // retries
+        // parent_span
         return resObj;
     }
 };
@@ -7103,6 +7159,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7118,6 +7175,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7159,6 +7217,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7171,6 +7230,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7250,6 +7310,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7265,6 +7326,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7315,6 +7377,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -7338,6 +7401,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7546,6 +7610,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7560,6 +7625,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7615,6 +7681,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7634,6 +7701,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7685,6 +7753,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7701,6 +7770,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7746,6 +7816,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7760,6 +7831,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7811,6 +7883,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7828,6 +7901,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7867,6 +7941,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -7881,6 +7956,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7933,6 +8009,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::freeform_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -7952,6 +8029,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::freeform_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -7994,6 +8072,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8011,6 +8090,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8055,6 +8135,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -8074,6 +8155,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8121,6 +8203,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8137,6 +8220,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8179,6 +8263,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8196,6 +8281,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8255,6 +8341,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8272,6 +8359,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8318,6 +8406,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8337,6 +8426,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8420,6 +8510,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8437,6 +8528,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8461,6 +8553,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8481,6 +8574,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8504,6 +8598,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8524,6 +8619,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8606,6 +8702,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8621,6 +8718,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8667,6 +8765,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8685,6 +8784,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8743,6 +8843,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8759,6 +8860,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8820,6 +8922,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8836,6 +8939,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8895,6 +8999,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8917,6 +9022,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -8962,6 +9068,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8977,6 +9084,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9023,6 +9131,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::user_get_request> {
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -9039,6 +9148,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::user_get_request> {
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9089,6 +9199,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -9108,6 +9219,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9159,6 +9271,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9178,6 +9291,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9222,6 +9336,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -9235,6 +9350,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9276,6 +9392,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9293,6 +9410,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9348,6 +9466,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9364,6 +9483,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9415,6 +9535,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9434,6 +9555,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9480,6 +9602,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9493,6 +9616,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9538,6 +9662,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9551,6 +9676,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9634,6 +9760,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9651,6 +9778,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9675,6 +9803,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9695,6 +9824,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9718,6 +9848,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9738,6 +9869,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9792,6 +9924,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9809,6 +9942,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9856,6 +9990,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9875,6 +10010,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -9950,6 +10086,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -9969,6 +10106,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10023,6 +10161,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10040,6 +10179,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10084,6 +10224,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10098,6 +10239,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10149,6 +10291,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10168,6 +10311,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10213,6 +10357,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10230,6 +10375,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10286,6 +10432,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10304,6 +10451,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10343,6 +10491,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10357,6 +10506,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10413,6 +10563,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -10432,6 +10583,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10485,6 +10637,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10505,6 +10658,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10590,6 +10744,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value to_js(
@@ -10613,6 +10768,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10667,6 +10823,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10684,6 +10841,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10736,6 +10894,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10754,6 +10913,7 @@ struct js_to_cbpp_t<couchbase::core::operations::management::
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };
@@ -10861,6 +11021,7 @@ struct js_to_cbpp_t<
                                                jsObj.Get("client_context_id"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
+        // parent_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10879,6 +11040,7 @@ struct js_to_cbpp_t<
         resObj.Set("timeout",
                    cbpp_to_js<std::optional<std::chrono::milliseconds>>(
                        env, cppObj.timeout));
+        // parent_span
         return resObj;
     }
 };

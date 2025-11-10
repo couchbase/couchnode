@@ -511,6 +511,7 @@ export interface CppHttpNoopRequest {
   type: CppServiceType
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppUnlockResponse {
   // ctx
@@ -539,6 +540,7 @@ export interface CppGetAllReplicasRequest {
   id: CppDocumentId
   timeout?: CppMilliseconds
   read_preference: CppReadPreference
+  // parent_span
 }
 export interface CppUpsertResponse {
   // ctx
@@ -788,6 +790,7 @@ export interface CppLookupInAllReplicasRequest {
   timeout?: CppMilliseconds
   // parent_span
   read_preference: CppReadPreference
+  access_deleted: boolean
 }
 export interface CppAnalyticsResponse {
   // ctx
@@ -1129,6 +1132,7 @@ export interface CppLookupInAnyReplicaRequest {
   timeout?: CppMilliseconds
   // parent_span
   read_preference: CppReadPreference
+  access_deleted: boolean
 }
 export interface CppMutateInResponse {
   // ctx
@@ -1221,6 +1225,7 @@ export interface CppManagementGroupUpsertRequest {
   group: CppManagementRbacGroup
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingPauseFunctionResponse {
   // ctx
@@ -1232,6 +1237,7 @@ export interface CppManagementEventingPauseFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexGetAllResponse {
   // ctx
@@ -1245,6 +1251,7 @@ export interface CppManagementQueryIndexGetAllRequest {
   query_ctx: CppQueryContext
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementCollectionCreateResponse {
   // ctx
@@ -1258,6 +1265,7 @@ export interface CppManagementCollectionCreateRequest {
   history?: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingResumeFunctionResponse {
   // ctx
@@ -1269,6 +1277,7 @@ export interface CppManagementEventingResumeFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexGetStatsResponse {
   // ctx
@@ -1280,6 +1289,7 @@ export interface CppManagementSearchIndexGetStatsRequest {
   index_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementBucketGetAllResponse {
   // ctx
@@ -1288,6 +1298,7 @@ export interface CppManagementBucketGetAllResponse {
 export interface CppManagementBucketGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexBuildDeferredResponse {
   // ctx
@@ -1305,6 +1316,7 @@ export interface CppManagementQueryIndexBuildDeferredRequest {
   query_ctx: CppQueryContext
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementClusterDescribeResponse {
   // ctx
@@ -1331,6 +1343,7 @@ export interface CppManagementClusterDescribeResponseClusterInfoBucket {
 export interface CppManagementClusterDescribeRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexGetAllResponse {
   // ctx
@@ -1343,6 +1356,7 @@ export interface CppManagementSearchIndexGetAllRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexAnalyzeDocumentResponse {
   // ctx
@@ -1357,6 +1371,7 @@ export interface CppManagementSearchIndexAnalyzeDocumentRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexDropResponse {
   // ctx
@@ -1377,6 +1392,7 @@ export interface CppManagementQueryIndexDropRequest {
   ignore_if_does_not_exist: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsDatasetCreateResponse {
   // ctx
@@ -1391,6 +1407,7 @@ export interface CppManagementAnalyticsDatasetCreateRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
   ignore_if_exists: boolean
+  // parent_span
 }
 export interface CppManagementBucketFlushResponse {
   // ctx
@@ -1399,6 +1416,7 @@ export interface CppManagementBucketFlushRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsIndexDropResponse {
   // ctx
@@ -1412,6 +1430,7 @@ export interface CppManagementAnalyticsIndexDropRequest {
   ignore_if_does_not_exist: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexCreateResponse {
   // ctx
@@ -1436,6 +1455,7 @@ export interface CppManagementQueryIndexCreateRequest {
   num_replicas?: number
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexUpsertResponse {
   // ctx
@@ -1450,6 +1470,7 @@ export interface CppManagementSearchIndexUpsertRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsDatasetGetAllResponse {
   // ctx
@@ -1460,6 +1481,7 @@ export interface CppManagementAnalyticsDatasetGetAllResponse {
 export interface CppManagementAnalyticsDatasetGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsIndexGetAllResponse {
   // ctx
@@ -1470,6 +1492,7 @@ export interface CppManagementAnalyticsIndexGetAllResponse {
 export interface CppManagementAnalyticsIndexGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsGetPendingMutationsResponse {
   // ctx
@@ -1480,6 +1503,7 @@ export interface CppManagementAnalyticsGetPendingMutationsResponse {
 export interface CppManagementAnalyticsGetPendingMutationsRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsDataverseDropResponse {
   // ctx
@@ -1491,6 +1515,7 @@ export interface CppManagementAnalyticsDataverseDropRequest {
   ignore_if_does_not_exist: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingProblem {
   code: number
@@ -1512,6 +1537,7 @@ export interface CppManagementAnalyticsLinkConnectRequest {
   force: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementCollectionsManifestGetResponse {
   // ctx
@@ -1523,6 +1549,7 @@ export interface CppManagementCollectionsManifestGetRequest {
   opaque: number
   timeout?: CppMilliseconds
   // retries
+  // parent_span
 }
 export interface CppManagementChangePasswordResponse {
   // ctx
@@ -1531,6 +1558,7 @@ export interface CppManagementChangePasswordRequest {
   newPassword: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementClusterDeveloperPreviewEnableResponse {
   // ctx
@@ -1538,6 +1566,7 @@ export interface CppManagementClusterDeveloperPreviewEnableResponse {
 export interface CppManagementClusterDeveloperPreviewEnableRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkDropResponse {
   // ctx
@@ -1553,6 +1582,7 @@ export interface CppManagementAnalyticsLinkDropRequest {
   dataverse_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementCollectionUpdateResponse {
   // ctx
@@ -1566,6 +1596,7 @@ export interface CppManagementCollectionUpdateRequest {
   history?: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementServerNodeAddress {
   hostname: string
@@ -1602,6 +1633,7 @@ export interface CppManagementBucketDescribeRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingUpsertFunctionResponse {
   // ctx
@@ -1613,6 +1645,7 @@ export interface CppManagementEventingUpsertFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementViewIndexGetAllResponse {
   // ctx
@@ -1623,6 +1656,7 @@ export interface CppManagementViewIndexGetAllRequest {
   ns: CppDesignDocumentNamespace
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementBucketGetResponse {
   // ctx
@@ -1632,6 +1666,7 @@ export interface CppManagementBucketGetRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementBucketUpdateResponse {
   // ctx
@@ -1642,6 +1677,7 @@ export interface CppManagementBucketUpdateRequest {
   bucket: CppManagementClusterBucketSettings
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementBucketDropResponse {
   // ctx
@@ -1650,6 +1686,7 @@ export interface CppManagementBucketDropRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementFreeformResponse {
   // ctx
@@ -1665,6 +1702,7 @@ export interface CppManagementFreeformRequest {
   body: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementScopeDropResponse {
   // ctx
@@ -1675,6 +1713,7 @@ export interface CppManagementScopeDropRequest {
   scope_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementViewIndexUpsertResponse {
   // ctx
@@ -1684,6 +1723,7 @@ export interface CppManagementViewIndexUpsertRequest {
   document: CppManagementViewsDesignDocument
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementUserGetAllResponse {
   // ctx
@@ -1693,6 +1733,7 @@ export interface CppManagementUserGetAllRequest {
   domain: CppManagementRbacAuthDomain
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementScopeCreateResponse {
   // ctx
@@ -1703,6 +1744,7 @@ export interface CppManagementScopeCreateRequest {
   scope_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingGetFunctionResponse {
   // ctx
@@ -1715,6 +1757,7 @@ export interface CppManagementEventingGetFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementViewIndexDropResponse {
   // ctx
@@ -1725,6 +1768,7 @@ export interface CppManagementViewIndexDropRequest {
   ns: CppDesignDocumentNamespace
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkReplaceResponse {
   // ctx
@@ -1739,16 +1783,19 @@ export interface CppManagementAnalyticsLinkReplaceAzureBlobExternalLinkRequest {
   link: CppManagementAnalyticsAzureBlobExternalLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkReplaceCouchbaseRemoteLinkRequest {
   link: CppManagementAnalyticsCouchbaseRemoteLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkReplaceS3ExternalLinkRequest {
   link: CppManagementAnalyticsS3ExternalLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkDisconnectResponse {
   // ctx
@@ -1764,6 +1811,7 @@ export interface CppManagementAnalyticsLinkDisconnectRequest {
   link_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementUserUpsertResponse {
   // ctx
@@ -1774,6 +1822,7 @@ export interface CppManagementUserUpsertRequest {
   user: CppManagementRbacUser
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingGetStatusResponse {
   // ctx
@@ -1785,6 +1834,7 @@ export interface CppManagementEventingGetStatusRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingGetAllFunctionsResponse {
   // ctx
@@ -1796,6 +1846,7 @@ export interface CppManagementEventingGetAllFunctionsRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsIndexCreateResponse {
   // ctx
@@ -1810,6 +1861,7 @@ export interface CppManagementAnalyticsIndexCreateRequest {
   ignore_if_exists: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementScopeGetAllResponse {
   // ctx
@@ -1819,6 +1871,7 @@ export interface CppManagementScopeGetAllRequest {
   bucket_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementUserGetResponse {
   // ctx
@@ -1829,6 +1882,7 @@ export interface CppManagementUserGetRequest {
   domain: CppManagementRbacAuthDomain
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexDropResponse {
   // ctx
@@ -1841,6 +1895,7 @@ export interface CppManagementSearchIndexDropRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexControlPlanFreezeResponse {
   // ctx
@@ -1854,6 +1909,7 @@ export interface CppManagementSearchIndexControlPlanFreezeRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchGetStatsResponse {
   // ctx
@@ -1862,6 +1918,7 @@ export interface CppManagementSearchGetStatsResponse {
 export interface CppManagementSearchGetStatsRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementUserDropResponse {
   // ctx
@@ -1871,6 +1928,7 @@ export interface CppManagementUserDropRequest {
   domain: CppManagementRbacAuthDomain
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsDataverseCreateResponse {
   // ctx
@@ -1882,6 +1940,7 @@ export interface CppManagementAnalyticsDataverseCreateRequest {
   ignore_if_exists: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexControlQueryResponse {
   // ctx
@@ -1895,6 +1954,7 @@ export interface CppManagementSearchIndexControlQueryRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementRoleGetAllResponse {
   // ctx
@@ -1903,6 +1963,7 @@ export interface CppManagementRoleGetAllResponse {
 export interface CppManagementRoleGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementGroupGetAllResponse {
   // ctx
@@ -1911,6 +1972,7 @@ export interface CppManagementGroupGetAllResponse {
 export interface CppManagementGroupGetAllRequest {
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkCreateResponse {
   // ctx
@@ -1925,16 +1987,19 @@ export interface CppManagementAnalyticsLinkCreateAzureBlobExternalLinkRequest {
   link: CppManagementAnalyticsAzureBlobExternalLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkCreateCouchbaseRemoteLinkRequest {
   link: CppManagementAnalyticsCouchbaseRemoteLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkCreateS3ExternalLinkRequest {
   link: CppManagementAnalyticsS3ExternalLink
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingDropFunctionResponse {
   // ctx
@@ -1946,6 +2011,7 @@ export interface CppManagementEventingDropFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementCollectionDropResponse {
   // ctx
@@ -1957,6 +2023,7 @@ export interface CppManagementCollectionDropRequest {
   collection_name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsProblem {
   code: number
@@ -1974,6 +2041,7 @@ export interface CppManagementSearchIndexControlIngestRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingDeployFunctionResponse {
   // ctx
@@ -1985,6 +2053,7 @@ export interface CppManagementEventingDeployFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementGroupGetResponse {
   // ctx
@@ -1994,6 +2063,7 @@ export interface CppManagementGroupGetRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementViewIndexGetResponse {
   // ctx
@@ -2005,6 +2075,7 @@ export interface CppManagementViewIndexGetRequest {
   ns: CppDesignDocumentNamespace
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementBucketCreateResponse {
   // ctx
@@ -2014,6 +2085,7 @@ export interface CppManagementBucketCreateRequest {
   bucket: CppManagementClusterBucketSettings
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsDatasetDropResponse {
   // ctx
@@ -2026,6 +2098,7 @@ export interface CppManagementAnalyticsDatasetDropRequest {
   ignore_if_does_not_exist: boolean
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementGroupDropResponse {
   // ctx
@@ -2034,6 +2107,7 @@ export interface CppManagementGroupDropRequest {
   name: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexGetResponse {
   // ctx
@@ -2047,6 +2121,7 @@ export interface CppManagementSearchIndexGetRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexGetAllDeferredResponse {
   // ctx
@@ -2060,6 +2135,7 @@ export interface CppManagementQueryIndexGetAllDeferredRequest {
   query_ctx: CppQueryContext
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementQueryIndexBuildResponse {
   // ctx
@@ -2078,6 +2154,7 @@ export interface CppManagementQueryIndexBuildRequest {
   index_names: string[]
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementEventingUndeployFunctionResponse {
   // ctx
@@ -2089,6 +2166,7 @@ export interface CppManagementEventingUndeployFunctionRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementSearchIndexGetDocumentsCountResponse {
   // ctx
@@ -2102,6 +2180,7 @@ export interface CppManagementSearchIndexGetDocumentsCountRequest {
   scope_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppManagementAnalyticsLinkGetAllResponse {
   // ctx
@@ -2121,6 +2200,7 @@ export interface CppManagementAnalyticsLinkGetAllRequest {
   dataverse_name?: string
   client_context_id?: string
   timeout?: CppMilliseconds
+  // parent_span
 }
 export interface CppImplSubdocCommand {
   opcode_: number
