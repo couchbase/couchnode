@@ -2,7 +2,6 @@
 #include "addondata.hpp"
 #include "instance.hpp"
 #include "jstocbpp.hpp"
-#include "transcoder.hpp"
 #include <core/utils/movable_function.hxx>
 #include <napi.h>
 
@@ -251,28 +250,6 @@ private:
                       try {
                           jsErr = cbpp_to_js(env, resp.ctx);
                           jsRes = cbpp_to_js(env, resp);
-                      } catch (const Napi::Error &e) {
-                          jsErr = e.Value();
-                          jsRes = env.Null();
-                      }
-
-                      callback.Call({jsErr, jsRes});
-                  });
-    }
-
-    template <typename Request>
-    void executeOp(const std::string &opName, const Request &req,
-                   Napi::Function jsCallback, Transcoder &&transcoder)
-    {
-        using response_type = typename Request::response_type;
-        executeOp(opName, req, jsCallback,
-                  [transcoder = std::move(transcoder)](
-                      Napi::Env env, Napi::Function callback,
-                      response_type resp) mutable {
-                      Napi::Value jsErr, jsRes;
-                      try {
-                          jsErr = cbpp_to_js(env, resp.ctx);
-                          jsRes = cbpp_to_js(env, resp, transcoder);
                       } catch (const Napi::Error &e) {
                           jsErr = e.Value();
                           jsRes = env.Null();

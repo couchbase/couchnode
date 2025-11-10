@@ -4,7 +4,6 @@
 #include "jstocbpp.hpp"
 #include "mutationtoken.hpp"
 #include "scan_iterator.hpp"
-#include "transcoder.hpp"
 #include <core/agent_group.hxx>
 #include <core/operations/management/freeform.hxx>
 #include <core/range_scan_orchestrator.hxx>
