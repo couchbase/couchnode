@@ -24,6 +24,13 @@ import {
   PingResult,
 } from './diagnosticstypes'
 import { EventingFunctionManager } from './eventingfunctionmanager'
+import {
+  CouchbaseLogger,
+  createConsoleLogger,
+  Logger,
+  NoOpLogger,
+  parseLogLevel,
+} from './logger'
 import { QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
@@ -374,6 +381,11 @@ export interface ConnectOptions {
    * Specifies the metrics config for connections of this cluster.
    */
   metricsConfig?: MetricsConfig
+
+  /**
+   * Provides an implementation of the {@link Logger} interface to be used by the SDK.
+   */
+  logger?: Logger
 }
 
 /**
@@ -408,6 +420,7 @@ export class Cluster {
   private _tracingConfig: TracingConfig | null
   private _orphanReporterConfig: OrphanReporterConfig | null
   private _metricsConfig: MetricsConfig | null
+  private _logger: CouchbaseLogger
 
   /**
    * @internal
@@ -491,6 +504,13 @@ export class Cluster {
   */
   get resolveTimeout(): number | undefined {
     return this._resolveTimeout
+  }
+
+  /**
+  @internal
+  */
+  get logger(): CouchbaseLogger {
+    return this._logger
   }
 
   /**
@@ -642,6 +662,25 @@ export class Cluster {
       }
     } else {
       this._metricsConfig = null
+    }
+
+    if (!options.logger) {
+      const envLogLevel = process.env.CNLOGLEVEL
+      if (envLogLevel) {
+        const level = parseLogLevel(envLogLevel)
+        if (level !== undefined) {
+          this._logger = createConsoleLogger(level)
+        } else {
+          this._logger = new CouchbaseLogger(new NoOpLogger())
+        }
+      } else {
+        this._logger = new CouchbaseLogger(new NoOpLogger())
+      }
+    } else {
+      this._logger =
+        options.logger instanceof CouchbaseLogger
+          ? options.logger
+          : new CouchbaseLogger(options.logger)
     }
 
     this._openBuckets = []
@@ -945,7 +984,10 @@ export class Cluster {
     }
   }
 
-  private _getCppCredentials(auth: Authenticator, saslMechanisms?: string[]): CppClusterCredentials {
+  private _getCppCredentials(
+    auth: Authenticator,
+    saslMechanisms?: string[]
+  ): CppClusterCredentials {
     const authOpts: CppClusterCredentials = {}
 
     if (auth) {
@@ -966,7 +1008,7 @@ export class Cluster {
       }
     }
 
-    return authOpts;
+    return authOpts
   }
 
   private async _connect() {
