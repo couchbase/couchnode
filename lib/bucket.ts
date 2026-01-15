@@ -102,6 +102,10 @@ export class Bucket {
   /**
    * Returns a ViewIndexManager which can be used to manage the view indexes
    * of this bucket.
+   *
+   * @deprecated Since version 4.7.0. Views are deprecated in Couchbase Server 7.0+, and will be removed from a future server version.
+   *             Views are not compatible with the Magma storage engine. Instead of views, use indexes and queries using the
+   *             Index Service (GSI) and the Query Service (SQL++).
    */
   viewIndexes(): ViewIndexManager {
     return new ViewIndexManager(this)
@@ -117,6 +121,10 @@ export class Bucket {
 
   /**
    * Executes a view query.
+   *
+   * @deprecated Since version 4.7.0. Views are deprecated in Couchbase Server 7.0+, and will be removed from a future server version.
+   *             Views are not compatible with the Magma storage engine. Instead of views, use indexes and queries using the
+   *             Index Service (GSI) and the Query Service (SQL++).
    *
    * @param designDoc The name of the design document containing the view to execute.
    * @param viewName The name of the view to execute.

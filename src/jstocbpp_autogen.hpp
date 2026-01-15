@@ -6,6 +6,7 @@
 
 #include <core/cluster.hxx>
 #include <core/operations.hxx>
+#include <core/operations/document_view.hxx>
 #include <core/operations/management/analytics.hxx>
 #include <core/operations/management/bucket.hxx>
 #include <core/operations/management/bucket_describe.hxx>

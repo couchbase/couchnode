@@ -42,3 +42,4 @@ config.json
 
 # Extra stuff
 /dist/
+.DS_Store
