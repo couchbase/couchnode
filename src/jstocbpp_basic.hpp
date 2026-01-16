@@ -10,6 +10,7 @@
 #include <core/json_string.hxx>
 #include <core/management/eventing_function.hxx>
 #include <core/query_context.hxx>
+#include <core/tracing/wrapper_sdk_tracer.hxx>
 #include <couchbase/codec/encoded_value.hxx>
 
 namespace couchnode
@@ -154,6 +155,77 @@ struct js_to_cbpp_t<couchbase::codec::encoded_value> {
             js_to_cbpp<std::vector<std::byte>>(jsObj.Get("data")),
             js_to_cbpp<std::uint32_t>(jsObj.Get("flags"))};
         return cppObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>> {
+    static inline Napi::Value cbpp_wrapper_span_to_js(
+        Napi::Env env,
+        std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)
+    {
+        if (nullptr == wrapperSpan || wrapperSpan->children().empty()) {
+            return env.Undefined();
+        }
+        auto spanObj = Napi::Object::New(env);
+        auto jsAttributesObj = Napi::Object::New(env);
+        for (const auto &[key, value] : wrapperSpan->uint_tags()) {
+            jsAttributesObj.Set(key, cbpp_to_js(env, value));
+        }
+        for (const auto &[key, value] : wrapperSpan->string_tags()) {
+            jsAttributesObj.Set(key, cbpp_to_js(env, value));
+        }
+        spanObj.Set("attributes", jsAttributesObj);
+        spanObj.Set(
+            "children",
+            cbpp_to_js<std::vector<
+                std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>>>(
+                env, wrapperSpan->children()));
+        return spanObj;
+    }
+    static inline Napi::Value to_js(
+        Napi::Env env,
+        std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)
+    {
+        if (nullptr == wrapperSpan) {
+            return env.Undefined();
+        }
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("name", cbpp_to_js(env, wrapperSpan->name()));
+        constexpr int64_t NANOS_PER_SEC = 1'000'000'000;
+        auto start_time_since_epoch =
+            wrapperSpan->start_time().time_since_epoch();
+        auto start_time_ns =
+            std::chrono::duration_cast<std::chrono::nanoseconds>(
+                start_time_since_epoch)
+                .count();
+        resObj.Set("start", cbpp_to_js<std::array<int64_t, 2>>(
+                                env, {start_time_ns / NANOS_PER_SEC,
+                                      start_time_ns % NANOS_PER_SEC}));
+        auto end_time_since_epoch = wrapperSpan->end_time().time_since_epoch();
+        auto end_time_ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                               end_time_since_epoch)
+                               .count();
+        resObj.Set("end", cbpp_to_js<std::array<int64_t, 2>>(
+                              env, {end_time_ns / NANOS_PER_SEC,
+                                    end_time_ns % NANOS_PER_SEC}));
+        auto jsAttributesObj = Napi::Object::New(env);
+        for (const auto &[key, value] : wrapperSpan->uint_tags()) {
+            jsAttributesObj.Set(key, cbpp_to_js(env, value));
+        }
+        for (const auto &[key, value] : wrapperSpan->string_tags()) {
+            jsAttributesObj.Set(key, cbpp_to_js(env, value));
+        }
+        resObj.Set("attributes", jsAttributesObj);
+        // some operations in the C++ core handle sub-operations (e.g. replicas, etc.)
+        if (!wrapperSpan->children().empty()) {
+            resObj.Set("children",
+                       cbpp_to_js<std::vector<std::shared_ptr<
+                           couchbase::core::tracing::wrapper_sdk_span>>>(
+                           env, wrapperSpan->children()));
+        }
+        return resObj;
     }
 };
 

@@ -7,6 +7,7 @@ const CustomDefinedTypes = [
   'couchbase::mutation_token',
   'couchbase::retry_strategy',
   'couchbase::core::query_context',
+  'couchbase::core::wrapper_sdk_span',
 ]
 
 const handleJsVariant = {
@@ -16,6 +17,10 @@ const handleJsVariant = {
   ],
   fields: ['scan_type', 'auth'],
 }
+
+const otherObservableTypes = [
+  'couchbase::core::range_scan_orchestrator_options'
+]
 
 function getTsType(type, typeDb) {
   // special case for std::vector<std::byte> which is a Buffer
@@ -88,6 +93,8 @@ function getTsType(type, typeDb) {
     //  return 'CppJsonString'
     case 'couchbase::core::impl::subdoc::opcode':
       return 'number'
+    case 'couchbase::core::tracing::wrapper_sdk_span':
+      return getStructTsName(type.name)
   }
 
   const opsStructs = typeDb.op_structs
@@ -249,6 +256,7 @@ function isIgnoredField(st, fieldName) {
     fieldName === 'retry_strategy' ||
     fieldName === 'internal' ||
     fieldName === 'revive_document' ||
+    fieldName === 'cpp_core_span' ||
     (fieldName.endsWith('_') &&
       !StructsWithAllowedPrivateField.includes(st.name))
   ) {
@@ -256,6 +264,18 @@ function isIgnoredField(st, fieldName) {
   }
 
   return false
+}
+
+function getOpReqName(name){
+  if (name.endsWith('_request')) {
+    return name.substr(0, name.length - 8)
+  }
+  if (name.endsWith('_with_legacy_durability')) {
+    return name
+  }
+  if (name.endsWith('>')) {
+    return name.replace('_request', '')
+  }
 }
 
 const FILE_WRITER_DEBUG = false
@@ -339,18 +359,27 @@ async function go() {
   )
 
   const opReqTypes = []
+  const opStructReqsWithTracing = []
+  const opStructRespsWithTracing = []
   opsStructs.forEach((opStruct) => {
-    if (opStruct.name.endsWith('_request')) {
-      const opReqName = opStruct.name.substr(0, opStruct.name.length - 8)
-      opReqTypes.push(opReqName)
+    const reqName = getOpReqName(opStruct.name)
+    if (reqName) {
+      opReqTypes.push(reqName)
     }
-    if (opStruct.name.endsWith('_with_legacy_durability')) {
-      opReqTypes.push(opStruct.name)
+    // handle tracing for requests
+    if (opStruct.fields.some((f) => f.name === 'parent_span')) {
+      opStructReqsWithTracing.push(opStruct.name)
     }
-    if (opStruct.name.endsWith('>')) {
-      opReqTypes.push(opStruct.name.replace('_request', ''))
+    // handle tracing for responses
+    if (opStruct.fields.some((f) => f.name === 'cpp_core_span')) {
+      opStructRespsWithTracing.push(opStruct.name)
     }
   })
+
+  for (const op of opStructRespsWithTracing) {
+    console.log(op)
+  }
+  
 
   // filter out the custom types
   opsStructs = opsStructs.filter(
@@ -383,24 +412,30 @@ async function go() {
       ? getStructTsName(opStruct.name + '_request')
       : getStructTsName(opStruct.name)
 
-    outJsAll.write(`export interface ${jsTypeName} {`)
+    if (opStruct.fields.find(f => f.name === 'parent_span')) {
+      outJsAll.write(`export interface ${jsTypeName} extends CppObservableRequest {`)
+    } else if (opStruct.fields.find(f => f.name === 'cpp_core_span')) {
+      outJsAll.write(`export interface ${jsTypeName} extends CppObservableResponse {`)
+    } else {
+      outJsAll.write(`export interface ${jsTypeName} {`)
+    }
+
     opStruct.fields.forEach((field) => {
-      // ignnore the ctx and retries fields
-      if (isIgnoredField(opStruct, field.name)) {
+      // cpp_core_span is provided with the response interface extending the CppObservabelResponse interface
+      if (field.name === 'cpp_core_span') {
+        return
+      } else if (isIgnoredField(opStruct, field.name)) {
         outJsAll.write(`  // ${field.name}`)
         return
       }
 
       // special case for optional fields
       if (field.type.name === 'std::optional') {
-        const jsFieldName = field.name
         const jsFieldType = getTsType(field.type.of, ops)
-
-        outJsAll.write(`  ${jsFieldName}?: ${jsFieldType}`)
+        outJsAll.write(`  ${field.name}?: ${jsFieldType}`)
       } else if (field.type.name === 'template') {
         const jsFieldName = field.name
         const jsFieldType = getStructTsName(field.type.of.name)
-
         outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
       } else {
         const jsFieldName = field.name
@@ -483,6 +518,17 @@ async function go() {
   outJsAll.write('}')
   outJsAll.write('')
 
+  // Create CppObservableRequests union type
+  const observableRequestTypes = []
+  opReqTypes.forEach((x) => {
+    const jsReqName = getStructTsName(x + '_request')
+    if (opStructReqsWithTracing.find(r => getOpReqName(r) === x)) {
+      observableRequestTypes.push(jsReqName)
+    }
+  })
+  outJsAll.write(`export type CppObservableRequests = ${observableRequestTypes.join(" | ")}`)
+  outJsAll.write('')
+
   //outJsAll.write('//#endregion Autogen Code')
   //await outJsAll.save('./out/js_all.ts')
   await outJsAll.saveToRegion('../lib/binding.ts')
@@ -525,18 +571,34 @@ async function go() {
     outCppFuncDefs.write(
       `    auto callbackJsFn = info[1].As<Napi::Function>();`
     )
+    const reqArgs = ['optsJsObj']
+    const reqHasTracing = opStructReqsWithTracing.find(r => getOpReqName(r) === x)
+    if (reqHasTracing) {
+      outCppFuncDefs.write(``)
+      outCppFuncDefs.write(`    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;`)
+      outCppFuncDefs.write(`    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));`)
+      outCppFuncDefs.write(`    if (!span_name.empty()) {`)
+      outCppFuncDefs.write(`        wrapper_span = std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(span_name);`)
+      outCppFuncDefs.write(`    }`)
+      reqArgs.push('wrapper_span')
+    }
     outCppFuncDefs.write(``)
     outCppFuncDefs.write(`    executeOp("${cppBaseOpName}",`)
     if (x.endsWith('_with_legacy_durability')) {
-      outCppFuncDefs.write(`              jsToCbpp<${x}>(optsJsObj),`)
+      outCppFuncDefs.write(`              jsToCbpp<${x}>(${reqArgs.join(", ")}),`)
     } else if (x.endsWith('>')) {
       const reqTokens = x.split('<')
       const cppReqName = reqTokens[0] + '_request<' + reqTokens[1]
-      outCppFuncDefs.write(`              jsToCbpp<${cppReqName}>(optsJsObj),`)
+      outCppFuncDefs.write(`              jsToCbpp<${cppReqName}>(${reqArgs.join(", ")}),`)
     } else {
-      outCppFuncDefs.write(`              jsToCbpp<${x}_request>(optsJsObj),`)
+      outCppFuncDefs.write(`              jsToCbpp<${x}_request>(${reqArgs.join(", ")}),`)
     }
-    outCppFuncDefs.write(`              callbackJsFn);`)
+    if (reqHasTracing) {
+      outCppFuncDefs.write(`              callbackJsFn,`)
+      outCppFuncDefs.write(`              wrapper_span);`)
+    } else {
+      outCppFuncDefs.write(`              callbackJsFn);`)
+    }
     outCppFuncDefs.write(``)
     outCppFuncDefs.write(`    return info.Env().Null();`)
     outCppFuncDefs.write(`}`)
@@ -618,7 +680,12 @@ async function go() {
     outCppStructDefs.write(`struct js_to_cbpp_t<${st.name}> {`)
 
     outCppStructDefs.write(`    static inline ${st.name}`)
-    outCppStructDefs.write(`    from_js(Napi::Value jsVal)`)
+    if (opStructReqsWithTracing.includes(st.name)) {
+      outCppStructDefs.write(`    from_js(Napi::Value jsVal,`)
+      outCppStructDefs.write(`            std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)`)
+    } else {
+      outCppStructDefs.write(`    from_js(Napi::Value jsVal)`)
+    }
     outCppStructDefs.write(`    {`)
     outCppStructDefs.write(`        auto jsObj = jsVal.ToObject();`)
     const variantFields = st.fields.filter((field) => {
@@ -662,7 +729,9 @@ async function go() {
     })
     outCppStructDefs.write(`        ${st.name} cppObj;`)
     st.fields.forEach((field) => {
-      if (isIgnoredField(st, field.name)) {
+      if (opStructReqsWithTracing.includes(st.name) && field.name == 'parent_span' ) {
+        outCppStructDefs.write(`        cppObj.${field.name} = wrapperSpan;`)
+      } else if (isIgnoredField(st, field.name)) {
         outCppStructDefs.write(`        // ${field.name}`)
       } else if (
         handleJsVariant.names.includes(st.name) &&
@@ -680,7 +749,13 @@ async function go() {
     outCppStructDefs.write(`    }`)
 
     outCppStructDefs.write(`    static inline Napi::Value`)
-    outCppStructDefs.write(`    to_js(Napi::Env env, const ${st.name} &cppObj)`)
+    if (st.name.endsWith('response') || otherObservableTypes.includes(st.name)) {
+      outCppStructDefs.write(`    to_js(Napi::Env env,`)
+      outCppStructDefs.write(`          const ${st.name} &cppObj,`)
+      outCppStructDefs.write(`          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan = nullptr)`)
+    } else {
+      outCppStructDefs.write(`    to_js(Napi::Env env, const ${st.name} &cppObj)`)
+    }
     outCppStructDefs.write(`    {`)
     outCppStructDefs.write(`        auto resObj = Napi::Object::New(env);`)
     variantFields.forEach((field) => {
@@ -707,6 +782,10 @@ async function go() {
       return
     })
     st.fields.forEach((field) => {
+      if (field.name == 'cpp_core_span' && opStructRespsWithTracing.includes(st.name)) {
+        outCppStructDefs.write(`        resObj.Set("${field.name}", cbpp_wrapper_span_to_js(env, wrapperSpan));`)
+        return
+      }
       if (isIgnoredField(st, field.name)) {
         outCppStructDefs.write(`        // ${field.name}`)
         return

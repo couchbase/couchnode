@@ -5,6 +5,8 @@
 #include "mutationtoken.hpp"
 #include "scan_iterator.hpp"
 #include <core/agent_group.hxx>
+#include <core/cluster.hxx>
+#include <core/cluster_label_listener.hxx>
 #include <core/operations/management/freeform.hxx>
 #include <core/range_scan_orchestrator.hxx>
 #include <core/utils/connection_string.hxx>
@@ -280,7 +282,7 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 {
     auto connstr = info[0].ToString().Utf8Value();
     auto credentialsJsObj = info[1].As<Napi::Object>();
-    auto callbackJsFn = info[7].As<Napi::Function>();
+    auto callbackJsFn = info[6].As<Napi::Function>();
 
     auto connstrInfo = couchbase::core::utils::parse_connection_string(connstr);
     auto creds =
@@ -344,79 +346,15 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
         }
     }
 
-    if (!info[4].IsNull()) {
-        couchbase::core::tracing::threshold_logging_options tracing_options{};
-        bool has_tracing_options = false;
-        auto jsTracingConfigObj = info[4].As<Napi::Object>();
-        auto jsEnableTracing = jsTracingConfigObj.Get("enableTracing");
-        if (!(jsEnableTracing.IsNull() || jsEnableTracing.IsUndefined())) {
-            connstrInfo.options.enable_tracing =
-                js_to_cbpp<bool>(jsEnableTracing);
-        }
-        auto jsEmitInterval = jsTracingConfigObj.Get("emitInterval");
-        if (!(jsEmitInterval.IsNull() || jsEmitInterval.IsUndefined())) {
-            tracing_options.threshold_emit_interval =
-                js_to_cbpp<std::chrono::milliseconds>(jsEmitInterval);
-            has_tracing_options = true;
-        }
-        auto jsSampleSize = jsTracingConfigObj.Get("sampleSize");
-        if (!(jsSampleSize.IsNull() || jsSampleSize.IsUndefined())) {
-            tracing_options.threshold_sample_size =
-                js_to_cbpp<std::size_t>(jsSampleSize);
-            has_tracing_options = true;
-        }
-        auto jsKvThreshold = jsTracingConfigObj.Get("kvThreshold");
-        if (!(jsKvThreshold.IsNull() || jsKvThreshold.IsUndefined())) {
-            tracing_options.key_value_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsKvThreshold);
-            has_tracing_options = true;
-        }
-        auto jsQueryThreshold = jsTracingConfigObj.Get("queryThreshold");
-        if (!(jsQueryThreshold.IsNull() || jsQueryThreshold.IsUndefined())) {
-            tracing_options.query_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsQueryThreshold);
-            has_tracing_options = true;
-        }
-        auto jsSearchThreshold = jsTracingConfigObj.Get("searchThreshold");
-        if (!(jsSearchThreshold.IsNull() || jsSearchThreshold.IsUndefined())) {
-            tracing_options.search_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsSearchThreshold);
-            has_tracing_options = true;
-        }
-        auto jsAnalyticsThreshold =
-            jsTracingConfigObj.Get("analyticsThreshold");
-        if (!(jsAnalyticsThreshold.IsNull() ||
-              jsAnalyticsThreshold.IsUndefined())) {
-            tracing_options.analytics_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsAnalyticsThreshold);
-            has_tracing_options = true;
-        }
-        auto jsManagementThreshold =
-            jsTracingConfigObj.Get("managementThreshold");
-        if (!(jsManagementThreshold.IsNull() ||
-              jsManagementThreshold.IsUndefined())) {
-            tracing_options.management_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsManagementThreshold);
-            has_tracing_options = true;
-        }
-        auto jsEventingThreshold = jsTracingConfigObj.Get("eventingThreshold");
-        if (!(jsEventingThreshold.IsNull() ||
-              jsEventingThreshold.IsUndefined())) {
-            tracing_options.eventing_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsEventingThreshold);
-            has_tracing_options = true;
-        }
-        auto jsViewsThreshold = jsTracingConfigObj.Get("viewsThreshold");
-        if (!(jsViewsThreshold.IsNull() || jsViewsThreshold.IsUndefined())) {
-            tracing_options.view_threshold =
-                js_to_cbpp<std::chrono::milliseconds>(jsViewsThreshold);
-            has_tracing_options = true;
-        }
-
-        if (has_tracing_options) {
-            connstrInfo.options.tracing_options = tracing_options;
-        }
+    // Always disable tracing, this will be ignored if we set the tracer
+    connstrInfo.options.enable_tracing = false;
+    auto setup_sdk_tracing = info[4].ToBoolean().Value();
+    if (setup_sdk_tracing) {
+        connstrInfo.options.tracer =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_tracer>();
     }
+    // For now, always disable metrics in the core
+    connstrInfo.options.enable_metrics = false;
 
     if (!info[5].IsNull()) {
         couchbase::core::orphan_reporter_options orphan_options{};
@@ -447,23 +385,6 @@ Napi::Value Connection::jsConnect(const Napi::CallbackInfo &info)
 
         if (has_orphan_options) {
             connstrInfo.options.orphan_options = orphan_options;
-        }
-    }
-
-    if (!info[6].IsNull()) {
-        auto jsMetricsConfigObj = info[6].As<Napi::Object>();
-        auto jsEnableMetrics = jsMetricsConfigObj.Get("enableMetrics");
-        if (!(jsEnableMetrics.IsNull() || jsEnableMetrics.IsUndefined())) {
-            connstrInfo.options.enable_metrics =
-                js_to_cbpp<bool>(jsEnableMetrics);
-        }
-
-        auto jsEmitInterval = jsMetricsConfigObj.Get("emitInterval");
-        if (!(jsEmitInterval.IsNull() || jsEmitInterval.IsUndefined())) {
-            couchbase::core::metrics::logging_meter_options logging_options{};
-            logging_options.emit_interval =
-                js_to_cbpp<std::chrono::milliseconds>(jsEmitInterval);
-            connstrInfo.options.metrics_options = logging_options;
         }
     }
 
@@ -630,8 +551,15 @@ Napi::Value Connection::jsScan(const Napi::CallbackInfo &info)
         couchbase::core::agent_group_config{{this->_instance->_cluster}});
     agentGroup.open_bucket(bucketName);
     auto agent = agentGroup.get_agent(bucketName);
-    auto options = js_to_cbpp<couchbase::core::range_scan_orchestrator_options>(
-        optionsObj);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optionsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+    auto options = jsToCbpp<couchbase::core::range_scan_orchestrator_options>(
+        optionsObj, wrapper_span);
 
     if (!agent.has_value()) {
         resObj.Set("cppErr", cbpp_to_js(env, agent.error()));
@@ -667,6 +595,22 @@ Napi::Value Connection::jsScan(const Napi::CallbackInfo &info)
     resObj.Set("result", scanIterator);
 
     return resObj;
+}
+
+std::pair<std::optional<std::string>, std::optional<std::string>>
+Connection::getClusterLabels()
+{
+    auto labels = std::make_pair(std::optional<std::string>{},
+                                 std::optional<std::string>{});
+    auto cppLabels =
+        this->_instance->_cluster.cluster_label_listener()->cluster_labels();
+    if (cppLabels.cluster_name.has_value()) {
+        labels.first = cppLabels.cluster_name.value();
+    }
+    if (cppLabels.cluster_uuid.has_value()) {
+        labels.second = cppLabels.cluster_uuid.value();
+    }
+    return labels;
 }
 
 } // namespace couchnode

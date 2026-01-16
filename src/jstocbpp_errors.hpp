@@ -5,8 +5,9 @@
 #include "jstocbpp_cpptypes.hpp"
 
 #include <core/cluster.hxx>
-#include <core/operations/management/error_utils.hxx>
 #include <core/error_context/query_error_context.hxx>
+#include <core/operations/management/error_utils.hxx>
+#include <core/tracing/wrapper_sdk_tracer.hxx>
 
 namespace couchnode
 {
@@ -43,7 +44,8 @@ struct js_to_cbpp_t<std::error_code> {
 template <>
 struct js_to_cbpp_t<couchbase::core::key_value_extended_error_info> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::key_value_extended_error_info &cppObj)
+    to_js(Napi::Env env,
+          const couchbase::core::key_value_extended_error_info &cppObj)
     {
         auto resObj = Napi::Object::New(env);
         resObj.Set("reference", cbpp_to_js(env, cppObj.reference()));
@@ -55,7 +57,9 @@ struct js_to_cbpp_t<couchbase::core::key_value_extended_error_info> {
 template <>
 struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::key_value_error_context &ctx)
+    to_js(Napi::Env env, const couchbase::core::key_value_error_context &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec()) {
             return env.Null();
@@ -76,6 +80,7 @@ struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
                 cbpp_to_js(env, ctx.last_dispatched_from()));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -83,7 +88,9 @@ struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
 template <>
 struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::subdocument_error_context &ctx)
+    to_js(Napi::Env env, const couchbase::core::subdocument_error_context &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec()) {
             return env.Null();
@@ -107,6 +114,7 @@ struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
         err.Set("first_error_path", cbpp_to_js(env, ctx.first_error_path()));
         err.Set("first_error_index", cbpp_to_js(env, ctx.first_error_index()));
         err.Set("deleted", cbpp_to_js(env, ctx.deleted()));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -114,7 +122,9 @@ struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
 template <>
 struct js_to_cbpp_t<couchbase::core::error_context::view> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::error_context::view &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::view &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -140,6 +150,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::view> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -147,7 +158,9 @@ struct js_to_cbpp_t<couchbase::core::error_context::view> {
 template <>
 struct js_to_cbpp_t<couchbase::core::error_context::query> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::error_context::query &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::query &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -184,14 +197,17 @@ struct js_to_cbpp_t<couchbase::core::error_context::query> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
 
 template <>
 struct js_to_cbpp_t<couchbase::core::query_error_context> {
-    static inline Napi::Value to_js(Napi::Env env,
-                                    const couchbase::core::query_error_context &ctx)
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::query_error_context &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec()) {
             return env.Null();
@@ -219,6 +235,7 @@ struct js_to_cbpp_t<couchbase::core::query_error_context> {
                 cbpp_to_js(env, ctx.last_dispatched_from()));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -226,7 +243,9 @@ struct js_to_cbpp_t<couchbase::core::query_error_context> {
 template <>
 struct js_to_cbpp_t<couchbase::core::error_context::search> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::error_context::search &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::search &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -260,6 +279,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::search> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -267,7 +287,9 @@ struct js_to_cbpp_t<couchbase::core::error_context::search> {
 template <>
 struct js_to_cbpp_t<couchbase::core::error_context::analytics> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::error_context::analytics &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::analytics &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -304,6 +326,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::analytics> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -311,7 +334,9 @@ struct js_to_cbpp_t<couchbase::core::error_context::analytics> {
 template <>
 struct js_to_cbpp_t<couchbase::core::error_context::http> {
     static inline Napi::Value
-    to_js(Napi::Env env, const couchbase::core::error_context::http &ctx)
+    to_js(Napi::Env env, const couchbase::core::error_context::http &ctx,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
     {
         if (!ctx.ec) {
             return env.Null();
@@ -332,6 +357,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::http> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
+        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };

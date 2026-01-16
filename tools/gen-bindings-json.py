@@ -72,6 +72,7 @@ FILE_LIST = [
     "core/view_scan_consistency.hxx",
     "core/view_sort_order.hxx",
     "core/operations/*",
+    "core/operations/document_view.hxx",
     "core/operations/management/*",
     "couchbase/durability_level.hxx",
     "couchbase/cas.hxx",
@@ -323,6 +324,8 @@ class BindingsGenerator:
 
             self.traverse(translation_unit.cursor, [], headerPath)
 
+        self.process_observability()
+
         jsonData = json.dumps({
             'op_structs': self._op_types,
             'op_enums': self._op_enums
@@ -331,6 +334,26 @@ class BindingsGenerator:
         f = open("bindings.json", "w")
         f.write(jsonData)
         f.close()
+
+    def process_observability(self) -> None:
+        cpp_spans_response = {
+            'name': 'cpp_core_span',
+            'type': {
+                'name': 'std::optional', 
+                'of': {'name': 'std::vector', 'of': {'name':'couchbase::core::tracing::wrapper_sdk_span'}}
+            }
+        }
+
+        for op_type in self._op_types:
+            parent_span = next((f for f in op_type.get('fields') if f.get('name') == 'parent_span'), None)
+            if not parent_span:
+                continue
+            parent_span['type']['name'] = 'std::optional'
+            parent_span['type']['of']['name'] = 'std::string'
+            resp_name = op_type.get('name').replace('request', 'response')
+            resp_op = next((op for op in self._op_types if op.get('name') == resp_name), None)
+            if resp_op:
+                resp_op['fields'].append(cpp_spans_response)
 
     def set_file_list(self) -> None:
         for file_path in FILE_LIST:

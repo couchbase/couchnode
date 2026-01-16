@@ -11,9 +11,18 @@ Napi::Value Connection::jsPrepend(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("prepend",
-              jsToCbpp<couchbase::core::operations::prepend_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::prepend_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -24,10 +33,19 @@ Connection::jsPrependWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("prependWithLegacyDurability",
               jsToCbpp<couchbase::core::operations::
-                           prepend_request_with_legacy_durability>(optsJsObj),
-              callbackJsFn);
+                           prepend_request_with_legacy_durability>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -37,9 +55,18 @@ Napi::Value Connection::jsExists(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("exists",
-              jsToCbpp<couchbase::core::operations::exists_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::exists_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -49,10 +76,18 @@ Napi::Value Connection::jsHttpNoop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "httpNoop",
-        jsToCbpp<couchbase::core::operations::http_noop_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("httpNoop",
+              jsToCbpp<couchbase::core::operations::http_noop_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -62,9 +97,18 @@ Napi::Value Connection::jsUnlock(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("unlock",
-              jsToCbpp<couchbase::core::operations::unlock_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::unlock_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -74,10 +118,18 @@ Napi::Value Connection::jsGetAllReplicas(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("getAllReplicas",
               jsToCbpp<couchbase::core::operations::get_all_replicas_request>(
-                  optsJsObj),
-              callbackJsFn);
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -87,9 +139,18 @@ Napi::Value Connection::jsUpsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("upsert",
-              jsToCbpp<couchbase::core::operations::upsert_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::upsert_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -100,12 +161,20 @@ Connection::jsUpsertWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "upsertWithLegacyDurability",
         jsToCbpp<
             couchbase::core::operations::upsert_request_with_legacy_durability>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -115,10 +184,18 @@ Napi::Value Connection::jsGetAnyReplica(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("getAnyReplica",
               jsToCbpp<couchbase::core::operations::get_any_replica_request>(
-                  optsJsObj),
-              callbackJsFn);
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -128,9 +205,18 @@ Napi::Value Connection::jsAppend(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("append",
-              jsToCbpp<couchbase::core::operations::append_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::append_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -141,12 +227,20 @@ Connection::jsAppendWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "appendWithLegacyDurability",
         jsToCbpp<
             couchbase::core::operations::append_request_with_legacy_durability>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -156,9 +250,18 @@ Napi::Value Connection::jsQuery(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("query",
-              jsToCbpp<couchbase::core::operations::query_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::query_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -168,9 +271,18 @@ Napi::Value Connection::jsReplace(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("replace",
-              jsToCbpp<couchbase::core::operations::replace_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::replace_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -181,10 +293,19 @@ Connection::jsReplaceWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("replaceWithLegacyDurability",
               jsToCbpp<couchbase::core::operations::
-                           replace_request_with_legacy_durability>(optsJsObj),
-              callbackJsFn);
+                           replace_request_with_legacy_durability>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -194,10 +315,18 @@ Napi::Value Connection::jsGetAndTouch(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "getAndTouch",
-        jsToCbpp<couchbase::core::operations::get_and_touch_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("getAndTouch",
+              jsToCbpp<couchbase::core::operations::get_and_touch_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -207,9 +336,18 @@ Napi::Value Connection::jsRemove(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("remove",
-              jsToCbpp<couchbase::core::operations::remove_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::remove_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -220,12 +358,20 @@ Connection::jsRemoveWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "removeWithLegacyDurability",
         jsToCbpp<
             couchbase::core::operations::remove_request_with_legacy_durability>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -235,9 +381,18 @@ Napi::Value Connection::jsGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("get",
-              jsToCbpp<couchbase::core::operations::get_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::get_request>(optsJsObj,
+                                                                 wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -247,11 +402,19 @@ Napi::Value Connection::jsLookupInAllReplicas(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "lookupInAllReplicas",
         jsToCbpp<couchbase::core::operations::lookup_in_all_replicas_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -261,10 +424,18 @@ Napi::Value Connection::jsAnalytics(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "analytics",
-        jsToCbpp<couchbase::core::operations::analytics_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("analytics",
+              jsToCbpp<couchbase::core::operations::analytics_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -274,10 +445,18 @@ Napi::Value Connection::jsGetProjected(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "getProjected",
-        jsToCbpp<couchbase::core::operations::get_projected_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("getProjected",
+              jsToCbpp<couchbase::core::operations::get_projected_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -287,10 +466,18 @@ Napi::Value Connection::jsDecrement(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "decrement",
-        jsToCbpp<couchbase::core::operations::decrement_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("decrement",
+              jsToCbpp<couchbase::core::operations::decrement_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -301,10 +488,19 @@ Connection::jsDecrementWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("decrementWithLegacyDurability",
               jsToCbpp<couchbase::core::operations::
-                           decrement_request_with_legacy_durability>(optsJsObj),
-              callbackJsFn);
+                           decrement_request_with_legacy_durability>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -314,9 +510,18 @@ Napi::Value Connection::jsSearch(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("search",
-              jsToCbpp<couchbase::core::operations::search_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::search_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -326,9 +531,18 @@ Napi::Value Connection::jsTouch(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("touch",
-              jsToCbpp<couchbase::core::operations::touch_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::touch_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -338,10 +552,18 @@ Napi::Value Connection::jsLookupIn(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "lookupIn",
-        jsToCbpp<couchbase::core::operations::lookup_in_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("lookupIn",
+              jsToCbpp<couchbase::core::operations::lookup_in_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -351,10 +573,18 @@ Napi::Value Connection::jsDocumentView(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "documentView",
-        jsToCbpp<couchbase::core::operations::document_view_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("documentView",
+              jsToCbpp<couchbase::core::operations::document_view_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -364,10 +594,18 @@ Napi::Value Connection::jsGetAndLock(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "getAndLock",
-        jsToCbpp<couchbase::core::operations::get_and_lock_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("getAndLock",
+              jsToCbpp<couchbase::core::operations::get_and_lock_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -377,9 +615,18 @@ Napi::Value Connection::jsInsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("insert",
-              jsToCbpp<couchbase::core::operations::insert_request>(optsJsObj),
-              callbackJsFn);
+              jsToCbpp<couchbase::core::operations::insert_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -390,12 +637,20 @@ Connection::jsInsertWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "insertWithLegacyDurability",
         jsToCbpp<
             couchbase::core::operations::insert_request_with_legacy_durability>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -405,11 +660,19 @@ Napi::Value Connection::jsLookupInAnyReplica(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "lookupInAnyReplica",
         jsToCbpp<couchbase::core::operations::lookup_in_any_replica_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -419,10 +682,18 @@ Napi::Value Connection::jsMutateIn(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "mutateIn",
-        jsToCbpp<couchbase::core::operations::mutate_in_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("mutateIn",
+              jsToCbpp<couchbase::core::operations::mutate_in_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -433,10 +704,19 @@ Connection::jsMutateInWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("mutateInWithLegacyDurability",
               jsToCbpp<couchbase::core::operations::
-                           mutate_in_request_with_legacy_durability>(optsJsObj),
-              callbackJsFn);
+                           mutate_in_request_with_legacy_durability>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -446,10 +726,18 @@ Napi::Value Connection::jsIncrement(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp(
-        "increment",
-        jsToCbpp<couchbase::core::operations::increment_request>(optsJsObj),
-        callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("increment",
+              jsToCbpp<couchbase::core::operations::increment_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -460,10 +748,19 @@ Connection::jsIncrementWithLegacyDurability(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("incrementWithLegacyDurability",
               jsToCbpp<couchbase::core::operations::
-                           increment_request_with_legacy_durability>(optsJsObj),
-              callbackJsFn);
+                           increment_request_with_legacy_durability>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -473,11 +770,19 @@ Napi::Value Connection::jsManagementGroupUpsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementGroupUpsert",
         jsToCbpp<couchbase::core::operations::management::group_upsert_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -488,10 +793,19 @@ Connection::jsManagementEventingPauseFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingPauseFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_pause_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingPauseFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_pause_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -502,10 +816,19 @@ Connection::jsManagementQueryIndexGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementQueryIndexGetAll",
-              jsToCbpp<couchbase::core::operations::management::
-                           query_index_get_all_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementQueryIndexGetAll",
+        jsToCbpp<couchbase::core::operations::management::
+                     query_index_get_all_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -516,12 +839,20 @@ Connection::jsManagementCollectionCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementCollectionCreate",
         jsToCbpp<
             couchbase::core::operations::management::collection_create_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -532,10 +863,19 @@ Connection::jsManagementEventingResumeFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingResumeFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_resume_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingResumeFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_resume_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -546,10 +886,19 @@ Connection::jsManagementSearchIndexGetStats(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementSearchIndexGetStats",
-              jsToCbpp<couchbase::core::operations::management::
-                           search_index_get_stats_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementSearchIndexGetStats",
+        jsToCbpp<couchbase::core::operations::management::
+                     search_index_get_stats_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -559,12 +908,20 @@ Napi::Value Connection::jsManagementBucketGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketGetAll",
         jsToCbpp<
             couchbase::core::operations::management::bucket_get_all_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -575,10 +932,19 @@ Connection::jsManagementQueryIndexBuildDeferred(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementQueryIndexBuildDeferred",
               jsToCbpp<couchbase::core::operations::management::
-                           query_index_build_deferred_request>(optsJsObj),
-              callbackJsFn);
+                           query_index_build_deferred_request>(optsJsObj,
+                                                               wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -589,12 +955,20 @@ Connection::jsManagementClusterDescribe(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementClusterDescribe",
         jsToCbpp<
             couchbase::core::operations::management::cluster_describe_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -605,10 +979,19 @@ Connection::jsManagementSearchIndexGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementSearchIndexGetAll",
-              jsToCbpp<couchbase::core::operations::management::
-                           search_index_get_all_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementSearchIndexGetAll",
+        jsToCbpp<couchbase::core::operations::management::
+                     search_index_get_all_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -619,10 +1002,19 @@ Napi::Value Connection::jsManagementSearchIndexAnalyzeDocument(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementSearchIndexAnalyzeDocument",
               jsToCbpp<couchbase::core::operations::management::
-                           search_index_analyze_document_request>(optsJsObj),
-              callbackJsFn);
+                           search_index_analyze_document_request>(optsJsObj,
+                                                                  wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -633,12 +1025,20 @@ Connection::jsManagementQueryIndexDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementQueryIndexDrop",
         jsToCbpp<
             couchbase::core::operations::management::query_index_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -649,10 +1049,19 @@ Connection::jsManagementAnalyticsDatasetCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsDatasetCreate",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_dataset_create_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsDatasetCreate",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_dataset_create_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -662,11 +1071,19 @@ Napi::Value Connection::jsManagementBucketFlush(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketFlush",
         jsToCbpp<couchbase::core::operations::management::bucket_flush_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -677,10 +1094,19 @@ Connection::jsManagementAnalyticsIndexDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsIndexDrop",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_index_drop_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsIndexDrop",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_index_drop_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -691,10 +1117,18 @@ Connection::jsManagementQueryIndexCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementQueryIndexCreate",
               jsToCbpp<couchbase::core::operations::management::
-                           query_index_create_request>(optsJsObj),
-              callbackJsFn);
+                           query_index_create_request>(optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -705,10 +1139,19 @@ Connection::jsManagementSearchIndexUpsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementSearchIndexUpsert",
-              jsToCbpp<couchbase::core::operations::management::
-                           search_index_upsert_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementSearchIndexUpsert",
+        jsToCbpp<couchbase::core::operations::management::
+                     search_index_upsert_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -719,10 +1162,19 @@ Connection::jsManagementAnalyticsDatasetGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsDatasetGetAll",
               jsToCbpp<couchbase::core::operations::management::
-                           analytics_dataset_get_all_request>(optsJsObj),
-              callbackJsFn);
+                           analytics_dataset_get_all_request>(optsJsObj,
+                                                              wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -733,10 +1185,19 @@ Connection::jsManagementAnalyticsIndexGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsIndexGetAll",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_index_get_all_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsIndexGetAll",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_index_get_all_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -747,10 +1208,19 @@ Napi::Value Connection::jsManagementAnalyticsGetPendingMutations(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsGetPendingMutations",
               jsToCbpp<couchbase::core::operations::management::
-                           analytics_get_pending_mutations_request>(optsJsObj),
-              callbackJsFn);
+                           analytics_get_pending_mutations_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -761,10 +1231,19 @@ Connection::jsManagementAnalyticsDataverseDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsDataverseDrop",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_dataverse_drop_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsDataverseDrop",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_dataverse_drop_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -775,10 +1254,19 @@ Connection::jsManagementAnalyticsLinkConnect(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsLinkConnect",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_connect_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsLinkConnect",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_link_connect_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -789,10 +1277,19 @@ Connection::jsManagementCollectionsManifestGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementCollectionsManifestGet",
-              jsToCbpp<couchbase::core::operations::management::
-                           collections_manifest_get_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementCollectionsManifestGet",
+        jsToCbpp<couchbase::core::operations::management::
+                     collections_manifest_get_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -803,12 +1300,20 @@ Connection::jsManagementChangePassword(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementChangePassword",
         jsToCbpp<
             couchbase::core::operations::management::change_password_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -819,10 +1324,19 @@ Napi::Value Connection::jsManagementClusterDeveloperPreviewEnable(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementClusterDeveloperPreviewEnable",
               jsToCbpp<couchbase::core::operations::management::
-                           cluster_developer_preview_enable_request>(optsJsObj),
-              callbackJsFn);
+                           cluster_developer_preview_enable_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -833,10 +1347,19 @@ Connection::jsManagementAnalyticsLinkDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsLinkDrop",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_drop_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsLinkDrop",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_link_drop_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -847,12 +1370,20 @@ Connection::jsManagementCollectionUpdate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementCollectionUpdate",
         jsToCbpp<
             couchbase::core::operations::management::collection_update_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -863,12 +1394,20 @@ Connection::jsManagementBucketDescribe(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketDescribe",
         jsToCbpp<
             couchbase::core::operations::management::bucket_describe_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -879,10 +1418,19 @@ Connection::jsManagementEventingUpsertFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingUpsertFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_upsert_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingUpsertFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_upsert_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -893,10 +1441,18 @@ Connection::jsManagementViewIndexGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementViewIndexGetAll",
               jsToCbpp<couchbase::core::operations::management::
-                           view_index_get_all_request>(optsJsObj),
-              callbackJsFn);
+                           view_index_get_all_request>(optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -906,11 +1462,19 @@ Napi::Value Connection::jsManagementBucketGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketGet",
         jsToCbpp<couchbase::core::operations::management::bucket_get_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -920,12 +1484,20 @@ Napi::Value Connection::jsManagementBucketUpdate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketUpdate",
         jsToCbpp<
             couchbase::core::operations::management::bucket_update_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -935,11 +1507,19 @@ Napi::Value Connection::jsManagementBucketDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketDrop",
         jsToCbpp<couchbase::core::operations::management::bucket_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -949,11 +1529,19 @@ Napi::Value Connection::jsManagementFreeform(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementFreeform",
         jsToCbpp<couchbase::core::operations::management::freeform_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -963,11 +1551,19 @@ Napi::Value Connection::jsManagementScopeDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementScopeDrop",
         jsToCbpp<couchbase::core::operations::management::scope_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -978,12 +1574,20 @@ Connection::jsManagementViewIndexUpsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementViewIndexUpsert",
         jsToCbpp<
             couchbase::core::operations::management::view_index_upsert_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -993,11 +1597,19 @@ Napi::Value Connection::jsManagementUserGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementUserGetAll",
         jsToCbpp<couchbase::core::operations::management::user_get_all_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1007,11 +1619,19 @@ Napi::Value Connection::jsManagementScopeCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementScopeCreate",
         jsToCbpp<couchbase::core::operations::management::scope_create_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1022,10 +1642,19 @@ Connection::jsManagementEventingGetFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingGetFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_get_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingGetFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_get_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1036,12 +1665,20 @@ Connection::jsManagementViewIndexDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementViewIndexDrop",
         jsToCbpp<
             couchbase::core::operations::management::view_index_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1052,12 +1689,21 @@ Napi::Value Connection::jsManagementAnalyticsLinkReplaceAzureBlobExternalLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsLinkReplaceAzureBlobExternalLink",
               jsToCbpp<couchbase::core::operations::management::
                            analytics_link_replace_request<
                                couchbase::core::management::analytics::
-                                   azure_blob_external_link>>(optsJsObj),
-              callbackJsFn);
+                                   azure_blob_external_link>>(optsJsObj,
+                                                              wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1068,12 +1714,21 @@ Napi::Value Connection::jsManagementAnalyticsLinkReplaceCouchbaseRemoteLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsLinkReplaceCouchbaseRemoteLink",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_replace_request<
-                               couchbase::core::management::analytics::
-                                   couchbase_remote_link>>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsLinkReplaceCouchbaseRemoteLink",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_link_replace_request<
+                         couchbase::core::management::analytics::
+                             couchbase_remote_link>>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1084,14 +1739,22 @@ Napi::Value Connection::jsManagementAnalyticsLinkReplaceS3ExternalLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementAnalyticsLinkReplaceS3ExternalLink",
         jsToCbpp<
             couchbase::core::operations::management::
                 analytics_link_replace_request<
                     couchbase::core::management::analytics::s3_external_link>>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1102,10 +1765,19 @@ Connection::jsManagementAnalyticsLinkDisconnect(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsLinkDisconnect",
               jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_disconnect_request>(optsJsObj),
-              callbackJsFn);
+                           analytics_link_disconnect_request>(optsJsObj,
+                                                              wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1115,11 +1787,19 @@ Napi::Value Connection::jsManagementUserUpsert(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementUserUpsert",
         jsToCbpp<couchbase::core::operations::management::user_upsert_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1130,10 +1810,19 @@ Connection::jsManagementEventingGetStatus(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingGetStatus",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_get_status_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingGetStatus",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_get_status_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1144,10 +1833,19 @@ Connection::jsManagementEventingGetAllFunctions(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementEventingGetAllFunctions",
               jsToCbpp<couchbase::core::operations::management::
-                           eventing_get_all_functions_request>(optsJsObj),
-              callbackJsFn);
+                           eventing_get_all_functions_request>(optsJsObj,
+                                                               wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1158,10 +1856,19 @@ Connection::jsManagementAnalyticsIndexCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsIndexCreate",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_index_create_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsIndexCreate",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_index_create_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1171,12 +1878,20 @@ Napi::Value Connection::jsManagementScopeGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementScopeGetAll",
         jsToCbpp<
             couchbase::core::operations::management::scope_get_all_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1186,11 +1901,19 @@ Napi::Value Connection::jsManagementUserGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementUserGet",
         jsToCbpp<couchbase::core::operations::management::user_get_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1201,12 +1924,20 @@ Connection::jsManagementSearchIndexDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementSearchIndexDrop",
         jsToCbpp<
             couchbase::core::operations::management::search_index_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1217,10 +1948,19 @@ Napi::Value Connection::jsManagementSearchIndexControlPlanFreeze(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementSearchIndexControlPlanFreeze",
               jsToCbpp<couchbase::core::operations::management::
-                           search_index_control_plan_freeze_request>(optsJsObj),
-              callbackJsFn);
+                           search_index_control_plan_freeze_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1231,12 +1971,20 @@ Connection::jsManagementSearchGetStats(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementSearchGetStats",
         jsToCbpp<
             couchbase::core::operations::management::search_get_stats_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1246,11 +1994,19 @@ Napi::Value Connection::jsManagementUserDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementUserDrop",
         jsToCbpp<couchbase::core::operations::management::user_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1261,10 +2017,19 @@ Connection::jsManagementAnalyticsDataverseCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsDataverseCreate",
               jsToCbpp<couchbase::core::operations::management::
-                           analytics_dataverse_create_request>(optsJsObj),
-              callbackJsFn);
+                           analytics_dataverse_create_request>(optsJsObj,
+                                                               wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1275,10 +2040,19 @@ Connection::jsManagementSearchIndexControlQuery(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementSearchIndexControlQuery",
               jsToCbpp<couchbase::core::operations::management::
-                           search_index_control_query_request>(optsJsObj),
-              callbackJsFn);
+                           search_index_control_query_request>(optsJsObj,
+                                                               wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1288,11 +2062,19 @@ Napi::Value Connection::jsManagementRoleGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementRoleGetAll",
         jsToCbpp<couchbase::core::operations::management::role_get_all_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1302,12 +2084,20 @@ Napi::Value Connection::jsManagementGroupGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementGroupGetAll",
         jsToCbpp<
             couchbase::core::operations::management::group_get_all_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1318,12 +2108,21 @@ Napi::Value Connection::jsManagementAnalyticsLinkCreateAzureBlobExternalLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementAnalyticsLinkCreateAzureBlobExternalLink",
               jsToCbpp<couchbase::core::operations::management::
                            analytics_link_create_request<
                                couchbase::core::management::analytics::
-                                   azure_blob_external_link>>(optsJsObj),
-              callbackJsFn);
+                                   azure_blob_external_link>>(optsJsObj,
+                                                              wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1334,12 +2133,21 @@ Napi::Value Connection::jsManagementAnalyticsLinkCreateCouchbaseRemoteLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsLinkCreateCouchbaseRemoteLink",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_create_request<
-                               couchbase::core::management::analytics::
-                                   couchbase_remote_link>>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsLinkCreateCouchbaseRemoteLink",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_link_create_request<
+                         couchbase::core::management::analytics::
+                             couchbase_remote_link>>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1350,14 +2158,22 @@ Napi::Value Connection::jsManagementAnalyticsLinkCreateS3ExternalLink(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementAnalyticsLinkCreateS3ExternalLink",
         jsToCbpp<
             couchbase::core::operations::management::
                 analytics_link_create_request<
                     couchbase::core::management::analytics::s3_external_link>>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1368,10 +2184,19 @@ Connection::jsManagementEventingDropFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingDropFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_drop_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingDropFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_drop_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1382,12 +2207,20 @@ Connection::jsManagementCollectionDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementCollectionDrop",
         jsToCbpp<
             couchbase::core::operations::management::collection_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1398,10 +2231,19 @@ Connection::jsManagementSearchIndexControlIngest(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementSearchIndexControlIngest",
               jsToCbpp<couchbase::core::operations::management::
-                           search_index_control_ingest_request>(optsJsObj),
-              callbackJsFn);
+                           search_index_control_ingest_request>(optsJsObj,
+                                                                wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1412,10 +2254,19 @@ Connection::jsManagementEventingDeployFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementEventingDeployFunction",
-              jsToCbpp<couchbase::core::operations::management::
-                           eventing_deploy_function_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementEventingDeployFunction",
+        jsToCbpp<couchbase::core::operations::management::
+                     eventing_deploy_function_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1425,11 +2276,19 @@ Napi::Value Connection::jsManagementGroupGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementGroupGet",
         jsToCbpp<couchbase::core::operations::management::group_get_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1439,12 +2298,20 @@ Napi::Value Connection::jsManagementViewIndexGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementViewIndexGet",
         jsToCbpp<
             couchbase::core::operations::management::view_index_get_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1454,12 +2321,20 @@ Napi::Value Connection::jsManagementBucketCreate(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementBucketCreate",
         jsToCbpp<
             couchbase::core::operations::management::bucket_create_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1470,10 +2345,19 @@ Connection::jsManagementAnalyticsDatasetDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsDatasetDrop",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_dataset_drop_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsDatasetDrop",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_dataset_drop_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1483,11 +2367,19 @@ Napi::Value Connection::jsManagementGroupDrop(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementGroupDrop",
         jsToCbpp<couchbase::core::operations::management::group_drop_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1498,12 +2390,20 @@ Connection::jsManagementSearchIndexGet(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementSearchIndexGet",
         jsToCbpp<
             couchbase::core::operations::management::search_index_get_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1514,10 +2414,19 @@ Connection::jsManagementQueryIndexGetAllDeferred(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementQueryIndexGetAllDeferred",
               jsToCbpp<couchbase::core::operations::management::
-                           query_index_get_all_deferred_request>(optsJsObj),
-              callbackJsFn);
+                           query_index_get_all_deferred_request>(optsJsObj,
+                                                                 wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1528,12 +2437,20 @@ Connection::jsManagementQueryIndexBuild(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp(
         "managementQueryIndexBuild",
         jsToCbpp<
             couchbase::core::operations::management::query_index_build_request>(
-            optsJsObj),
-        callbackJsFn);
+            optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1544,10 +2461,19 @@ Connection::jsManagementEventingUndeployFunction(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementEventingUndeployFunction",
               jsToCbpp<couchbase::core::operations::management::
-                           eventing_undeploy_function_request>(optsJsObj),
-              callbackJsFn);
+                           eventing_undeploy_function_request>(optsJsObj,
+                                                               wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1558,10 +2484,19 @@ Napi::Value Connection::jsManagementSearchIndexGetDocumentsCount(
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
     executeOp("managementSearchIndexGetDocumentsCount",
               jsToCbpp<couchbase::core::operations::management::
-                           search_index_get_documents_count_request>(optsJsObj),
-              callbackJsFn);
+                           search_index_get_documents_count_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }
@@ -1572,10 +2507,19 @@ Connection::jsManagementAnalyticsLinkGetAll(const Napi::CallbackInfo &info)
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
 
-    executeOp("managementAnalyticsLinkGetAll",
-              jsToCbpp<couchbase::core::operations::management::
-                           analytics_link_get_all_request>(optsJsObj),
-              callbackJsFn);
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp(
+        "managementAnalyticsLinkGetAll",
+        jsToCbpp<couchbase::core::operations::management::
+                     analytics_link_get_all_request>(optsJsObj, wrapper_span),
+        callbackJsFn, wrapper_span);
 
     return info.Env().Null();
 }

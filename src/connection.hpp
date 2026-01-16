@@ -2,6 +2,7 @@
 #include "addondata.hpp"
 #include "instance.hpp"
 #include "jstocbpp.hpp"
+#include <core/tracing/wrapper_sdk_tracer.hxx>
 #include <core/utils/movable_function.hxx>
 #include <napi.h>
 
@@ -62,6 +63,9 @@ public:
     {
         return _instance->_cluster;
     }
+
+    std::pair<std::optional<std::string>, std::optional<std::string>>
+    getClusterLabels();
 
     Napi::Value jsConnect(const Napi::CallbackInfo &info);
     Napi::Value jsShutdown(const Napi::CallbackInfo &info);
@@ -240,23 +244,48 @@ private:
 
     template <typename Request>
     void executeOp(const std::string &opName, const Request &req,
-                   Napi::Function jsCallback)
+                   Napi::Function jsCallback,
+                   std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+                       wrapperSpan = nullptr)
     {
         using response_type = typename Request::response_type;
-        executeOp(opName, req, jsCallback,
-                  [](Napi::Env env, Napi::Function callback,
-                     response_type resp) mutable {
-                      Napi::Value jsErr, jsRes;
-                      try {
-                          jsErr = cbpp_to_js(env, resp.ctx);
-                          jsRes = cbpp_to_js(env, resp);
-                      } catch (const Napi::Error &e) {
-                          jsErr = e.Value();
-                          jsRes = env.Null();
-                      }
-
-                      callback.Call({jsErr, jsRes});
-                  });
+        auto clusterLabels = wrapperSpan != nullptr
+                                 ? this->getClusterLabels()
+                                 : std::make_pair(std::optional<std::string>{},
+                                                  std::optional<std::string>{});
+        executeOp(
+            opName, req, jsCallback,
+            [wrapperSpan, clusterLabels = std::move(clusterLabels)](
+                Napi::Env env, Napi::Function callback,
+                response_type resp) mutable {
+                Napi::Value jsErr, jsRes;
+                try {
+                    if (auto retries = get_cbpp_retries(resp.ctx);
+                        retries > 0 && wrapperSpan) {
+                        wrapperSpan->add_tag("retries", retries);
+                    }
+                    if (wrapperSpan) {
+                        if (clusterLabels.first.has_value()) {
+                            wrapperSpan->add_tag("cluster_name",
+                                                 clusterLabels.first.value());
+                        }
+                        if (clusterLabels.second.has_value()) {
+                            wrapperSpan->add_tag("cluster_uuid",
+                                                 clusterLabels.second.value());
+                        }
+                    }
+                    jsErr = cbpp_to_js(env, resp.ctx, wrapperSpan);
+                    jsRes = cbpp_to_js(env, resp, wrapperSpan);
+                } catch (const Napi::Error &e) {
+                    Napi::Value err = e.Value();
+                    Napi::Object errObj = err.As<Napi::Object>();
+                    errObj.Set("cpp_core_span",
+                               cbpp_wrapper_span_to_js(env, wrapperSpan));
+                    jsErr = errObj;
+                    jsRes = env.Null();
+                }
+                callback.Call({jsErr, jsRes});
+            });
     }
 
     Instance *_instance;

@@ -1065,9 +1065,8 @@ export class Cluster {
         authOpts,
         this._dnsConfig,
         this._appTelemetryConfig,
-        this._tracingConfig,
+        false,
         this._orphanReporterConfig,
-        this._metricsConfig,
         (cppErr) => {
           if (cppErr) {
             const err = errorFromCpp(cppErr)
