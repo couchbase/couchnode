@@ -8,18 +8,8 @@ import {
 import binding, {
   CppDocumentId,
   CppConnection,
-  CppError,
   zeroCas,
   CppImplSubdocCommand,
-  CppInsertResponse,
-  CppUpsertResponse,
-  CppRemoveResponse,
-  CppReplaceResponse,
-  CppMutateInResponse,
-  CppAppendResponse,
-  CppPrependResponse,
-  CppIncrementResponse,
-  CppDecrementResponse,
   CppScanIterator,
   CppRangeScanOrchestratorOptions,
 } from './binding'
@@ -56,6 +46,9 @@ import {
 import { InvalidArgumentError } from './errors'
 import { DurabilityLevel, ReadPreference, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import { KeyValueOp, ObservabilityInstruments } from './observabilitytypes'
 import { CollectionQueryIndexManager } from './queryindexmanager'
 import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
 import { Scope } from './scope'
@@ -65,6 +58,7 @@ import {
   StreamableReplicasPromise,
   StreamableScanPromise,
 } from './streamablepromises'
+import { RequestSpan } from './tracing'
 import { Transcoder } from './transcoders'
 import { parseExpiry, NodeCallback, PromiseHelper, CasInput } from './utilities'
 
@@ -94,6 +88,11 @@ export interface GetOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -104,6 +103,11 @@ export interface ExistsOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -149,6 +153,11 @@ export interface InsertOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -199,6 +208,11 @@ export interface UpsertOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -255,6 +269,11 @@ export interface ReplaceOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -290,6 +309,11 @@ export interface RemoveOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -310,6 +334,11 @@ export interface GetAnyReplicaOptions {
    * Specifies how replica nodes will be filtered.
    */
   readPreference?: ReadPreference
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -330,6 +359,11 @@ export interface GetAllReplicasOptions {
    * Specifies how replica nodes will be filtered.
    */
   readPreference?: ReadPreference
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -345,6 +379,11 @@ export interface TouchOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -360,6 +399,11 @@ export interface GetAndTouchOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -375,6 +419,11 @@ export interface GetAndLockOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -385,6 +434,11 @@ export interface UnlockOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -402,6 +456,11 @@ export interface LookupInOptions {
    * @internal
    */
   accessDeleted?: boolean
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -417,6 +476,11 @@ export interface LookupInAnyReplicaOptions {
    * Specifies how replica nodes will be filtered.
    */
   readPreference?: ReadPreference
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -432,6 +496,11 @@ export interface LookupInAllReplicasOptions {
    * Specifies how replica nodes will be filtered.
    */
   readPreference?: ReadPreference
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -496,6 +565,11 @@ export interface MutateInOptions {
    * @deprecated Use {@link MutateInOptions.storeSemantics} instead.
    */
   upsertDocument?: boolean
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -604,6 +678,13 @@ export class Collection {
   }
 
   /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._scope.bucket.cluster.observabilityInstruments
+  }
+
+  /**
   @internal
   */
   _mutationTimeout(durabilityLevel?: DurabilityLevel): number {
@@ -709,53 +790,57 @@ export class Collection {
       options = {}
     }
 
-    if (options.project || options.withExpiry) {
-      return this._projectedGet(key, options, callback)
-    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Get,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    const transcoder = options.transcoder || this.transcoder
-    const timeout = options.timeout || this.cluster.kvTimeout
+    try {
+      const cppDocId = this._cppDocId(key)
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      if (options.project || options.withExpiry) {
+        options.parentSpan = obsReqHandler.wrappedSpan
+        return this._projectedGet(key, options, obsReqHandler, callback)
+      }
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.get(
-        {
-          id: this._cppDocId(key),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const transcoder = options.transcoder || this.transcoder
+      const timeout = options.timeout || this.cluster.kvTimeout
 
-          this._decodeDoc(
-            transcoder,
-            resp.value,
-            resp.flags,
-            (err, content) => {
-              if (err) {
-                return wrapCallback(err, null)
-              }
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.get.bind(this._conn),
+          {
+            id: cppDocId,
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          obsReqHandler
+        )
 
-              wrapCallback(
-                null,
-                new GetResult({
-                  content: content,
-                  cas: resp.cas,
-                })
-              )
-            }
-          )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        const content = transcoder.decode(resp.value, resp.flags)
+        obsReqHandler.end()
+        return new GetResult({
+          content: content,
+          cas: resp.cas,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   private _projectedGet(
     key: string,
     options: GetOptions,
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<GetResult>
   ): Promise<GetResult> {
     let expiryStart = -1
@@ -795,9 +880,15 @@ export class Collection {
     }
 
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this.lookupIn(key, spec, {
-        ...options,
-      })
+      let res
+      try {
+        res = await this.lookupIn(key, spec, {
+          ...options,
+        })
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
 
       let content: any = null
       let expiry: number | undefined = undefined
@@ -828,6 +919,8 @@ export class Collection {
         }
       }
 
+      // The parent span is created w/in the get() operation
+      obsReqHandler.end()
       return new GetResult({
         content: content,
         cas: res.cas,
@@ -856,43 +949,49 @@ export class Collection {
       options = {}
     }
 
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Exists,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    try {
+      const cppDocId = this._cppDocId(key)
+      const timeout = options.timeout || this.cluster.kvTimeout
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.exists(
-        {
-          id: this._cppDocId(key),
-          partition: 0,
-          opaque: 0,
-          timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          if (resp.deleted) {
-            return wrapCallback(
-              null,
-              new ExistsResult({
-                cas: undefined,
-                exists: false,
-              })
-            )
-          }
-
-          wrapCallback(
-            null,
-            new ExistsResult({
-              cas: resp.cas,
-              exists: resp.document_exists,
-            })
-          )
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.exists.bind(this._conn),
+          {
+            id: cppDocId,
+            partition: 0,
+            opaque: 0,
+            timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+        if (resp.deleted) {
+          return new ExistsResult({
+            cas: undefined,
+            exists: false,
+          })
+        }
+
+        return new ExistsResult({
+          cas: resp.cas,
+          exists: resp.document_exists,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -900,21 +999,17 @@ export class Collection {
    */
   _getReplica(
     key: string,
-    getAllReplicas: boolean,
-    options?: {
+    obsReqHandler: ObservableRequestHandler,
+    options: {
       transcoder?: Transcoder
       timeout?: number
       readPreference?: ReadPreference
+      parentSpan?: RequestSpan
     },
     callback?: NodeCallback<GetReplicaResult[]>
   ): StreamableReplicasPromise<GetReplicaResult[], GetReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    const cppDocId = this._cppDocId(key)
+    obsReqHandler.setRequestKeyValueAttributes(cppDocId)
 
     const emitter = new StreamableReplicasPromise<
       GetReplicaResult[],
@@ -924,92 +1019,83 @@ export class Collection {
     const transcoder = options.transcoder || this.transcoder
     const timeout = options.timeout || this.cluster.kvTimeout
 
-    if (getAllReplicas) {
-      this._conn.getAllReplicas(
-        {
-          id: this._cppDocId(key),
-          timeout: timeout,
-          read_preference: readPreferenceToCpp(options.readPreference),
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            emitter.emit('error', err)
-            emitter.emit('end')
-            return
-          }
+    if (obsReqHandler.opType == KeyValueOp.GetAllReplicas) {
+      PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.getAllReplicas.bind(this._conn),
+          {
+            id: cppDocId,
+            timeout: timeout,
+            read_preference: readPreferenceToCpp(options.readPreference),
+          },
+          obsReqHandler
+        )
 
-          resp.entries.forEach((replica) => {
-            this._decodeDoc(
-              transcoder,
-              replica.value,
-              replica.flags,
-              (err, content) => {
-                if (err) {
-                  emitter.emit('error', err)
-                  emitter.emit('end')
-                  return
-                }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          emitter.emit('error', err)
+          emitter.emit('end')
+          return
+        }
 
-                emitter.emit(
-                  'replica',
-                  new GetReplicaResult({
-                    content: content,
-                    cas: replica.cas,
-                    isReplica: replica.replica,
-                  })
-                )
-              }
+        resp.entries.forEach((replica) => {
+          try {
+            const content = transcoder.decode(replica.value, replica.flags)
+            emitter.emit(
+              'replica',
+              new GetReplicaResult({
+                content: content,
+                cas: replica.cas,
+                isReplica: replica.replica,
+              })
             )
-          })
-
-          emitter.emit('end')
-          return
-        }
-      )
-    } else {
-      this._conn.getAnyReplica(
-        {
-          id: this._cppDocId(key),
-          timeout: timeout,
-          read_preference: readPreferenceToCpp(options.readPreference),
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
+          } catch (err) {
+            obsReqHandler.endWithError(err)
             emitter.emit('error', err)
             emitter.emit('end')
             return
           }
+        })
+        obsReqHandler.end()
+        emitter.emit('end')
+      })
+    } else {
+      PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.getAnyReplica.bind(this._conn),
+          {
+            id: cppDocId,
+            timeout: timeout,
+            read_preference: readPreferenceToCpp(options.readPreference),
+          },
+          obsReqHandler
+        )
 
-          this._decodeDoc(
-            transcoder,
-            resp.value,
-            resp.flags,
-            (err, content) => {
-              if (err) {
-                emitter.emit('error', err)
-                emitter.emit('end')
-                return
-              }
-
-              emitter.emit(
-                'replica',
-                new GetReplicaResult({
-                  content: content,
-                  cas: resp.cas,
-                  isReplica: resp.replica,
-                })
-              )
-            }
-          )
-
+        if (err) {
+          obsReqHandler.endWithError(err)
+          emitter.emit('error', err)
           emitter.emit('end')
           return
         }
-      )
-    }
 
+        try {
+          const content = transcoder.decode(resp.value, resp.flags)
+          emitter.emit(
+            'replica',
+            new GetReplicaResult({
+              content: content,
+              cas: resp.cas,
+              isReplica: resp.replica,
+            })
+          )
+        } catch (err) {
+          obsReqHandler.endWithError(err)
+          emitter.emit('error', err)
+        }
+        obsReqHandler.end()
+        emitter.emit('end')
+      })
+    }
     return PromiseHelper.wrapAsync(() => emitter, callback)
   }
 
@@ -1030,10 +1116,23 @@ export class Collection {
       callback = arguments[1]
       options = undefined
     }
-    return PromiseHelper.wrapAsync(async () => {
-      const replicas = await this._getReplica(key, false, options)
-      return replicas[0]
-    }, callback)
+    if (!options) {
+      options = {}
+    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.GetAnyReplica,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    try {
+      return PromiseHelper.wrapAsync(async () => {
+        const replicas = await this._getReplica(key, obsReqHandler, options)
+        return replicas[0]
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1049,7 +1148,24 @@ export class Collection {
     options?: GetAllReplicasOptions,
     callback?: NodeCallback<GetReplicaResult[]>
   ): Promise<GetReplicaResult[]> {
-    return this._getReplica(key, true, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.GetAllReplicas,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    try {
+      return this._getReplica(key, obsReqHandler, options, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1074,67 +1190,75 @@ export class Collection {
       options = {}
     }
 
-    const expiry = parseExpiry(options.expiry)
-    const transcoder = options.transcoder || this.transcoder
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Insert,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
-        if (err) {
-          return wrapCallback(err, null)
-        }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const expiry = parseExpiry(options.expiry)
+      const transcoder = options.transcoder || this.transcoder
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
 
-        const insertReq = {
-          id: this._cppDocId(key),
-          value: bytes,
-          flags,
-          expiry: expiry,
-          timeout,
-          partition: 0,
-          opaque: 0,
-        }
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const [bytesBuf, flags] = obsReqHandler.maybeCreateEncodingSpan(() => {
+        return transcoder.encode(value)
+      })
 
-        const insertCallback = (
-          cppErr: CppError | null,
-          resp: CppInsertResponse
-        ) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const insertReq = {
+        id: cppDocId,
+        value: bytesBuf,
+        flags: flags,
+        expiry: expiry,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
-        }
-
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
         if (persistTo || replicateTo) {
-          this._conn.insertWithLegacyDurability(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.insertWithLegacyDurability.bind(this._conn),
             {
               ...insertReq,
               persist_to: persistToToCpp(persistTo),
               replicate_to: replicateToToCpp(replicateTo),
             },
-            insertCallback
+            obsReqHandler
           )
         } else {
-          this._conn.insert(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.insert.bind(this._conn),
             {
               ...insertReq,
-              durability_level: durabilityToCpp(durabilityLevel),
+              durability_level: cppDurability,
             },
-            insertCallback
+            obsReqHandler
           )
         }
-      })
-    }, callback)
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1160,69 +1284,77 @@ export class Collection {
       options = {}
     }
 
-    const expiry = parseExpiry(options.expiry)
-    const preserve_expiry = options.preserveExpiry
-    const transcoder = options.transcoder || this.transcoder
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Upsert,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
-        if (err) {
-          return wrapCallback(err, null)
-        }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const expiry = parseExpiry(options.expiry)
+      const preserve_expiry = options.preserveExpiry
+      const transcoder = options.transcoder || this.transcoder
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
 
-        const upsertReq = {
-          id: this._cppDocId(key),
-          value: bytes,
-          flags,
-          expiry: expiry,
-          preserve_expiry: preserve_expiry || false,
-          timeout,
-          partition: 0,
-          opaque: 0,
-        }
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const [bytesBuf, flags] = obsReqHandler.maybeCreateEncodingSpan(() => {
+        return transcoder.encode(value)
+      })
 
-        const upsertCallback = (
-          cppErr: CppError | null,
-          resp: CppUpsertResponse
-        ) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const upsertReq = {
+        id: cppDocId,
+        value: bytesBuf,
+        flags: flags,
+        expiry: expiry,
+        preserve_expiry: preserve_expiry || false,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
-        }
-
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
         if (persistTo || replicateTo) {
-          this._conn.upsertWithLegacyDurability(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.upsertWithLegacyDurability.bind(this._conn),
             {
               ...upsertReq,
               persist_to: persistToToCpp(persistTo),
               replicate_to: replicateToToCpp(replicateTo),
             },
-            upsertCallback
+            obsReqHandler
           )
         } else {
-          this._conn.upsert(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.upsert.bind(this._conn),
             {
               ...upsertReq,
-              durability_level: durabilityToCpp(durabilityLevel),
+              durability_level: cppDurability,
             },
-            upsertCallback
+            obsReqHandler
           )
         }
-      })
-    }, callback)
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1247,71 +1379,78 @@ export class Collection {
       options = {}
     }
 
-    const expiry = parseExpiry(options.expiry)
-    const cas = options.cas
-    const preserve_expiry = options.preserveExpiry
-    const transcoder = options.transcoder || this.transcoder
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Replace,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._encodeDoc(transcoder, value, (err, bytes, flags) => {
-        if (err) {
-          return wrapCallback(err, null)
-        }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const expiry = parseExpiry(options.expiry)
+      const cas = options.cas
+      const preserve_expiry = options.preserveExpiry
+      const transcoder = options.transcoder || this.transcoder
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
 
-        const replaceReq = {
-          id: this._cppDocId(key),
-          value: bytes,
-          flags,
-          expiry,
-          cas: cas || zeroCas,
-          preserve_expiry: preserve_expiry || false,
-          timeout,
-          partition: 0,
-          opaque: 0,
-        }
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const [bytesBuf, flags] = obsReqHandler.maybeCreateEncodingSpan(() => {
+        return transcoder.encode(value)
+      })
 
-        const replaceCallback = (
-          cppErr: CppError | null,
-          resp: CppReplaceResponse
-        ) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+      const replaceReq = {
+        id: cppDocId,
+        value: bytesBuf,
+        flags: flags,
+        expiry,
+        cas: cas || zeroCas,
+        preserve_expiry: preserve_expiry || false,
+        timeout,
+        partition: 0,
+        opaque: 0,
+      }
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-              token: resp.token,
-            })
-          )
-        }
-
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
         if (persistTo || replicateTo) {
-          this._conn.replaceWithLegacyDurability(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.replaceWithLegacyDurability.bind(this._conn),
             {
               ...replaceReq,
               persist_to: persistToToCpp(persistTo),
               replicate_to: replicateToToCpp(replicateTo),
             },
-            replaceCallback
+            obsReqHandler
           )
         } else {
-          this._conn.replace(
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.replace.bind(this._conn),
             {
               ...replaceReq,
-              durability_level: durabilityToCpp(durabilityLevel),
+              durability_level: cppDurability,
             },
-            replaceCallback
+            obsReqHandler
           )
         }
-      })
-    }, callback)
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1334,58 +1473,68 @@ export class Collection {
       options = {}
     }
 
-    const cas = options.cas
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Remove,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const cas = options.cas
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
+
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       const removeReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         cas: cas || zeroCas,
         timeout,
         partition: 0,
         opaque: 0,
       }
 
-      const removeCallback = (
-        cppErr: CppError | null,
-        resp: CppRemoveResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
-        if (err) {
-          return wrapCallback(err, null)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.removeWithLegacyDurability.bind(this._conn),
+            {
+              ...removeReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.remove.bind(this._conn),
+            {
+              ...removeReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
         }
-
-        wrapCallback(
-          err,
-          new MutationResult({
-            cas: resp.cas,
-            token: resp.token,
-          })
-        )
-      }
-
-      if (persistTo || replicateTo) {
-        this._conn.removeWithLegacyDurability(
-          {
-            ...removeReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          removeCallback
-        )
-      } else {
-        this._conn.remove(
-          {
-            ...removeReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          removeCallback
-        )
-      }
-    }, callback)
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1416,45 +1565,48 @@ export class Collection {
       options = {}
     }
 
-    const transcoder = options.transcoder || this.transcoder
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.GetAndTouch,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.getAndTouch(
-        {
-          id: this._cppDocId(key),
-          expiry: parseExpiry(expiry),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const transcoder = options.transcoder || this.transcoder
+      const timeout = options.timeout || this.cluster.kvTimeout
 
-          this._decodeDoc(
-            transcoder,
-            resp.value,
-            resp.flags,
-            (err, content) => {
-              if (err) {
-                return wrapCallback(err, null)
-              }
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.getAndTouch.bind(this._conn),
+          {
+            id: cppDocId,
+            expiry: parseExpiry(expiry),
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          obsReqHandler
+        )
 
-              wrapCallback(
-                err,
-                new GetResult({
-                  content: content,
-                  cas: resp.cas,
-                })
-              )
-            }
-          )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        const content = transcoder.decode(resp.value, resp.flags)
+
+        obsReqHandler.end()
+        return new GetResult({
+          content: content,
+          cas: resp.cas,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1484,32 +1636,44 @@ export class Collection {
       options = {}
     }
 
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Touch,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.touch(
-        {
-          id: this._cppDocId(key),
-          expiry: parseExpiry(expiry),
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const timeout = options.timeout || this.cluster.kvTimeout
 
-          wrapCallback(
-            err,
-            new MutationResult({
-              cas: resp.cas,
-            })
-          )
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.touch.bind(this._conn),
+          {
+            id: cppDocId,
+            expiry: parseExpiry(expiry),
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1534,45 +1698,48 @@ export class Collection {
       options = {}
     }
 
-    const transcoder = options.transcoder || this.transcoder
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.GetAndLock,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.getAndLock(
-        {
-          id: this._cppDocId(key),
-          lock_time: lockTime,
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const transcoder = options.transcoder || this.transcoder
+      const timeout = options.timeout || this.cluster.kvTimeout
 
-          this._decodeDoc(
-            transcoder,
-            resp.value,
-            resp.flags,
-            (err, content) => {
-              if (err) {
-                return wrapCallback(err, null)
-              }
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.getAndLock.bind(this._conn),
+          {
+            id: cppDocId,
+            lock_time: lockTime,
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          obsReqHandler
+        )
 
-              wrapCallback(
-                err,
-                new GetResult({
-                  cas: resp.cas,
-                  content: content,
-                })
-              )
-            }
-          )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        const content = transcoder.decode(resp.value, resp.flags)
+
+        obsReqHandler.end()
+        return new GetResult({
+          content: content,
+          cas: resp.cas,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1597,27 +1764,39 @@ export class Collection {
       options = {}
     }
 
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Unlock,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.unlock(
-        {
-          id: this._cppDocId(key),
-          cas,
-          timeout,
-          partition: 0,
-          opaque: 0,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err)
-          }
+    try {
+      const cppDocId = this._cppDocId(key)
+      const timeout = options.timeout || this.cluster.kvTimeout
 
-          wrapCallback(null)
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._conn.unlock.bind(this._conn),
+          {
+            id: cppDocId,
+            cas,
+            timeout,
+            partition: 0,
+            opaque: 0,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1800,77 +1979,84 @@ export class Collection {
       options = {}
     }
 
-    if (specs.length === 0) {
-      throw new InvalidArgumentError(
-        new Error('At least one lookup spec must be provided.')
-      )
-    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.LookupIn,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    const cppSpecs: CppImplSubdocCommand[] = []
-    for (let i = 0; i < specs.length; ++i) {
-      cppSpecs.push({
-        opcode_: specs[i]._op,
-        flags_: specs[i]._flags,
-        path_: specs[i]._path,
-        original_index_: i,
-      })
-    }
+    try {
+      if (specs.length === 0) {
+        throw new InvalidArgumentError(
+          new Error('At least one lookup spec must be provided.')
+        )
+      }
+      const cppDocId = this._cppDocId(key)
+      const cppSpecs: CppImplSubdocCommand[] = []
+      for (let i = 0; i < specs.length; ++i) {
+        cppSpecs.push({
+          opcode_: specs[i]._op,
+          flags_: specs[i]._flags,
+          path_: specs[i]._path,
+          original_index_: i,
+        })
+      }
 
-    const timeout = options.timeout || this.cluster.kvTimeout
-    const accessDeleted = options.accessDeleted || false
+      const timeout = options.timeout || this.cluster.kvTimeout
+      const accessDeleted = options.accessDeleted || false
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.lookupIn(
-        {
-          id: this._cppDocId(key),
-          specs: cppSpecs,
-          timeout,
-          partition: 0,
-          opaque: 0,
-          access_deleted: accessDeleted,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.lookupIn.bind(this._conn),
+          {
+            id: cppDocId,
+            specs: cppSpecs,
+            timeout,
+            partition: 0,
+            opaque: 0,
+            access_deleted: accessDeleted,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
 
-          if (resp && resp.fields) {
-            const content: LookupInResultEntry[] = []
+        const content: LookupInResultEntry[] = []
 
-            for (let i = 0; i < resp.fields.length; ++i) {
-              const itemRes = resp.fields[i]
+        for (let i = 0; i < resp.fields.length; ++i) {
+          const itemRes = resp.fields[i]
 
-              const error = errorFromCpp(itemRes.ec)
+          const error = errorFromCpp(itemRes.ec)
 
-              let value: any = undefined
-              if (itemRes.value && itemRes.value.length > 0) {
-                value = this._subdocDecode(itemRes.value)
-              }
-
-              if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
-                value = itemRes.exists
-              }
-
-              content.push(
-                new LookupInResultEntry({
-                  error,
-                  value,
-                })
-              )
-            }
-
-            wrapCallback(
-              err,
-              new LookupInResult({
-                content: content,
-                cas: resp.cas,
-              })
-            )
-            return
+          let value: any = undefined
+          if (itemRes.value && itemRes.value.length > 0) {
+            value = this._subdocDecode(itemRes.value)
           }
 
-          wrapCallback(err, null)
+          if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
+            value = itemRes.exists
+          }
+
+          content.push(
+            new LookupInResultEntry({
+              error,
+              value,
+            })
+          )
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return new LookupInResult({
+          content: content,
+          cas: resp.cas,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -1878,28 +2064,22 @@ export class Collection {
    */
   _lookupInReplica(
     key: string,
-    lookupInAllReplicas: boolean,
+    obsReqHandler: ObservableRequestHandler,
     specs: LookupInSpec[],
-    options?: {
+    options: {
       timeout?: number
       readPreference?: ReadPreference
+      parentSpan?: RequestSpan
     },
     callback?: NodeCallback<LookupInReplicaResult[]>
   ): StreamableReplicasPromise<LookupInReplicaResult[], LookupInReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
-
     if (specs.length === 0) {
       throw new InvalidArgumentError(
         new Error('At least one lookup spec must be provided.')
       )
     }
-
+    const cppDocId = this._cppDocId(key)
+    obsReqHandler.setRequestKeyValueAttributes(cppDocId)
     const emitter = new StreamableReplicasPromise<
       LookupInReplicaResult[],
       LookupInReplicaResult
@@ -1917,82 +2097,32 @@ export class Collection {
 
     const timeout = options.timeout || this.cluster.kvTimeout
 
-    if (lookupInAllReplicas) {
-      this._conn.lookupInAllReplicas(
-        {
-          id: this._cppDocId(key),
-          specs: cppSpecs,
-          timeout: timeout,
-          read_preference: readPreferenceToCpp(options.readPreference),
-          access_deleted: false, // only used in core transactions; false otherwise
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            emitter.emit('error', err)
-            emitter.emit('end')
-            return
-          }
+    if (obsReqHandler.opType == KeyValueOp.LookupInAllReplicas) {
+      PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.lookupInAllReplicas.bind(this._conn),
+          {
+            id: cppDocId,
+            specs: cppSpecs,
+            timeout: timeout,
+            read_preference: readPreferenceToCpp(options.readPreference),
+            access_deleted: false, // only used in core transactions; false otherwise
+          },
+          obsReqHandler
+        )
 
-          resp.entries.forEach((replica) => {
-            const content: LookupInResultEntry[] = []
-
-            for (let i = 0; i < replica.fields.length; ++i) {
-              const itemRes = replica.fields[i]
-
-              const error = errorFromCpp(itemRes.ec)
-
-              let value: any = undefined
-              if (itemRes.value && itemRes.value.length > 0) {
-                value = this._subdocDecode(itemRes.value)
-              }
-
-              if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
-                value = itemRes.exists
-              }
-
-              content.push(
-                new LookupInResultEntry({
-                  error,
-                  value,
-                })
-              )
-            }
-            emitter.emit(
-              'replica',
-              new LookupInReplicaResult({
-                content: content,
-                cas: replica.cas,
-                isReplica: replica.is_replica,
-              })
-            )
-          })
-
+        if (err) {
+          obsReqHandler.endWithError(err)
+          emitter.emit('error', err)
           emitter.emit('end')
           return
         }
-      )
-    } else {
-      this._conn.lookupInAnyReplica(
-        {
-          id: this._cppDocId(key),
-          specs: cppSpecs,
-          timeout: timeout,
-          read_preference: readPreferenceToCpp(options.readPreference),
-          access_deleted: false, // only used in core transactions; false otherwise
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            emitter.emit('error', err)
-            emitter.emit('end')
-            return
-          }
 
+        resp.entries.forEach((replica) => {
           const content: LookupInResultEntry[] = []
 
-          for (let i = 0; i < resp.fields.length; ++i) {
-            const itemRes = resp.fields[i]
+          for (let i = 0; i < replica.fields.length; ++i) {
+            const itemRes = replica.fields[i]
 
             const error = errorFromCpp(itemRes.ec)
 
@@ -2016,14 +2146,69 @@ export class Collection {
             'replica',
             new LookupInReplicaResult({
               content: content,
-              cas: resp.cas,
-              isReplica: resp.is_replica,
+              cas: replica.cas,
+              isReplica: replica.is_replica,
             })
           )
+        })
+        obsReqHandler.end()
+        emitter.emit('end')
+      })
+    } else {
+      PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.lookupInAnyReplica.bind(this._conn),
+          {
+            id: cppDocId,
+            specs: cppSpecs,
+            timeout: timeout,
+            read_preference: readPreferenceToCpp(options.readPreference),
+            access_deleted: false, // only used in core transactions; false otherwise
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          emitter.emit('error', err)
           emitter.emit('end')
           return
         }
-      )
+
+        const content: LookupInResultEntry[] = []
+
+        for (let i = 0; i < resp.fields.length; ++i) {
+          const itemRes = resp.fields[i]
+
+          const error = errorFromCpp(itemRes.ec)
+
+          let value: any = undefined
+          if (itemRes.value && itemRes.value.length > 0) {
+            value = this._subdocDecode(itemRes.value)
+          }
+
+          if (itemRes.opcode === binding.protocol_subdoc_opcode.exists) {
+            value = itemRes.exists
+          }
+
+          content.push(
+            new LookupInResultEntry({
+              error,
+              value,
+            })
+          )
+        }
+        emitter.emit(
+          'replica',
+          new LookupInReplicaResult({
+            content: content,
+            cas: resp.cas,
+            isReplica: resp.is_replica,
+          })
+        )
+        obsReqHandler.end()
+        emitter.emit('end')
+      })
     }
     return PromiseHelper.wrapAsync(() => emitter, callback)
   }
@@ -2048,10 +2233,28 @@ export class Collection {
       callback = arguments[2]
       options = undefined
     }
-    return PromiseHelper.wrapAsync(async () => {
-      const replicas = await this._lookupInReplica(key, false, specs, options)
-      return replicas[0]
-    }, callback)
+    if (!options) {
+      options = {}
+    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.LookupInAnyReplica,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    try {
+      return PromiseHelper.wrapAsync(async () => {
+        const replicas = await this._lookupInReplica(
+          key,
+          obsReqHandler,
+          specs,
+          options
+        )
+        return replicas[0]
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2070,7 +2273,24 @@ export class Collection {
     options?: LookupInAllReplicasOptions,
     callback?: NodeCallback<LookupInReplicaResult[]>
   ): Promise<LookupInReplicaResult[]> {
-    return this._lookupInReplica(key, true, specs, options, callback)
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.LookupInAllReplicas,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    try {
+      return this._lookupInReplica(key, obsReqHandler, specs, options, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2096,39 +2316,56 @@ export class Collection {
       options = {}
     }
 
-    if (specs.length === 0) {
-      throw new InvalidArgumentError(
-        new Error('At least one lookup spec must be provided.')
-      )
-    }
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.MutateIn,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    const cppSpecs: CppImplSubdocCommand[] = []
-    for (let i = 0; i < specs.length; ++i) {
-      cppSpecs.push({
-        opcode_: specs[i]._op,
-        flags_: specs[i]._flags,
-        path_: specs[i]._path,
-        value_: specs[i]._data
-          ? this._subdocEncode(specs[i]._data)
-          : specs[i]._data,
-        original_index_: 0,
-      })
-    }
+    try {
+      if (specs.length === 0) {
+        throw new InvalidArgumentError(
+          new Error('At least one lookup spec must be provided.')
+        )
+      }
 
-    const storeSemantics = options.upsertDocument
-      ? StoreSemantics.Upsert
-      : options.storeSemantics
-    const expiry = parseExpiry(options.expiry)
-    const preserveExpiry = options.preserveExpiry
-    const cas = options.cas
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this._mutationTimeout(durabilityLevel)
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
 
-    return PromiseHelper.wrap((wrapCallback) => {
+      const cppSpecs: CppImplSubdocCommand[] = []
+      for (let i = 0; i < specs.length; ++i) {
+        let value: Buffer | undefined = undefined
+        if (specs[i]._data) {
+          const [bytesValue, _] = obsReqHandler.maybeAddEncodingSpan(() => {
+            const encoded = this._subdocEncode(specs[i]._data)
+            return [encoded, 0] // Flags are not needed for subdoc mutations
+          })
+          value = bytesValue
+        }
+        cppSpecs.push({
+          opcode_: specs[i]._op,
+          flags_: specs[i]._flags,
+          path_: specs[i]._path,
+          value_: value,
+          original_index_: 0,
+        })
+      }
+
+      const storeSemantics = options.upsertDocument
+        ? StoreSemantics.Upsert
+        : options.storeSemantics
+      const expiry = parseExpiry(options.expiry)
+      const preserveExpiry = options.preserveExpiry
+      const cas = options.cas
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
+
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       const mutateInReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         store_semantics: storeSemanticToCpp(storeSemantics),
         specs: cppSpecs,
         expiry,
@@ -2141,63 +2378,60 @@ export class Collection {
         create_as_deleted: false,
       }
 
-      const mutateInCallback = (
-        cppErr: CppError | null,
-        resp: CppMutateInResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.mutateInWithLegacyDurability.bind(this._conn),
+            {
+              ...mutateInReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.mutateIn.bind(this._conn),
+            {
+              ...mutateInReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
+        }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
+        const content: MutateInResultEntry[] = []
 
-        if (resp && resp.fields) {
-          const content: MutateInResultEntry[] = []
+        for (let i = 0; i < resp.fields.length; ++i) {
+          const itemRes = resp.fields[i]
 
-          for (let i = 0; i < resp.fields.length; ++i) {
-            const itemRes = resp.fields[i]
-
-            let value: any = undefined
-            if (itemRes.value && itemRes.value.length > 0) {
-              value = this._subdocDecode(itemRes.value)
-            }
-
-            content.push(
-              new MutateInResultEntry({
-                value,
-              })
-            )
+          let value: any = undefined
+          if (itemRes.value && itemRes.value.length > 0) {
+            value = this._subdocDecode(itemRes.value)
           }
 
-          wrapCallback(
-            err,
-            new MutateInResult({
-              content: content,
-              cas: resp.cas,
-              token: resp.token,
+          content.push(
+            new MutateInResultEntry({
+              value,
             })
           )
-          return
         }
-
-        wrapCallback(err, null)
-      }
-
-      if (persistTo || replicateTo) {
-        this._conn.mutateInWithLegacyDurability(
-          {
-            ...mutateInReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          mutateInCallback
-        )
-      } else {
-        this._conn.mutateIn(
-          {
-            ...mutateInReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          mutateInCallback
-        )
-      }
-    }, callback)
+        obsReqHandler.end()
+        return new MutateInResult({
+          content: content,
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2261,16 +2495,24 @@ export class Collection {
       options = {}
     }
 
-    const initial_value = options.initial
-    const expiry = parseExpiry(options.expiry)
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Increment,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const initial_value = options.initial
+      const expiry = parseExpiry(options.expiry)
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout = options.timeout || this.cluster.kvTimeout
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       const incrementReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         delta,
         initial_value,
         expiry: expiry,
@@ -2279,44 +2521,46 @@ export class Collection {
         opaque: 0,
       }
 
-      const incrementCallback = (
-        cppErr: CppError | null,
-        resp: CppIncrementResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
-        if (err) {
-          return wrapCallback(err, null)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.incrementWithLegacyDurability.bind(this._conn),
+            {
+              ...incrementReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.increment.bind(this._conn),
+            {
+              ...incrementReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
         }
 
-        wrapCallback(
-          err,
-          new CounterResult({
-            cas: resp.cas,
-            token: resp.token,
-            value: resp.content,
-          })
-        )
-      }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
 
-      if (persistTo || replicateTo) {
-        this._conn.incrementWithLegacyDurability(
-          {
-            ...incrementReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          incrementCallback
-        )
-      } else {
-        this._conn.increment(
-          {
-            ...incrementReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          incrementCallback
-        )
-      }
-    }, callback)
+        obsReqHandler.end()
+        return new CounterResult({
+          cas: resp.cas,
+          token: resp.token,
+          value: resp.content,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2336,16 +2580,24 @@ export class Collection {
       options = {}
     }
 
-    const initial_value = options.initial
-    const expiry = parseExpiry(options.expiry)
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Decrement,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const initial_value = options.initial
+      const expiry = parseExpiry(options.expiry)
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const timeout = options.timeout || this.cluster.kvTimeout
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       const decrementReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         delta,
         initial_value,
         expiry: expiry,
@@ -2354,44 +2606,46 @@ export class Collection {
         opaque: 0,
       }
 
-      const decrementCallback = (
-        cppErr: CppError | null,
-        resp: CppDecrementResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
-        if (err) {
-          return wrapCallback(err, null)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.decrementWithLegacyDurability.bind(this._conn),
+            {
+              ...decrementReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.decrement.bind(this._conn),
+            {
+              ...decrementReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
         }
 
-        wrapCallback(
-          err,
-          new CounterResult({
-            cas: resp.cas,
-            token: resp.token,
-            value: resp.content,
-          })
-        )
-      }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
 
-      if (persistTo || replicateTo) {
-        this._conn.decrementWithLegacyDurability(
-          {
-            ...decrementReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          decrementCallback
-        )
-      } else {
-        this._conn.decrement(
-          {
-            ...decrementReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          decrementCallback
-        )
-      }
-    }, callback)
+        obsReqHandler.end()
+        return new CounterResult({
+          cas: resp.cas,
+          token: resp.token,
+          value: resp.content,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2411,19 +2665,27 @@ export class Collection {
       options = {}
     }
 
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const cas = options.cas
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Append,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const cas = options.cas
+      const timeout = options.timeout || this.cluster.kvTimeout
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       if (!Buffer.isBuffer(value)) {
         value = Buffer.from(value)
       }
 
       const appendReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         value,
         cas: cas || zeroCas,
         timeout,
@@ -2431,43 +2693,45 @@ export class Collection {
         opaque: 0,
       }
 
-      const appendCallback = (
-        cppErr: CppError | null,
-        resp: CppAppendResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
-        if (err) {
-          return wrapCallback(err, null)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.appendWithLegacyDurability.bind(this._conn),
+            {
+              ...appendReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.append.bind(this._conn),
+            {
+              ...appendReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
         }
 
-        wrapCallback(
-          err,
-          new MutationResult({
-            cas: resp.cas,
-            token: resp.token,
-          })
-        )
-      }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
 
-      if (persistTo || replicateTo) {
-        this._conn.appendWithLegacyDurability(
-          {
-            ...appendReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          appendCallback
-        )
-      } else {
-        this._conn.append(
-          {
-            ...appendReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          appendCallback
-        )
-      }
-    }, callback)
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**
@@ -2487,19 +2751,27 @@ export class Collection {
       options = {}
     }
 
-    const durabilityLevel = options.durabilityLevel
-    const persistTo = options.durabilityPersistTo
-    const replicateTo = options.durabilityReplicateTo
-    const cas = options.cas
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      KeyValueOp.Prepend,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
 
-    return PromiseHelper.wrap((wrapCallback) => {
+    try {
+      const cppDocId = this._cppDocId(key)
+      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const persistTo = options.durabilityPersistTo
+      const replicateTo = options.durabilityReplicateTo
+      const cas = options.cas
+      const timeout = options.timeout || this.cluster.kvTimeout
+      obsReqHandler.setRequestKeyValueAttributes(cppDocId, cppDurability)
+
       if (!Buffer.isBuffer(value)) {
         value = Buffer.from(value)
       }
 
       const prependReq = {
-        id: this._cppDocId(key),
+        id: cppDocId,
         value,
         cas: cas || zeroCas,
         timeout,
@@ -2507,43 +2779,45 @@ export class Collection {
         opaque: 0,
       }
 
-      const prependCallback = (
-        cppErr: CppError | null,
-        resp: CppPrependResponse
-      ) => {
-        const err = errorFromCpp(cppErr)
-        if (err) {
-          return wrapCallback(err, null)
+      return PromiseHelper.wrapAsync(async () => {
+        let err = null
+        let resp = null
+        if (persistTo || replicateTo) {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.prependWithLegacyDurability.bind(this._conn),
+            {
+              ...prependReq,
+              persist_to: persistToToCpp(persistTo),
+              replicate_to: replicateToToCpp(replicateTo),
+            },
+            obsReqHandler
+          )
+        } else {
+          ;[err, resp] = await wrapObservableBindingCall(
+            this._conn.prepend.bind(this._conn),
+            {
+              ...prependReq,
+              durability_level: cppDurability,
+            },
+            obsReqHandler
+          )
         }
 
-        wrapCallback(
-          err,
-          new MutationResult({
-            cas: resp.cas,
-            token: resp.token,
-          })
-        )
-      }
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
+        }
 
-      if (persistTo || replicateTo) {
-        this._conn.prependWithLegacyDurability(
-          {
-            ...prependReq,
-            persist_to: persistToToCpp(persistTo),
-            replicate_to: replicateToToCpp(replicateTo),
-          },
-          prependCallback
-        )
-      } else {
-        this._conn.prepend(
-          {
-            ...prependReq,
-            durability_level: durabilityToCpp(durabilityLevel),
-          },
-          prependCallback
-        )
-      }
-    }, callback)
+        obsReqHandler.end()
+        return new MutationResult({
+          cas: resp.cas,
+          token: resp.token,
+        })
+      }, callback)
+    } catch (e) {
+      obsReqHandler.endWithError(e)
+      throw e
+    }
   }
 
   /**

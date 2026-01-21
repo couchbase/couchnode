@@ -80,7 +80,7 @@ struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
                 cbpp_to_js(env, ctx.last_dispatched_from()));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -114,7 +114,7 @@ struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
         err.Set("first_error_path", cbpp_to_js(env, ctx.first_error_path()));
         err.Set("first_error_index", cbpp_to_js(env, ctx.first_error_index()));
         err.Set("deleted", cbpp_to_js(env, ctx.deleted()));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -150,7 +150,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::view> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -197,7 +197,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::query> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -235,7 +235,7 @@ struct js_to_cbpp_t<couchbase::core::query_error_context> {
                 cbpp_to_js(env, ctx.last_dispatched_from()));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts()));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons()));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -279,7 +279,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::search> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -326,7 +326,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::analytics> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };
@@ -357,7 +357,7 @@ struct js_to_cbpp_t<couchbase::core::error_context::http> {
                 cbpp_to_js(env, ctx.last_dispatched_from));
         err.Set("retry_attempts", cbpp_to_js(env, ctx.retry_attempts));
         err.Set("retry_reasons", cbpp_to_js(env, ctx.retry_reasons));
-        err.Set("cpp_core_spans", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        err.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return err.Value();
     }
 };

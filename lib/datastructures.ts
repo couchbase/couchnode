@@ -1,7 +1,10 @@
 import { Collection } from './collection'
 import { CouchbaseError, PathExistsError, PathInvalidError } from './errors'
 import { StoreSemantics } from './generaltypes'
+import { ObservableRequestHandler, WrappedSpan } from './observabilityhandler'
+import { DatastructureOp } from './observabilitytypes'
 import { LookupInSpec, MutateInSpec } from './sdspecs'
+import { RequestSpan } from './tracing'
 import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -23,8 +26,8 @@ export class CouchbaseList {
     this._key = key
   }
 
-  private async _get(): Promise<any[]> {
-    const doc = await this._coll.get(this._key)
+  private async _get(parentSpan?: WrappedSpan): Promise<any[]> {
+    const doc = await this._coll.get(this._key, { parentSpan: parentSpan })
     if (!(doc.content instanceof Array)) {
       throw new CouchbaseError('expected document of array type')
     }
@@ -38,8 +41,21 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async getAll(callback?: NodeCallback<any[]>): Promise<any[]> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListGetAll,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      return await this._get()
+      try {
+        const res = await this._get(obsReqHandler.wrappedSpan)
+        obsReqHandler.end()
+        return res
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -92,17 +108,31 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async getAt(index: number, callback?: NodeCallback<any>): Promise<any> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListGetAt,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [
-        LookupInSpec.get('[' + index + ']'),
-      ])
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.get('[' + index + ']')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
 
-      const itemRes = res.content[0]
-      if (itemRes.error) {
-        throw itemRes.error
+        const itemRes = res.content[0]
+        if (itemRes.error) {
+          throw itemRes.error
+        }
+
+        obsReqHandler.end()
+        return itemRes.value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
       }
-
-      return itemRes.value
     }, callback)
   }
 
@@ -113,10 +143,24 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async removeAt(index: number, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListRemoveAt,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(this._key, [
-        MutateInSpec.remove('[' + index + ']'),
-      ])
+      try {
+        await this._coll.mutateIn(
+          this._key,
+          [MutateInSpec.remove('[' + index + ']')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -127,16 +171,29 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async indexOf(value: any, callback?: NodeCallback<number>): Promise<number> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListIndexOf,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const items = await this._get()
+      try {
+        const items = await this._get(obsReqHandler.wrappedSpan)
 
-      for (let i = 0; i < items.length; ++i) {
-        if (items[i] === value) {
-          return i
+        for (let i = 0; i < items.length; ++i) {
+          if (items[i] === value) {
+            obsReqHandler.end()
+            return i
+          }
         }
-      }
 
-      return -1
+        obsReqHandler.end()
+        return -1
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -146,9 +203,25 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async size(callback?: NodeCallback<number>): Promise<number> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListSize,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [LookupInSpec.count('')])
-      return res.content[0].value
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.count('')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+        obsReqHandler.end()
+        return res.content[0].value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -159,14 +232,27 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async push(value: any, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListPush,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(
-        this._key,
-        [MutateInSpec.arrayAppend('', value)],
-        {
-          storeSemantics: StoreSemantics.Upsert,
-        }
-      )
+      try {
+        await this._coll.mutateIn(
+          this._key,
+          [MutateInSpec.arrayAppend('', value)],
+          {
+            storeSemantics: StoreSemantics.Upsert,
+            parentSpan: obsReqHandler.wrappedSpan,
+          }
+        )
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -177,14 +263,27 @@ export class CouchbaseList {
    * @param callback A node-style callback to be invoked after execution.
    */
   async unshift(value: any, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.ListUnshift,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(
-        this._key,
-        [MutateInSpec.arrayPrepend('', value)],
-        {
-          storeSemantics: StoreSemantics.Upsert,
-        }
-      )
+      try {
+        await this._coll.mutateIn(
+          this._key,
+          [MutateInSpec.arrayPrepend('', value)],
+          {
+            storeSemantics: StoreSemantics.Upsert,
+            parentSpan: obsReqHandler.wrappedSpan,
+          }
+        )
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 }
@@ -208,8 +307,10 @@ export class CouchbaseMap {
     this._key = key
   }
 
-  private async _get(): Promise<{ [key: string]: any }> {
-    const doc = await this._coll.get(this._key)
+  private async _get(
+    parentSpan?: RequestSpan
+  ): Promise<{ [key: string]: any }> {
+    const doc = await this._coll.get(this._key, { parentSpan: parentSpan })
     if (!(doc.content instanceof Object)) {
       throw new CouchbaseError('expected document of object type')
     }
@@ -225,8 +326,21 @@ export class CouchbaseMap {
   async getAll(
     callback?: NodeCallback<{ [key: string]: any }>
   ): Promise<{ [key: string]: any }> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapGetAll,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      return await this._get()
+      try {
+        const res = await this._get(obsReqHandler.wrappedSpan)
+        obsReqHandler.end()
+        return res
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -288,10 +402,27 @@ export class CouchbaseMap {
     value: any,
     callback?: NodeCallback<void>
   ): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapSet,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(this._key, [MutateInSpec.upsert(item, value)], {
-        storeSemantics: StoreSemantics.Upsert,
-      })
+      try {
+        await this._coll.mutateIn(
+          this._key,
+          [MutateInSpec.upsert(item, value)],
+          {
+            storeSemantics: StoreSemantics.Upsert,
+            parentSpan: obsReqHandler.wrappedSpan,
+          }
+        )
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -302,15 +433,31 @@ export class CouchbaseMap {
    * @param callback A node-style callback to be invoked after execution.
    */
   async get(item: string, callback?: NodeCallback<any>): Promise<any> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapGet,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [LookupInSpec.get(item)])
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.get(item)],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
 
-      const itemRes = res.content[0]
-      if (itemRes.error) {
-        throw itemRes.error
+        const itemRes = res.content[0]
+        if (itemRes.error) {
+          throw itemRes.error
+        }
+
+        obsReqHandler.end()
+        return itemRes.value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
       }
-
-      return itemRes.value
     }, callback)
   }
 
@@ -321,8 +468,22 @@ export class CouchbaseMap {
    * @param callback A node-style callback to be invoked after execution.
    */
   async remove(item: string, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapRemove,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(this._key, [MutateInSpec.remove(item)])
+      try {
+        await this._coll.mutateIn(this._key, [MutateInSpec.remove(item)], {
+          parentSpan: obsReqHandler.wrappedSpan,
+        })
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -336,13 +497,27 @@ export class CouchbaseMap {
     item: string,
     callback?: NodeCallback<boolean>
   ): Promise<boolean> {
-    return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [
-        LookupInSpec.exists(item),
-      ])
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapExists,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
 
-      const itemRes = res.content[0]
-      return itemRes.value
+    return PromiseHelper.wrapAsync(async () => {
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.exists(item)],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+
+        const itemRes = res.content[0]
+        obsReqHandler.end()
+        return itemRes.value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -352,9 +527,21 @@ export class CouchbaseMap {
    * @param callback A node-style callback to be invoked after execution.
    */
   async keys(callback?: NodeCallback<string[]>): Promise<string[]> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapKeys,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const values = await this._get()
-      return Object.keys(values)
+      try {
+        const values = await this._get(obsReqHandler.wrappedSpan)
+        obsReqHandler.end()
+        return Object.keys(values)
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -364,9 +551,21 @@ export class CouchbaseMap {
    * @param callback A node-style callback to be invoked after execution.
    */
   async values(callback?: NodeCallback<any[]>): Promise<any[]> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapValues,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const values = await this._get()
-      return Object.values(values)
+      try {
+        const values = await this._get(obsReqHandler.wrappedSpan)
+        obsReqHandler.end()
+        return Object.values(values)
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -376,9 +575,24 @@ export class CouchbaseMap {
    * @param callback A node-style callback to be invoked after execution.
    */
   async size(callback?: NodeCallback<number>): Promise<number> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.MapSize,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [LookupInSpec.count('')])
-      return res.content[0].value
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.count('')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+        obsReqHandler.end()
+        return res.content[0].value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 }
@@ -417,9 +631,24 @@ export class CouchbaseQueue {
    * @param callback A node-style callback to be invoked after execution.
    */
   async size(callback?: NodeCallback<number>): Promise<number> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.QueueSize,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [LookupInSpec.count('')])
-      return res.content[0].value
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.count('')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+        obsReqHandler.end()
+        return res.content[0].value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -430,14 +659,27 @@ export class CouchbaseQueue {
    * @param callback A node-style callback to be invoked after execution.
    */
   async push(value: any, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.QueuePush,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      await this._coll.mutateIn(
-        this._key,
-        [MutateInSpec.arrayPrepend('', value)],
-        {
-          storeSemantics: StoreSemantics.Upsert,
-        }
-      )
+      try {
+        await this._coll.mutateIn(
+          this._key,
+          [MutateInSpec.arrayPrepend('', value)],
+          {
+            storeSemantics: StoreSemantics.Upsert,
+            parentSpan: obsReqHandler.wrappedSpan,
+          }
+        )
+        obsReqHandler.end()
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -447,30 +689,49 @@ export class CouchbaseQueue {
    * @param callback A node-style callback to be invoked after execution.
    */
   async pop(callback?: NodeCallback<any>): Promise<any> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.QueuePop,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      for (let i = 0; i < 16; ++i) {
-        try {
-          const res = await this._coll.lookupIn(this._key, [
-            LookupInSpec.get('[-1]'),
-          ])
+      try {
+        for (let i = 0; i < 16; ++i) {
+          try {
+            const res = await this._coll.lookupIn(
+              this._key,
+              [LookupInSpec.get('[-1]')],
+              { parentSpan: obsReqHandler.wrappedSpan }
+            )
 
-          const value = res.content[0].value
+            const value = res.content[0].value
 
-          await this._coll.mutateIn(this._key, [MutateInSpec.remove('[-1]')], {
-            cas: res.cas,
-          })
+            await this._coll.mutateIn(
+              this._key,
+              [MutateInSpec.remove('[-1]')],
+              {
+                cas: res.cas,
+                parentSpan: obsReqHandler.wrappedSpan,
+              }
+            )
 
-          return value
-        } catch (e) {
-          if (e instanceof PathInvalidError) {
-            throw new CouchbaseError('no items available in list')
+            obsReqHandler.end()
+            return value
+          } catch (e) {
+            if (e instanceof PathInvalidError) {
+              throw new CouchbaseError('no items available in list')
+            }
+
+            // continue and retry
           }
-
-          // continue and retry
         }
-      }
 
-      throw new CouchbaseError('no items available to pop')
+        throw new CouchbaseError('no items available to pop')
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 }
@@ -494,8 +755,8 @@ export class CouchbaseSet {
     this._key = key
   }
 
-  private async _get(): Promise<any[]> {
-    const doc = await this._coll.get(this._key)
+  private async _get(parentSpan?: RequestSpan): Promise<any[]> {
+    const doc = await this._coll.get(this._key, { parentSpan: parentSpan })
     if (!(doc.content instanceof Array)) {
       throw new CouchbaseError('expected document of array type')
     }
@@ -511,6 +772,12 @@ export class CouchbaseSet {
    * @param callback A node-style callback to be invoked after execution.
    */
   async add(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.SetAdd,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
       try {
         await this._coll.mutateIn(
@@ -518,16 +785,20 @@ export class CouchbaseSet {
           [MutateInSpec.arrayAddUnique('', item)],
           {
             storeSemantics: StoreSemantics.Upsert,
+            parentSpan: obsReqHandler.wrappedSpan,
           }
         )
       } catch (e) {
         if (e instanceof PathExistsError) {
+          obsReqHandler.end()
           return false
         }
 
+        obsReqHandler.endWithError(e)
         throw e
       }
 
+      obsReqHandler.end()
       return true
     }, callback)
   }
@@ -542,14 +813,27 @@ export class CouchbaseSet {
     item: any,
     callback?: NodeCallback<boolean>
   ): Promise<boolean> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.SetContains,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const values = await this._get()
-      for (let i = 0; i < values.length; ++i) {
-        if (values[i] === item) {
-          return true
+      try {
+        const values = await this._get(obsReqHandler.wrappedSpan)
+        for (let i = 0; i < values.length; ++i) {
+          if (values[i] === item) {
+            obsReqHandler.end()
+            return true
+          }
         }
+        obsReqHandler.end()
+        return false
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
       }
-      return false
     }, callback)
   }
 
@@ -560,34 +844,49 @@ export class CouchbaseSet {
    * @param callback A node-style callback to be invoked after execution.
    */
   async remove(item: any, callback?: NodeCallback<void>): Promise<void> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.SetRemove,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      for (let i = 0; i < 16; ++i) {
-        try {
-          const res = await this._coll.get(this._key)
-          if (!(res.content instanceof Array)) {
-            throw new CouchbaseError('expected document of array type')
-          }
-
-          const itemIdx = res.content.indexOf(item)
-          if (itemIdx === -1) {
-            throw new Error('item was not found in set')
-          }
-
-          await this._coll.mutateIn(
-            this._key,
-            [MutateInSpec.remove('[' + itemIdx + ']')],
-            {
-              cas: res.cas,
+      try {
+        for (let i = 0; i < 16; ++i) {
+          try {
+            const res = await this._coll.get(this._key, {
+              parentSpan: obsReqHandler.wrappedSpan,
+            })
+            if (!(res.content instanceof Array)) {
+              throw new CouchbaseError('expected document of array type')
             }
-          )
 
-          return
-        } catch (_e) {
-          // continue and retry
+            const itemIdx = res.content.indexOf(item)
+            if (itemIdx === -1) {
+              throw new Error('item was not found in set')
+            }
+
+            await this._coll.mutateIn(
+              this._key,
+              [MutateInSpec.remove('[' + itemIdx + ']')],
+              {
+                cas: res.cas,
+                parentSpan: obsReqHandler.wrappedSpan,
+              }
+            )
+
+            obsReqHandler.end()
+            return
+          } catch (_e) {
+            // continue and retry
+          }
         }
-      }
 
-      throw new CouchbaseError('no items available to pop')
+        throw new CouchbaseError('no items available to pop')
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -597,8 +896,21 @@ export class CouchbaseSet {
    * @param callback A node-style callback to be invoked after execution.
    */
   async values(callback?: NodeCallback<any[]>): Promise<any[]> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.SetValues,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      return await this._get()
+      try {
+        const res = await this._get(obsReqHandler.wrappedSpan)
+        obsReqHandler.end()
+        return res
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 
@@ -608,9 +920,25 @@ export class CouchbaseSet {
    * @param callback A node-style callback to be invoked after execution.
    */
   async size(callback?: NodeCallback<number>): Promise<number> {
+    const obsReqHandler = new ObservableRequestHandler(
+      DatastructureOp.SetSize,
+      this._coll.observabilityInstruments
+    )
+    obsReqHandler.setRequestKeyValueAttributes(this._coll._cppDocId(this._key))
+
     return PromiseHelper.wrapAsync(async () => {
-      const res = await this._coll.lookupIn(this._key, [LookupInSpec.count('')])
-      return res.content[0].value
+      try {
+        const res = await this._coll.lookupIn(
+          this._key,
+          [LookupInSpec.count('')],
+          { parentSpan: obsReqHandler.wrappedSpan }
+        )
+        obsReqHandler.end()
+        return res.content[0].value
+      } catch (e) {
+        obsReqHandler.endWithError(e)
+        throw e
+      }
     }, callback)
   }
 }

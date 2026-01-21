@@ -8864,6 +8864,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::vector<couchbase::core::operations::management::
                                    analytics_link_replace_response::problem>>(
             cppObj.errors, jsObj.Get("errors"));
+        // cpp_core_span
         return cppObj;
     }
     static inline Napi::Value
@@ -8882,6 +8883,7 @@ struct js_to_cbpp_t<
                 std::vector<couchbase::core::operations::management::
                                 analytics_link_replace_response::problem>>(
                 env, cppObj.errors));
+        resObj.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return resObj;
     }
 };
@@ -10221,6 +10223,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::vector<couchbase::core::operations::management::
                                    analytics_link_create_response::problem>>(
             cppObj.errors, jsObj.Get("errors"));
+        // cpp_core_span
         return cppObj;
     }
     static inline Napi::Value
@@ -10239,6 +10242,7 @@ struct js_to_cbpp_t<
                 std::vector<couchbase::core::operations::management::
                                 analytics_link_create_response::problem>>(
                 env, cppObj.errors));
+        resObj.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
         return resObj;
     }
 };

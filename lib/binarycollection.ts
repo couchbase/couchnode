@@ -2,6 +2,7 @@ import { Collection } from './collection'
 import { CounterResult, MutationResult } from './crudoptypes'
 import { DurabilityLevel } from './generaltypes'
 import { CasInput, NodeCallback } from './utilities'
+import { RequestSpan } from './tracing'
 
 /**
  * @category Key-Value
@@ -48,6 +49,11 @@ export interface IncrementOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -95,6 +101,11 @@ export interface DecrementOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -130,6 +141,11 @@ export interface AppendOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -165,6 +181,11 @@ export interface PrependOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**

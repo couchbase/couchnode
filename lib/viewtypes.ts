@@ -1,3 +1,5 @@
+import { RequestSpan } from './tracing'
+
 /**
  * Contains the results of a view query.
  *
@@ -349,4 +351,9 @@ export interface ViewQueryOptions {
    * Specifies the design document namespace to use when executing the view query.
    */
   namespace?: DesignDocumentNamespace
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }

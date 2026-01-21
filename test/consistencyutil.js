@@ -288,6 +288,7 @@ class ConsistencyUtils {
     return new Promise((resolve, reject) => {
       const req = http.get(httpRequest, (res) => {
         if (onlyStatusCode) {
+          res.resume()
           return resolve(res.statusCode)
         } else if (res.statusCode !== 200) {
           reject('Non 200 status code from response')
@@ -367,6 +368,42 @@ class ConsistencyUtils {
             reject(e)
           }
           resolve(nodeInfo)
+        })
+      })
+      req.on('error', (e) => {
+        reject(e.message)
+      })
+      req.end()
+    })
+  }
+
+  getClusterName() {
+    return new Promise((resolve, reject) => {
+      const options = {
+        hostname: this.hostname,
+        port: 8091,
+        path: '/pools/default',
+        auth: this.auth,
+      }
+      const req = http.get(options, (res) => {
+        if (res.statusCode !== 200) {
+          return reject(new Error('statusCode=' + res.statusCode))
+        }
+        const data = []
+        let clusterName = null
+        res.on('data', (chunk) => {
+          data.push(chunk)
+        })
+        res.on('end', () => {
+          try {
+            const nodeData = JSON.parse(data)
+            if (nodeData.clusterName) {
+              clusterName = nodeData.clusterName
+            }
+          } catch (e) {
+            reject(e)
+          }
+          resolve(clusterName)
         })
       })
       req.on('error', (e) => {

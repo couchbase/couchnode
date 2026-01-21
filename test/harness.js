@@ -146,6 +146,7 @@ class Harness {
     this._user = TEST_CONFIG.user
     this._pass = TEST_CONFIG.pass
     this._usingMock = false
+    this._supportsClusterLabels = false
 
     if (!this._connstr) {
       var mockVer = jcbmock.version()
@@ -191,6 +192,7 @@ class Harness {
     return {
       username: this._user,
       password: this._pass,
+      tracingConfig: { enableTracing: false },
     }
   }
 
@@ -199,6 +201,10 @@ class Harness {
       return true
     }
     return this._consistencyutil
+  }
+
+  get supportsClusterLabels() {
+    return this._supportsClusterLabels
   }
 
   async throwsHelper(fn) {
@@ -293,6 +299,11 @@ class Harness {
     this._testColl = coll
     this._testDColl = dcoll
     this._consistencyutil = consistencyutils
+    if (!this._usingMock) {
+      let clusterName = await this._consistencyutil.getClusterName()
+      this._supportsClusterLabels = clusterName !== null
+      console.log('Cluster Name:', clusterName)
+    }
   }
 
   async initializeConsistencyUtils() {
@@ -307,7 +318,9 @@ class Harness {
 
   async newCluster(options) {
     if (!options) {
-      options = {}
+      options = {
+        tracingConfig: { enableTracing: false },
+      }
     }
 
     if (!options.connstr) {
@@ -492,6 +505,14 @@ class Harness {
 
   get lib() {
     return couchbase
+  }
+
+  get usingMock() {
+    return this._usingMock
+  }
+
+  get clusterNamePresent() {
+    return this._clusterNamePresent
   }
 
   get c() {

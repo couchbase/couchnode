@@ -1,4 +1,5 @@
 import { MutationState } from './mutationstate'
+import { RequestSpan } from './tracing'
 
 /**
  * Represents the status of a query.
@@ -386,4 +387,9 @@ export interface QueryOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }

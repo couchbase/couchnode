@@ -8,11 +8,11 @@ import {
   CppManagementRbacUser,
   CppManagementRbacUserAndMetadata,
 } from './binding'
-import {
-  authDomainToCpp,
-  authDomainFromCpp,
-  errorFromCpp,
-} from './bindingutilities'
+import { authDomainToCpp, authDomainFromCpp } from './bindingutilities'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import { UserMgmtOp, ObservabilityInstruments } from './observabilitytypes'
+import { RequestSpan } from './tracing'
 import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -487,6 +487,11 @@ export interface GetUserOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -502,6 +507,11 @@ export interface GetAllUsersOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -517,6 +527,11 @@ export interface UpsertUserOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -527,6 +542,11 @@ export interface ChangePasswordOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -542,6 +562,11 @@ export interface DropUserOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -552,6 +577,11 @@ export interface GetRolesOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -562,6 +592,11 @@ export interface GetGroupOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -572,6 +607,11 @@ export interface GetAllGroupsOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -582,6 +622,11 @@ export interface UpsertGroupOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -592,6 +637,11 @@ export interface DropGroupOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -608,6 +658,13 @@ export class UserManager {
    */
   constructor(cluster: Cluster) {
     this._cluster = cluster
+  }
+
+  /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._cluster.observabilityInstruments
   }
 
   /**
@@ -630,25 +687,38 @@ export class UserManager {
       options = {}
     }
 
-    const cppDomain = authDomainToCpp(options.domainName || 'local')
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.UserGet,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementUserGet(
-        {
-          username: username,
-          domain: cppDomain,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(null, UserAndMetadata._fromCppData(resp.user))
+    try {
+      const cppDomain = authDomainToCpp(options.domainName || 'local')
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementUserGet.bind(this._cluster.conn),
+          {
+            username: username,
+            domain: cppDomain,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return UserAndMetadata._fromCppData(resp.user)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -669,27 +739,37 @@ export class UserManager {
       options = {}
     }
 
-    const cppDomain = authDomainToCpp(options.domainName || 'local')
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.UserGetAll,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementUserGetAll(
-        {
-          domain: cppDomain,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const users = resp.users.map((user) =>
-            UserAndMetadata._fromCppData(user)
-          )
-          wrapCallback(null, users)
+    try {
+      const cppDomain = authDomainToCpp(options.domainName || 'local')
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementUserGetAll.bind(this._cluster.conn),
+          {
+            domain: cppDomain,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.users.map((user) => UserAndMetadata._fromCppData(user))
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -712,25 +792,37 @@ export class UserManager {
       options = {}
     }
 
-    const cppDomain = authDomainToCpp(options.domainName || 'local')
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.UserUpsert,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementUserUpsert(
-        {
-          user: User._toCppData(user),
-          domain: cppDomain,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const cppDomain = authDomainToCpp(options.domainName || 'local')
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementUserUpsert.bind(this._cluster.conn),
+          {
+            user: User._toCppData(user),
+            domain: cppDomain,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -753,23 +845,35 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.ChangePassword,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementChangePassword(
-        {
-          newPassword: newPassword,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementChangePassword.bind(this._cluster.conn),
+          {
+            newPassword: newPassword,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -792,25 +896,37 @@ export class UserManager {
       options = {}
     }
 
-    const cppDomain = authDomainToCpp(options.domainName || 'local')
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.UserDrop,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementUserDrop(
-        {
-          username: username,
-          domain: cppDomain,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const cppDomain = authDomainToCpp(options.domainName || 'local')
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementUserDrop.bind(this._cluster.conn),
+          {
+            username: username,
+            domain: cppDomain,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -831,23 +947,35 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.RoleGetAll,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementRoleGetAll(
-        {
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const roles = resp.roles.map((role) => Role._fromCppData(role))
-          wrapCallback(null, roles)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementRoleGetAll.bind(this._cluster.conn),
+          {
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.roles.map((role) => Role._fromCppData(role))
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -870,23 +998,36 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.GroupGet,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementGroupGet(
-        {
-          name: groupName,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(null, Group._fromCppData(resp.group))
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementGroupGet.bind(this._cluster.conn),
+          {
+            name: groupName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return Group._fromCppData(resp.group)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -907,23 +1048,35 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.GroupGetAll,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementGroupGetAll(
-        {
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const groups = resp.groups.map((group) => Group._fromCppData(group))
-          wrapCallback(null, groups)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementGroupGetAll.bind(this._cluster.conn),
+          {
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.groups.map((group) => Group._fromCppData(group))
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -946,23 +1099,35 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.GroupUpsert,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementGroupUpsert(
-        {
-          group: Group._toCppData(group),
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementGroupUpsert.bind(this._cluster.conn),
+          {
+            group: Group._toCppData(group),
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -985,22 +1150,34 @@ export class UserManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      UserMgmtOp.GroupDrop,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes()
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementGroupDrop(
-        {
-          name: groupName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementGroupDrop.bind(this._cluster.conn),
+          {
+            name: groupName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }

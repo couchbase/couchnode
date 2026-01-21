@@ -1,3 +1,5 @@
+import { RequestSpan } from './tracing'
+
 /**
  * Represents the status of an analytics query.
  *
@@ -281,4 +283,9 @@ export interface AnalyticsQueryOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }

@@ -71,7 +71,34 @@ async function removeTestData(target, testDocs) {
     return
   }
 
-  await Promise.allSettled(testDocs.map((docId) => target.remove(docId)))
+  let removeRes
+
+  for (let i = 0; i < 3; i++) {
+    try {
+      removeRes = await Promise.allSettled(
+        testDocs.map((docId) => target.remove(docId))
+      )
+    } catch (_e) {
+      // ignore
+    }
+
+    if (
+      removeRes &&
+      removeRes.every(
+        (r) =>
+          r.status === 'fulfilled' || r.reason?.message.includes('not found')
+      )
+    ) {
+      break
+    }
+
+    testDocs = testDocs.filter((_, idx) => {
+      return removeRes
+        ? removeRes[idx].status !== 'fulfilled' &&
+            !removeRes[idx].reason?.message.includes('not found')
+        : true
+    })
+  }
 }
 
 module.exports.removeTestData = removeTestData

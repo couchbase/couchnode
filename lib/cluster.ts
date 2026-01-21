@@ -32,6 +32,8 @@ import {
   NoOpLogger,
   parseLogLevel,
 } from './logger'
+import { NoOpTracer } from './observability'
+import { ObservabilityInstruments } from './observabilitytypes'
 import { QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
@@ -46,6 +48,8 @@ import {
   SearchRow,
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
+import { ThresholdLoggingTracer } from './thresholdlogging'
+import { RequestTracer } from './tracing'
 import { Transactions, TransactionsConfig } from './transactions'
 import { Transcoder, DefaultTranscoder } from './transcoders'
 import { UserManager } from './usermanager'
@@ -369,6 +373,11 @@ export interface ConnectOptions {
   appTelemetryConfig?: AppTelemetryConfig
 
   /**
+   * Specifies the request tracer for this cluster.
+   */
+  tracer?: RequestTracer
+
+  /**
    * Specifies the tracing (threshold logging) config for connections of this cluster.
    */
   tracingConfig?: TracingConfig
@@ -418,6 +427,8 @@ export class Cluster {
   private _dnsConfig: DnsConfig | null
   private _preferredServerGroup: string | undefined
   private _appTelemetryConfig: AppTelemetryConfig | null
+  private _tracer: RequestTracer | undefined
+  private _observabilityInstruments: ObservabilityInstruments | undefined
   private _tracingConfig: TracingConfig | null
   private _orphanReporterConfig: OrphanReporterConfig | null
   private _metricsConfig: MetricsConfig | null
@@ -512,6 +523,13 @@ export class Cluster {
   */
   get logger(): CouchbaseLogger {
     return this._logger
+  }
+
+  /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._observabilityInstruments as ObservabilityInstruments
   }
 
   /**
@@ -626,6 +644,10 @@ export class Cluster {
       this._appTelemetryConfig = null
     }
 
+    if (options.tracer) {
+      this._tracer = options.tracer
+    }
+
     if (options.tracingConfig) {
       this._tracingConfig = {
         enableTracing: options.tracingConfig.enableTracing,
@@ -711,7 +733,7 @@ export class Cluster {
       this._conn.openBucket(bucketName, (err) => {
         if (err) {
           // BUG(JSCBC-1011): Move this to log framework once it is implemented.
-          console.error('failed to open bucket: %O', err)
+          console.error(`failed to open bucket: ${bucketName}`, err)
         }
       })
       this._openBuckets.push(bucketName)
@@ -963,6 +985,10 @@ export class Cluster {
       this._transactions = undefined
     }
 
+    if (this._tracer instanceof ThresholdLoggingTracer) {
+      this._tracer.cleanup()
+    }
+
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.shutdown((cppErr) => {
         wrapCallback(errorFromCpp(cppErr))
@@ -981,6 +1007,14 @@ export class Cluster {
       const err = errorFromCpp(cppErr)
       throw err
     }
+  }
+
+  /**
+   * @internal
+   */
+  _getClusterLabels(): Record<string, string | undefined> {
+    const resp = this._conn.getClusterLabels()
+    return { clusterName: resp.clusterName, clusterUUID: resp.clusterUUID }
   }
 
   private _getCppCredentials(
@@ -1064,12 +1098,40 @@ export class Cluster {
 
       const authOpts = this._getCppCredentials(this._auth, saslMechansims)
 
+      // Tracing is explicitly disabled IFF we have a tracingConfig AND tracingConfig.enableTracing === false
+      // _tracingConfig = null                => FALSE
+      // _tracingConfig = undefined           => FALSE
+      // _tracingConfig.enableTracing = true  => FALSE
+      // _tracingConfig.enableTracing = false => TRUE
+      const tracingExplicitlyDisabled =
+        (this._tracingConfig ?? false) && !this._tracingConfig?.enableTracing
+      // we want to enable tracing IFF we don't have a tracer && tracing was NOT explicitly disabled
+      const enableTracing =
+        !this._tracer && tracingExplicitlyDisabled ? false : true
+      // if tracing is enabled, but we don't have a tracer, default to the ThresholdLoggingTracer
+      if (enableTracing && !this._tracer) {
+        this._tracer = new ThresholdLoggingTracer(
+          this._logger,
+          this._tracingConfig
+        )
+      }
+      // if we don't have a tracer at this point, tracing is NOT enabled, use the NoOpTracer
+      if (!this._tracer) {
+        this._tracer = new NoOpTracer()
+      }
+
+      this._observabilityInstruments = new ObservabilityInstruments(
+        this._tracer,
+        null,
+        () => this._getClusterLabels()
+      )
+
       this._conn.connect(
         connStr,
         authOpts,
         this._dnsConfig,
         this._appTelemetryConfig,
-        false,
+        enableTracing,
         this._orphanReporterConfig,
         (cppErr) => {
           if (cppErr) {

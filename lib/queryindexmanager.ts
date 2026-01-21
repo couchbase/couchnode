@@ -1,8 +1,14 @@
 import { CppQueryContext } from './binding'
-import { errorFromCpp } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { CouchbaseError, IndexNotFoundError } from './errors'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import {
+  ObservabilityInstruments,
+  QueryIndexMgmtOp,
+} from './observabilitytypes'
+import { RequestSpan } from './tracing'
 import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -117,6 +123,11 @@ export interface CreateQueryIndexOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -163,6 +174,11 @@ export interface CreatePrimaryQueryIndexOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -193,6 +209,11 @@ export interface DropQueryIndexOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -228,6 +249,11 @@ export interface DropPrimaryQueryIndexOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -252,6 +278,11 @@ export interface GetAllQueryIndexesOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -276,6 +307,11 @@ export interface BuildQueryIndexOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -300,6 +336,11 @@ export interface WatchQueryIndexOptions {
    * Specifies whether the primary indexes should be watched as well.
    */
   watchPrimary?: boolean
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -323,6 +364,13 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._cluster.observabilityInstruments
+  }
+
+  /**
+   * @internal
+   */
   async createIndex(
     bucketName: string,
     isPrimary: boolean,
@@ -337,12 +385,14 @@ class InternalQueryIndexManager {
       timeout?: number
       queryContext?: CppQueryContext
     },
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<void>
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementQueryIndexCreate(
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementQueryIndexCreate.bind(this._cluster.conn),
         {
           bucket_name: bucketName,
           scope_name: options.scopeName || '',
@@ -357,15 +407,15 @@ class InternalQueryIndexManager {
           timeout: timeout,
           condition: undefined,
         },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(err)
-        }
+        obsReqHandler
       )
+
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+
+      obsReqHandler.end()
     }, callback)
   }
 
@@ -383,6 +433,7 @@ class InternalQueryIndexManager {
       timeout?: number
       queryContext?: CppQueryContext
     },
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<void>
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
@@ -392,8 +443,9 @@ class InternalQueryIndexManager {
       isPrimary = false
     }
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementQueryIndexDrop(
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementQueryIndexDrop.bind(this._cluster.conn),
         {
           bucket_name: bucketName,
           scope_name: options.scopeName || '',
@@ -404,15 +456,14 @@ class InternalQueryIndexManager {
           ignore_if_does_not_exist: options.ignoreIfNotExists || false,
           timeout: timeout,
         },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(err)
-        }
+        obsReqHandler
       )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+
+      obsReqHandler.end()
     }, callback)
   }
 
@@ -427,12 +478,14 @@ class InternalQueryIndexManager {
       timeout?: number
       queryContext?: CppQueryContext
     },
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementQueryIndexGetAll(
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementQueryIndexGetAll.bind(this._cluster.conn),
         {
           bucket_name: bucketName,
           scope_name: options.scopeName || '',
@@ -440,30 +493,28 @@ class InternalQueryIndexManager {
           query_ctx: options.queryContext || this._queryContext,
           timeout: timeout,
         },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-          const indexes = resp.indexes.map(
-            (row) =>
-              new QueryIndex({
-                isPrimary: row.is_primary,
-                name: row.name,
-                state: row.state,
-                type: row.type,
-                indexKey: row.index_key,
-                partition: row.partition,
-                condition: row.condition,
-                bucketName: row.bucket_name,
-                scopeName: row.scope_name,
-                collectionName: row.collection_name,
-              })
-          )
-
-          wrapCallback(null, indexes)
-        }
+      obsReqHandler.end()
+      return resp.indexes.map(
+        (row) =>
+          new QueryIndex({
+            isPrimary: row.is_primary,
+            name: row.name,
+            state: row.state,
+            type: row.type,
+            indexKey: row.index_key,
+            partition: row.partition,
+            condition: row.condition,
+            bucketName: row.bucket_name,
+            scopeName: row.scope_name,
+            collectionName: row.collection_name,
+          })
       )
     }, callback)
   }
@@ -479,12 +530,16 @@ class InternalQueryIndexManager {
       timeout?: number
       queryContext?: CppQueryContext
     },
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<string[]>
   ): Promise<string[]> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementQueryIndexBuildDeferred(
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementQueryIndexBuildDeferred.bind(
+          this._cluster.conn
+        ),
         {
           bucket_name: bucketName,
           scope_name: options.scopeName || '',
@@ -492,15 +547,16 @@ class InternalQueryIndexManager {
           query_ctx: options.queryContext || this._queryContext,
           timeout: timeout,
         },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-
-          wrapCallback(null, null)
-        }
+        obsReqHandler
       )
+
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+
+      obsReqHandler.end()
+      return []
     }, callback)
   }
 
@@ -516,6 +572,7 @@ class InternalQueryIndexManager {
       scopeName?: string
       watchPrimary?: boolean
     },
+    obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<void>
   ): Promise<void> {
     if (options.watchPrimary) {
@@ -527,10 +584,21 @@ class InternalQueryIndexManager {
     return PromiseHelper.wrapAsync(async () => {
       let curInterval = 50
       for (;;) {
+        const subObsReqHandler = new ObservableRequestHandler(
+          QueryIndexMgmtOp.QueryIndexGetAll,
+          this.observabilityInstruments,
+          obsReqHandler.wrappedSpan
+        )
+        subObsReqHandler.setRequestHttpAttributes()
+
         // Get all the indexes that are currently registered
-        const foundIdxs = await this.getAllIndexes(bucketName, {
-          timeout: timer.left(),
-        })
+        const foundIdxs = await this.getAllIndexes(
+          bucketName,
+          {
+            timeout: timer.left(),
+          },
+          subObsReqHandler
+        )
         const foundIndexNames = foundIdxs.map((idx) => idx.name)
         const onlineIdxs = foundIdxs.filter((idx) => idx.state === 'online')
         const onlineIdxNames = onlineIdxs.map((idx) => idx.name)
@@ -548,6 +616,7 @@ class InternalQueryIndexManager {
 
         // If all the indexes are online, we've succeeded
         if (allOnline) {
+          obsReqHandler.end()
           break
         }
 
@@ -561,9 +630,16 @@ class InternalQueryIndexManager {
         }
 
         if (curInterval <= 0) {
-          throw new CouchbaseError(
+          // We don't need to end the top-level span here b/c the caller wraps this in a try/catch that
+          // will end the span w/ an error accordingly.  But we do need end the sub-span we created for
+          // the getAllIndexes() call
+          const err = new CouchbaseError(
             'Failed to find all indexes online within the alloted time.'
           )
+          if (!subObsReqHandler.requestHasEnded) {
+            subObsReqHandler.endWithError(err)
+          }
+          throw err
         }
 
         // Wait until curInterval expires
@@ -619,21 +695,34 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.createIndex(
-      this._bucketName,
-      false,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        name: indexName,
-        keys: keys,
-        ignoreIfExists: options.ignoreIfExists,
-        numReplicas: options.numReplicas,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexCreate,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.createIndex(
+        this._bucketName,
+        false,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          name: indexName,
+          keys: keys,
+          ignoreIfExists: options.ignoreIfExists,
+          numReplicas: options.numReplicas,
+          deferred: options.deferred,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -654,19 +743,32 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.createIndex(
-      this._bucketName,
-      true,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        name: options.name,
-        ignoreIfExists: options.ignoreIfExists,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexCreate,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.createIndex(
+        this._bucketName,
+        true,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          name: options.name,
+          ignoreIfExists: options.ignoreIfExists,
+          deferred: options.deferred,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -689,18 +791,31 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.dropIndex(
-      this._bucketName,
-      false,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        name: indexName,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexDrop,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.dropIndex(
+        this._bucketName,
+        false,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          name: indexName,
+          ignoreIfNotExists: options.ignoreIfNotExists,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -721,18 +836,31 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.dropIndex(
-      this._bucketName,
-      true,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        name: options.name,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexDrop,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.dropIndex(
+        this._bucketName,
+        true,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          name: options.name,
+          ignoreIfNotExists: options.ignoreIfNotExists,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -753,15 +881,28 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.getAllIndexes(
-      this._bucketName,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexGetAll,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.getAllIndexes(
+        this._bucketName,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -782,15 +923,28 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.buildDeferredIndexes(
-      this._bucketName,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexBuildDeferred,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.buildDeferredIndexes(
+        this._bucketName,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -815,17 +969,30 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
-    return this._manager.watchIndexes(
-      this._bucketName,
-      indexNames,
-      timeout,
-      {
-        collectionName: this._collectionName,
-        scopeName: this._scopeName,
-        watchPrimary: options.watchPrimary,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexWatchIndexes,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.watchIndexes(
+        this._bucketName,
+        indexNames,
+        timeout,
+        {
+          collectionName: this._collectionName,
+          scopeName: this._scopeName,
+          watchPrimary: options.watchPrimary,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }
 
@@ -869,21 +1036,34 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.createIndex(
-      bucketName,
-      false,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: indexName,
-        keys: keys,
-        ignoreIfExists: options.ignoreIfExists,
-        numReplicas: options.numReplicas,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexCreate,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.createIndex(
+        bucketName,
+        false,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          name: indexName,
+          keys: keys,
+          ignoreIfExists: options.ignoreIfExists,
+          numReplicas: options.numReplicas,
+          deferred: options.deferred,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -906,19 +1086,32 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.createIndex(
-      bucketName,
-      true,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: options.name,
-        ignoreIfExists: options.ignoreIfExists,
-        deferred: options.deferred,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexCreate,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.createIndex(
+        bucketName,
+        true,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          name: options.name,
+          ignoreIfExists: options.ignoreIfExists,
+          deferred: options.deferred,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -943,18 +1136,31 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.dropIndex(
-      bucketName,
-      false,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: indexName,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexDrop,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.dropIndex(
+        bucketName,
+        false,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          name: indexName,
+          ignoreIfNotExists: options.ignoreIfNotExists,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -977,18 +1183,31 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.dropIndex(
-      bucketName,
-      true,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        name: options.name,
-        ignoreIfNotExists: options.ignoreIfNotExists,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexDrop,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.dropIndex(
+        bucketName,
+        true,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          name: options.name,
+          ignoreIfNotExists: options.ignoreIfNotExists,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -1011,15 +1230,28 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.getAllIndexes(
-      bucketName,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexGetAll,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.getAllIndexes(
+        bucketName,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -1042,15 +1274,28 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.buildDeferredIndexes(
-      bucketName,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        timeout: options.timeout,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexBuildDeferred,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.buildDeferredIndexes(
+        bucketName,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          timeout: options.timeout,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -1077,16 +1322,29 @@ export class QueryIndexManager {
       options = {}
     }
 
-    return this._manager.watchIndexes(
-      bucketName,
-      indexNames,
-      timeout,
-      {
-        collectionName: options.collectionName,
-        scopeName: options.scopeName,
-        watchPrimary: options.watchPrimary,
-      },
-      callback
+    const obsReqHandler = new ObservableRequestHandler(
+      QueryIndexMgmtOp.QueryIndexWatchIndexes,
+      this._manager.observabilityInstruments,
+      options?.parentSpan
     )
+    obsReqHandler.setRequestHttpAttributes()
+
+    try {
+      return this._manager.watchIndexes(
+        bucketName,
+        indexNames,
+        timeout,
+        {
+          collectionName: options.collectionName,
+          scopeName: options.scopeName,
+          watchPrimary: options.watchPrimary,
+        },
+        obsReqHandler,
+        callback
+      )
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }

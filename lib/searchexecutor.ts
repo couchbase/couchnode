@@ -1,12 +1,14 @@
 /* eslint jsdoc/require-jsdoc: off */
 import {
-  errorFromCpp,
   mutationStateToCpp,
   searchHighlightStyleToCpp,
   searchScanConsistencyToCpp,
   vectorQueryCombinationToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
 import { MatchNoneSearchQuery, SearchQuery } from './searchquery'
 import { SearchSort } from './searchsort'
 import {
@@ -17,7 +19,8 @@ import {
   SearchRow,
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
-import { CppSearchRequest } from './binding'
+import { CppSearchRequest, CppSearchResponse } from './binding'
+import { PromiseHelper } from './utilities'
 
 /**
  * @internal
@@ -39,10 +42,54 @@ export class SearchExecutor {
   /**
    * @internal
    */
-  query(
-    indexName: string,
-    query: SearchQuery | SearchRequest,
-    options: SearchQueryOptions
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._cluster.observabilityInstruments
+  }
+
+  /**
+   * @internal
+   */
+  static _processSearchResponse(
+    emitter: StreamableRowPromise<SearchResult, SearchRow, SearchMetaData>,
+    err: Error | null,
+    resp: CppSearchResponse,
+    obsReqHandler?: ObservableRequestHandler
+  ): void {
+    if (err) {
+      obsReqHandler?.endWithError(err)
+      emitter.emit('error', err)
+      emitter.emit('end')
+      return
+    }
+
+    resp.rows.forEach((row) => {
+      row.fields = row.fields ? JSON.parse(row.fields) : undefined
+      row.explanation = row.explanation
+        ? JSON.parse(row.explanation)
+        : undefined
+      emitter.emit('row', row)
+    })
+
+    {
+      const metaData = resp.meta
+      emitter.emit('meta', {
+        facets: Object.fromEntries(
+          Object.values(resp.facets).map((v) => [v.name, v])
+        ),
+        ...metaData,
+      } as SearchMetaData)
+    }
+
+    obsReqHandler?.end()
+    emitter.emit('end')
+  }
+
+  /**
+   * @internal
+   */
+  static executePromise(
+    searchPromise: Promise<[Error | null, CppSearchResponse]>,
+    obsReqHandler: ObservableRequestHandler
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
     const emitter = new StreamableRowPromise<
       SearchResult,
@@ -53,6 +100,33 @@ export class SearchExecutor {
         rows: rows,
         meta: meta,
       })
+    })
+
+    PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await searchPromise
+      SearchExecutor._processSearchResponse(emitter, err, resp, obsReqHandler)
+    })
+
+    return emitter
+  }
+
+  /**
+   * @internal
+   */
+  query(
+    indexName: string,
+    query: SearchQuery | SearchRequest,
+    options: SearchQueryOptions
+  ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
+    const obsReqHandler = new ObservableRequestHandler(
+      StreamingOp.Search,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
     })
 
     const searchQuery =
@@ -124,36 +198,13 @@ export class SearchExecutor {
       request.scope_name = this._scopeName
     }
 
-    this._cluster.conn.search(request, (cppErr, resp) => {
-      const err = errorFromCpp(cppErr)
-      if (err) {
-        emitter.emit('error', err)
-        emitter.emit('end')
-        return
-      }
-
-      resp.rows.forEach((row) => {
-        row.fields = row.fields ? JSON.parse(row.fields) : undefined
-        row.explanation = row.explanation
-          ? JSON.parse(row.explanation)
-          : undefined
-        emitter.emit('row', row)
-      })
-
-      {
-        const metaData = resp.meta
-        emitter.emit('meta', {
-          facets: Object.fromEntries(
-            Object.values(resp.facets).map((v) => [v.name, v])
-          ),
-          ...metaData,
-        } as SearchMetaData)
-      }
-
-      emitter.emit('end')
-      return
-    })
-
-    return emitter
+    return SearchExecutor.executePromise(
+      wrapObservableBindingCall(
+        this._cluster.conn.search.bind(this._cluster.conn),
+        request,
+        obsReqHandler
+      ),
+      obsReqHandler
+    )
   }
 }

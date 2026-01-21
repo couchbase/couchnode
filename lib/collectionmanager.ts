@@ -2,8 +2,14 @@ import {
   CppTopologyCollectionsManifestCollection,
   CppTopologyCollectionsManifestScope,
 } from './binding'
-import { errorFromCpp } from './bindingutilities'
 import { Bucket } from './bucket'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import {
+  CollectionMgmtOp,
+  ObservabilityInstruments,
+} from './observabilitytypes'
+import { RequestSpan } from './tracing'
 import { NodeCallback, PromiseHelper } from './utilities'
 
 /**
@@ -193,6 +199,11 @@ export interface CreateCollectionOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -203,6 +214,11 @@ export interface GetAllScopesOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -213,6 +229,11 @@ export interface DropCollectionOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -223,6 +244,11 @@ export interface CreateScopeOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -233,6 +259,11 @@ export interface DropScopeOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**
@@ -243,6 +274,23 @@ export interface UpdateCollectionOptions {
    * The timeout for this operation, represented in milliseconds.
    */
   timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
+}
+
+const OPTIONS_KEYS = ['timeout', 'parentSpan']
+
+/**
+ * @internal
+ */
+export function isOptions<T>(obj: any, expectedKeys: string[]): obj is T {
+  if (!obj || typeof obj !== 'object') return false
+
+  // Check if at least one key in the object exists in our expected list
+  return Object.keys(obj).some((key) => expectedKeys.includes(key))
 }
 
 /**
@@ -265,6 +313,13 @@ export class CollectionManager {
   }
 
   /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._bucket.cluster.observabilityInstruments
+  }
+
+  /**
    * Returns all configured scopes along with their collections.
    *
    * @param options Optional parameters for this operation.
@@ -282,29 +337,41 @@ export class CollectionManager {
       options = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.ScopeGetAll,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({ bucketName: this._bucket.name })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementScopeGetAll(
-        {
-          bucket_name: bucketName,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
 
-          const scopes = resp.manifest.scopes.map((scopeData) =>
-            ScopeSpec._fromCppData(scopeData)
-          )
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementScopeGetAll.bind(this._cluster.conn),
+          {
+            bucket_name: bucketName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
 
-          wrapCallback(null, scopes)
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+        return resp.manifest.scopes.map((scopeData) =>
+          ScopeSpec._fromCppData(scopeData)
+        )
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -383,6 +450,11 @@ export class CollectionManager {
       options = undefined
     }
 
+    if (isOptions<CreateCollectionOptions>(settings, OPTIONS_KEYS)) {
+      options = settings as CreateCollectionOptions
+      settings = undefined
+    }
+
     if (!options) {
       options = {}
     }
@@ -391,31 +463,49 @@ export class CollectionManager {
       settings = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
-    const maxExpiry = settings?.maxExpiry
-    const history = settings?.history
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.CollectionCreate,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucket.name,
+      scopeName: scopeName,
+      collectionName: collectionName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementCollectionCreate(
-        {
-          bucket_name: bucketName,
-          scope_name: scopeName,
-          collection_name: collectionName,
-          max_expiry: maxExpiry,
-          history: history,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
+      const maxExpiry = settings?.maxExpiry
+      const history = settings?.history
 
-          wrapCallback(err)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementCollectionCreate.bind(
+            this._cluster.conn
+          ),
+          {
+            bucket_name: bucketName,
+            scope_name: scopeName,
+            collection_name: collectionName,
+            max_expiry: maxExpiry,
+            history: history,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -440,27 +530,44 @@ export class CollectionManager {
       options = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.CollectionDrop,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucket.name,
+      scopeName: scopeName,
+      collectionName: collectionName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementCollectionDrop(
-        {
-          bucket_name: bucketName,
-          scope_name: scopeName,
-          collection_name: collectionName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
 
-          wrapCallback(err)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementCollectionDrop.bind(this._cluster.conn),
+          {
+            bucket_name: bucketName,
+            scope_name: scopeName,
+            collection_name: collectionName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -487,28 +594,47 @@ export class CollectionManager {
       options = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.CollectionUpdate,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucket.name,
+      scopeName: scopeName,
+      collectionName: collectionName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementCollectionUpdate(
-        {
-          bucket_name: bucketName,
-          scope_name: scopeName,
-          collection_name: collectionName,
-          max_expiry: settings.maxExpiry,
-          history: settings.history,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementCollectionUpdate.bind(
+            this._cluster.conn
+          ),
+          {
+            bucket_name: bucketName,
+            scope_name: scopeName,
+            collection_name: collectionName,
+            max_expiry: settings.maxExpiry,
+            history: settings.history,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -531,26 +657,42 @@ export class CollectionManager {
       options = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.ScopeCreate,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucket.name,
+      scopeName: scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementScopeCreate(
-        {
-          bucket_name: bucketName,
-          scope_name: scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
 
-          wrapCallback(err)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementScopeCreate.bind(this._cluster.conn),
+          {
+            bucket_name: bucketName,
+            scope_name: scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -573,25 +715,41 @@ export class CollectionManager {
       options = {}
     }
 
-    const bucketName = this._bucket.name
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      CollectionMgmtOp.ScopeDrop,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucket.name,
+      scopeName: scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementScopeDrop(
-        {
-          bucket_name: bucketName,
-          scope_name: scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
+    try {
+      const bucketName = this._bucket.name
+      const timeout = options.timeout || this._cluster.managementTimeout
 
-          wrapCallback(err)
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementScopeDrop.bind(this._cluster.conn),
+          {
+            bucket_name: bucketName,
+            scope_name: scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }

@@ -1,6 +1,5 @@
 import { Cluster } from './cluster'
 import { NodeCallback, PromiseHelper } from './utilities'
-import { errorFromCpp } from './bindingutilities'
 import {
   GetSearchIndexOptions,
   GetAllSearchIndexesOptions,
@@ -17,6 +16,12 @@ import {
   ISearchIndex,
   SearchIndex,
 } from './searchindexmanager'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import {
+  SearchIndexMgmtOp,
+  ObservabilityInstruments,
+} from './observabilitytypes'
 
 /**
  * SearchIndexManager provides an interface for managing the
@@ -39,6 +44,13 @@ export class ScopeSearchIndexManager {
   }
 
   /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._cluster.observabilityInstruments
+  }
+
+  /**
    * Returns an index by it's name.
    *
    * @param indexName The index to retrieve.
@@ -58,26 +70,41 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexGet,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexGet(
-        {
-          index_name: indexName,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const index = SearchIndex._fromCppData(resp.index)
-          wrapCallback(null, index)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexGet.bind(this._cluster.conn),
+          {
+            index_name: indexName,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return SearchIndex._fromCppData(resp.index)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -98,27 +125,44 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexGetAll,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexGetAll(
-        {
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const indexes = resp.indexes.map((indexData: any) =>
-            SearchIndex._fromCppData(indexData)
-          )
-          wrapCallback(null, indexes)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexGetAll.bind(
+            this._cluster.conn
+          ),
+          {
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.indexes.map((indexData: any) =>
+          SearchIndex._fromCppData(indexData)
+        )
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -141,25 +185,42 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexUpsert,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexUpsert(
-        {
-          index: SearchIndex._toCppData(indexDefinition),
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexUpsert.bind(
+            this._cluster.conn
+          ),
+          {
+            index: SearchIndex._toCppData(indexDefinition),
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -182,25 +243,40 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexDrop,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexDrop(
-        {
-          index_name: indexName,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexDrop.bind(this._cluster.conn),
+          {
+            index_name: indexName,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -223,25 +299,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexGetDocumentsCount,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexGetDocumentsCount(
-        {
-          index_name: indexName,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(null, resp.count)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexGetDocumentsCount.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.count
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -264,26 +358,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexPauseIngest,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlIngest(
-        {
-          index_name: indexName,
-          pause: true,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlIngest.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            pause: true,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -306,26 +417,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexResumeIngest,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlIngest(
-        {
-          index_name: indexName,
-          pause: false,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlIngest.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            pause: false,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -348,26 +476,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexAllowQuerying,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlQuery(
-        {
-          index_name: indexName,
-          allow: true,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlQuery.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            allow: true,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -390,26 +535,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexDisallowQuerying,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlQuery(
-        {
-          index_name: indexName,
-          allow: false,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlQuery.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            allow: false,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -432,26 +594,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexFreezePlan,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlPlanFreeze(
-        {
-          index_name: indexName,
-          freeze: true,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            freeze: true,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -474,26 +653,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexUnfreezePlan,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexControlPlanFreeze(
-        {
-          index_name: indexName,
-          freeze: false,
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            freeze: false,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -518,26 +714,43 @@ export class ScopeSearchIndexManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      SearchIndexMgmtOp.SearchIndexAnalyzeDocument,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementSearchIndexAnalyzeDocument(
-        {
-          index_name: indexName,
-          encoded_document: JSON.stringify(document),
-          timeout: timeout,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const result = JSON.parse(resp.analysis)
-          wrapCallback(result, null)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementSearchIndexAnalyzeDocument.bind(
+            this._cluster.conn
+          ),
+          {
+            index_name: indexName,
+            encoded_document: JSON.stringify(document),
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return JSON.parse(resp.analysis)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }

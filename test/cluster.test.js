@@ -1,8 +1,10 @@
 'use strict'
 
-const assert = require('assert')
+const assert = require('chai').assert
 const gc = require('expose-gc/function')
 const { Cluster } = require('../lib/cluster')
+const { ThresholdLoggingTracer } = require('../lib/thresholdlogging')
+const { NoOpTracer } = require('../lib/observability')
 var { knownProfiles } = require('../lib/configProfile')
 const harness = require('./harness')
 
@@ -99,7 +101,7 @@ describe('#Cluster', function () {
   })
 
   it('should error with AuthenticationFailureError', async function () {
-    if (!H._usingMock) {
+    if (!H.usingMock) {
       let connOpts = { ...H.connOpts }
       connOpts.username = 'wrongUsername'
       await H.throwsHelper(async () => {
@@ -132,7 +134,8 @@ describe('#Cluster', function () {
       () => {
         new Cluster(H.connStr, { ...H.connOpts, configProfile: 'testProfile' })
       },
-      { name: 'Error', message: 'testProfile is not a registered profile.' }
+      Error,
+      'testProfile is not a registered profile.'
     )
   })
 
@@ -161,5 +164,53 @@ describe('#Cluster', function () {
     let bucketStr = JSON.stringify(H.b)
     let bucket = JSON.parse(bucketStr)
     assert.strictEqual(bucket._cluster._auth, '***hidden***')
+  })
+
+  it('should use NoOpTracer when tracing is disabled', async function () {
+    const cluster = new Cluster('couchbase://localhost', {
+      username: 'test',
+      password: 'pass',
+      tracingConfig: { enableTracing: false },
+    })
+
+    cluster._conn = {
+      openBucket: () => {},
+      connect: (_, auth, dns, telemetry, enableTracing, orphanConfig, cb) => {
+        cb()
+      },
+      shutdown: (cb) => cb(),
+      getClusterLabels: () => ({ clusterName: 'test', clusterUUID: 'uuid' }),
+    }
+
+    await cluster._connect()
+
+    assert.instanceOf(cluster.observabilityInstruments.tracer, NoOpTracer)
+
+    await cluster.close()
+  })
+
+  it('should use ThresholdLoggingTracer by default', async function () {
+    const cluster = new Cluster('couchbase://localhost', {
+      username: 'test',
+      password: 'pass',
+    })
+
+    cluster._conn = {
+      openBucket: () => {},
+      connect: (_, auth, dns, telemetry, enableTracing, orphanConfig, cb) => {
+        cb()
+      },
+      shutdown: (cb) => cb(),
+      getClusterLabels: () => ({ clusterName: 'test', clusterUUID: 'uuid' }),
+    }
+
+    await cluster._connect()
+
+    assert.instanceOf(
+      cluster.observabilityInstruments.tracer,
+      ThresholdLoggingTracer
+    )
+
+    await cluster.close()
   })
 })

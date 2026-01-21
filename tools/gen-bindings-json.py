@@ -343,8 +343,14 @@ class BindingsGenerator:
                 'of': {'name': 'std::vector', 'of': {'name':'couchbase::core::tracing::wrapper_sdk_span'}}
             }
         }
+        special_ops = ['couchbase::core::operations::management::analytics_link_create_response',
+                       'couchbase::core::operations::management::analytics_link_replace_response']
 
         for op_type in self._op_types:
+            if op_type.get('name') in special_ops:
+                op_type['fields'].append(cpp_spans_response)
+                continue
+
             parent_span = next((f for f in op_type.get('fields') if f.get('name') == 'parent_span'), None)
             if not parent_span:
                 continue

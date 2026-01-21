@@ -4,6 +4,7 @@ import { SearchFacet } from './searchfacet'
 import { SearchQuery } from './searchquery'
 import { SearchSort } from './searchsort'
 import { VectorSearch } from './vectorsearch'
+import { RequestSpan } from './tracing'
 
 /**
  * SearchMetaData represents the meta-data available from a search query.
@@ -183,6 +184,11 @@ export interface SearchQueryOptions {
    * Specifies that the search response should appear in the log.
    */
   logResponse?: boolean
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
 }
 
 /**

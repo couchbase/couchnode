@@ -1,6 +1,5 @@
 import { Cluster } from './cluster'
 import { NodeCallback, PromiseHelper } from './utilities'
-import { errorFromCpp } from './bindingutilities'
 import { CppManagementEventingFunction } from './binding'
 import {
   DeployFunctionOptions,
@@ -14,6 +13,12 @@ import {
   ResumeFunctionOptions,
   UpsertFunctionOptions,
 } from './eventingfunctionmanager'
+import { wrapObservableBindingCall } from './observability'
+import { ObservableRequestHandler } from './observabilityhandler'
+import {
+  EventingFunctionMgmtOp,
+  ObservabilityInstruments,
+} from './observabilitytypes'
 
 /**
  * ScopeEventingFunctionManager provides an interface for managing the
@@ -37,6 +42,13 @@ export class ScopeEventingFunctionManager {
   }
 
   /**
+   * @internal
+   */
+  get observabilityInstruments(): ObservabilityInstruments {
+    return this._cluster.observabilityInstruments
+  }
+
+  /**
    * Creates or updates an eventing function.
    *
    * @param functionDefinition The description of the eventing function to upsert.
@@ -56,25 +68,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingUpsertFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingUpsertFunction(
-        {
-          function: EventingFunction._toCppData(functionDefinition),
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingUpsertFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            function: EventingFunction._toCppData(functionDefinition),
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -97,25 +126,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingDropFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingDropFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingDropFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -136,28 +182,45 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingGetAllFunctions,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingGetAllFunctions(
-        {
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const functions = resp.functions.map(
-            (functionData: CppManagementEventingFunction) =>
-              EventingFunction._fromCppData(functionData)
-          )
-          wrapCallback(null, functions)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingGetAllFunctions.bind(
+            this._cluster.conn
+          ),
+          {
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return resp.functions.map(
+          (functionData: CppManagementEventingFunction) =>
+            EventingFunction._fromCppData(functionData)
+        )
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -180,26 +243,43 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingGetFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingGetFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const eventingFunction = EventingFunction._fromCppData(resp.function)
-          wrapCallback(null, eventingFunction)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingGetFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return EventingFunction._fromCppData(resp.function)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -222,25 +302,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingDeployFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingDeployFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingDeployFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -263,25 +360,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingUndeployFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingUndeployFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingUndeployFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -304,25 +418,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingPauseFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingPauseFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingPauseFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -345,25 +476,42 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingResumeFunction,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingResumeFunction(
-        {
-          name: name,
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          wrapCallback(err)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, _] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingResumeFunction.bind(
+            this._cluster.conn
+          ),
+          {
+            name: name,
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 
   /**
@@ -384,24 +532,41 @@ export class ScopeEventingFunctionManager {
       options = {}
     }
 
-    const timeout = options.timeout || this._cluster.managementTimeout
+    const obsReqHandler = new ObservableRequestHandler(
+      EventingFunctionMgmtOp.EventingGetStatus,
+      this.observabilityInstruments,
+      options?.parentSpan
+    )
+    obsReqHandler.setRequestHttpAttributes({
+      bucketName: this._bucketName,
+      scopeName: this._scopeName,
+    })
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._cluster.conn.managementEventingGetStatus(
-        {
-          bucket_name: this._bucketName,
-          scope_name: this._scopeName,
-          timeout: timeout,
-        },
-        (cppErr, resp) => {
-          const err = errorFromCpp(cppErr)
-          if (err) {
-            return wrapCallback(err, null)
-          }
-          const state = EventingState._fromCppData(resp.status)
-          wrapCallback(null, state)
+    try {
+      const timeout = options.timeout || this._cluster.managementTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._cluster.conn.managementEventingGetStatus.bind(
+            this._cluster.conn
+          ),
+          {
+            bucket_name: this._bucketName,
+            scope_name: this._scopeName,
+            timeout: timeout,
+          },
+          obsReqHandler
+        )
+        if (err) {
+          obsReqHandler.endWithError(err)
+          throw err
         }
-      )
-    }, callback)
+        obsReqHandler.end()
+        return EventingState._fromCppData(resp.status)
+      }, callback)
+    } catch (err) {
+      obsReqHandler.endWithError(err)
+      throw err
+    }
   }
 }
