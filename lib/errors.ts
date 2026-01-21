@@ -1026,3 +1026,14 @@ export class TransactionCommitAmbiguousError extends CouchbaseError {
     super('transaction commit ambiguous', cause)
   }
 }
+
+/**
+ * Indicates an error occurred during a observability metric operation.
+ *
+ * @category Error Handling
+ */
+export class MeterError extends CouchbaseError {
+  constructor(cause?: Error) {
+    super('An error occurred during a metrics operation', cause)
+  }
+}

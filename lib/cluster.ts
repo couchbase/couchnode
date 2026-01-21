@@ -32,7 +32,9 @@ import {
   NoOpLogger,
   parseLogLevel,
 } from './logger'
-import { NoOpTracer } from './observability'
+import { LoggingMeter } from './loggingmeter'
+import { Meter } from './metrics'
+import { NoOpMeter, NoOpTracer } from './observability'
 import { ObservabilityInstruments } from './observabilitytypes'
 import { QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
@@ -388,6 +390,11 @@ export interface ConnectOptions {
   orphanReporterConfig?: OrphanReporterConfig
 
   /**
+   * Specifies the meter for this cluster.
+   */
+  meter?: Meter
+
+  /**
    * Specifies the metrics config for connections of this cluster.
    */
   metricsConfig?: MetricsConfig
@@ -432,6 +439,7 @@ export class Cluster {
   private _tracingConfig: TracingConfig | null
   private _orphanReporterConfig: OrphanReporterConfig | null
   private _metricsConfig: MetricsConfig | null
+  private _meter: Meter | undefined
   private _logger: CouchbaseLogger
 
   /**
@@ -674,6 +682,10 @@ export class Cluster {
       }
     } else {
       this._orphanReporterConfig = null
+    }
+
+    if (options.meter) {
+      this._meter = options.meter
     }
 
     if (options.metricsConfig) {
@@ -989,6 +1001,10 @@ export class Cluster {
       this._tracer.cleanup()
     }
 
+    if (this._meter instanceof LoggingMeter) {
+      this._meter.cleanup()
+    }
+
     return PromiseHelper.wrap((wrapCallback) => {
       this._conn.shutdown((cppErr) => {
         wrapCallback(errorFromCpp(cppErr))
@@ -1049,6 +1065,59 @@ export class Cluster {
     return authOpts
   }
 
+  private _setupObservability(): [boolean, boolean] {
+    // [tracing|metrics] is explicitly disabled IFF:
+    //            we have a [tracing|metrics]Config AND [tracing|metrics]Config.enable[Tracing|Metrics] === false
+    // _[tracing|metrics]Config = null                          => FALSE
+    // _[tracing|metrics]Config = undefined                     => FALSE
+    // _[tracing|metrics]Config.enable[Tracing|Metrics] = true  => FALSE
+    // _[tracing|metrics]Config.enable[Tracing|Metrics] = false => TRUE
+
+    const tracingExplicitlyDisabled =
+      (this._tracingConfig ?? false) && !this._tracingConfig?.enableTracing
+    // we want to enable tracing IFF we don't have a tracer && tracing was NOT explicitly disabled
+    const enableTracing =
+      typeof this._tracer !== 'undefined' || !tracingExplicitlyDisabled
+
+    // if tracing is enabled, but we don't have a tracer, default to the ThresholdLoggingTracer
+    if (enableTracing && !this._tracer) {
+      this._tracer = new ThresholdLoggingTracer(
+        this._logger,
+        this._tracingConfig
+      )
+    }
+    // if we don't have a tracer at this point, tracing is NOT enabled, use the NoOpTracer
+    if (!this._tracer) {
+      this._tracer = new NoOpTracer()
+    }
+
+    const metricsExplicitlyDisabled =
+      (this._metricsConfig ?? false) && !this._metricsConfig?.enableMetrics
+    // we want to enable metrics IFF we don't have a meter && metrics was NOT explicitly disabled
+    const enableMetrics =
+      typeof this._meter !== 'undefined' || !metricsExplicitlyDisabled
+
+    // if metrics is enabled, but we don't have a meter, default to the LoggingMeter
+    if (enableMetrics && !this._meter) {
+      this._meter = new LoggingMeter(
+        this._logger,
+        this._metricsConfig?.emitInterval
+      )
+    }
+    // if we don't have a meter at this point, metrics is NOT enabled, use the NoOpMeter
+    if (!this._meter) {
+      this._meter = new NoOpMeter()
+    }
+
+    this._observabilityInstruments = new ObservabilityInstruments(
+      this._tracer,
+      this._meter,
+      () => this._getClusterLabels()
+    )
+
+    return [enableTracing, enableMetrics]
+  }
+
   private async _connect() {
     return new Promise((resolve, reject) => {
       const dsnObj = ConnSpec.parse(this._connStr)
@@ -1098,33 +1167,7 @@ export class Cluster {
 
       const authOpts = this._getCppCredentials(this._auth, saslMechansims)
 
-      // Tracing is explicitly disabled IFF we have a tracingConfig AND tracingConfig.enableTracing === false
-      // _tracingConfig = null                => FALSE
-      // _tracingConfig = undefined           => FALSE
-      // _tracingConfig.enableTracing = true  => FALSE
-      // _tracingConfig.enableTracing = false => TRUE
-      const tracingExplicitlyDisabled =
-        (this._tracingConfig ?? false) && !this._tracingConfig?.enableTracing
-      // we want to enable tracing IFF we don't have a tracer && tracing was NOT explicitly disabled
-      const enableTracing =
-        !this._tracer && tracingExplicitlyDisabled ? false : true
-      // if tracing is enabled, but we don't have a tracer, default to the ThresholdLoggingTracer
-      if (enableTracing && !this._tracer) {
-        this._tracer = new ThresholdLoggingTracer(
-          this._logger,
-          this._tracingConfig
-        )
-      }
-      // if we don't have a tracer at this point, tracing is NOT enabled, use the NoOpTracer
-      if (!this._tracer) {
-        this._tracer = new NoOpTracer()
-      }
-
-      this._observabilityInstruments = new ObservabilityInstruments(
-        this._tracer,
-        null,
-        () => this._getClusterLabels()
-      )
+      const [enableTracing, _enableMetrics] = this._setupObservability()
 
       this._conn.connect(
         connStr,

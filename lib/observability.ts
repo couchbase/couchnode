@@ -5,6 +5,7 @@ import {
   ObservableBindingFunc,
 } from './binding'
 import { errorFromCpp } from './bindingutilities'
+import { ValueRecorder, Meter } from './metrics'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { RequestSpan, RequestTracer } from './tracing'
 
@@ -78,4 +79,26 @@ export async function wrapObservableBindingCall<
       })
     }
   )
+}
+
+/**
+ * @internal
+ */
+export class NoOpValueRecorder implements ValueRecorder {
+  /**
+   * @internal
+   */
+  recordValue(_value: number): void {}
+}
+
+/**
+ * @internal
+ */
+export class NoOpMeter implements Meter {
+  /**
+   * @internal
+   */
+  valueRecorder(_name: string, _tags: Record<string, string>): ValueRecorder {
+    return new NoOpValueRecorder()
+  }
 }

@@ -511,10 +511,6 @@ class Harness {
     return this._usingMock
   }
 
-  get clusterNamePresent() {
-    return this._clusterNamePresent
-  }
-
   get c() {
     return this._testCluster
   }

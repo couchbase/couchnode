@@ -1,4 +1,5 @@
 import { HiResTime } from './binding'
+import { Meter } from './metrics'
 import { RequestTracer } from './tracing'
 
 /**
@@ -266,8 +267,12 @@ export enum OpAttributeName {
   DispatchSpanName = 'dispatch_to_server',
   DurabilityLevel = 'couchbase.durability',
   EncodingSpanName = 'request_encoding',
+  ErrorType = 'error.type',
+  MeterNameOpDuration = 'db.client.operation.duration',
   OperationName = 'db.operation.name',
   QueryStatement = 'db.query.text',
+  ReservedUnit = '__unit',
+  ReservedUnitSeconds = 's',
   RetryCount = 'couchbase.retries',
   ScopeName = 'couchbase.scope.name',
   Service = 'couchbase.service',
@@ -409,7 +414,7 @@ export enum SpanStatusCode {
  */
 export class ObservabilityInstruments {
   private readonly _tracer: RequestTracer
-  private readonly _meter: any // TODO: add typing when we add metrics support
+  private readonly _meter: Meter
   private readonly _getClusterLabelsFn:
     | (() => Record<string, string | undefined>)
     | undefined
@@ -434,7 +439,7 @@ export class ObservabilityInstruments {
   /**
    * @internal
    */
-  get meter(): any {
+  get meter(): Meter {
     return this._meter
   }
 

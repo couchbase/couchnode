@@ -22,6 +22,7 @@
   "dependencies": {
     "cmake-js": "^8.0.0",
     "detect-libc": "^2.1.2",
+    "hdr-histogram-js": "^3.0.1",
     "node-addon-api": "^8.3.1"
   },
   "devDependencies": {

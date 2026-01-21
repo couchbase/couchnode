@@ -4,7 +4,8 @@ const assert = require('chai').assert
 const gc = require('expose-gc/function')
 const { Cluster } = require('../lib/cluster')
 const { ThresholdLoggingTracer } = require('../lib/thresholdlogging')
-const { NoOpTracer } = require('../lib/observability')
+const { NoOpTracer, NoOpMeter } = require('../lib/observability')
+const { LoggingMeter } = require('../lib/loggingmeter')
 var { knownProfiles } = require('../lib/configProfile')
 const harness = require('./harness')
 
@@ -210,6 +211,51 @@ describe('#Cluster', function () {
       cluster.observabilityInstruments.tracer,
       ThresholdLoggingTracer
     )
+
+    await cluster.close()
+  })
+
+  it('should use NoOpMeter when metrics are disabled', async function () {
+    const cluster = new Cluster('couchbase://localhost', {
+      username: 'test',
+      password: 'pass',
+      metricsConfig: { enableMetrics: false },
+    })
+
+    cluster._conn = {
+      openBucket: () => {},
+      connect: (_, auth, dns, telemetry, enableTracing, orphanConfig, cb) => {
+        cb()
+      },
+      shutdown: (cb) => cb(),
+      getClusterLabels: () => ({ clusterName: 'test', clusterUUID: 'uuid' }),
+    }
+
+    await cluster._connect()
+
+    assert.instanceOf(cluster.observabilityInstruments.meter, NoOpMeter)
+
+    await cluster.close()
+  })
+
+  it('should use LoggingMeter by default', async function () {
+    const cluster = new Cluster('couchbase://localhost', {
+      username: 'test',
+      password: 'pass',
+    })
+
+    cluster._conn = {
+      openBucket: () => {},
+      connect: (_, auth, dns, telemetry, enableTracing, orphanConfig, cb) => {
+        cb()
+      },
+      shutdown: (cb) => cb(),
+      getClusterLabels: () => ({ clusterName: 'test', clusterUUID: 'uuid' }),
+    }
+
+    await cluster._connect()
+
+    assert.instanceOf(cluster.observabilityInstruments.meter, LoggingMeter)
 
     await cluster.close()
   })

@@ -5,12 +5,14 @@ import {
   CppWrapperSdkSpan,
   HiResTime,
 } from './binding'
-import { NoOpTracer } from './observability'
+import { NoOpMeter, NoOpTracer } from './observability'
+import { Meter } from './metrics'
 import { ObservabilityInstruments } from './observabilitytypes'
 import {
   AttributeValue,
   CppOpAttributeName,
   CppOpAttributeNameToOpAttributeNameMap,
+  DatastructureOp,
   HttpOpType,
   KeyValueOp,
   isCppAttribute,
@@ -27,6 +29,7 @@ import {
   getAttributesForKeyValueOpType,
   HttpOpAttributesOptions,
 } from './observabilityutilities'
+import { hiResTimeToMicros, getHiResTimeDelta } from './observabilityutilities'
 import { RequestSpan, RequestTracer } from './tracing'
 import { getErrorMessage } from './utilities'
 
@@ -206,7 +209,7 @@ class ObservableRequestHandlerTracerImpl {
 /**
  * @internal
  */
-export class ObservableRequestHandlerNoOpTracerImpl {
+class ObservableRequestHandlerNoOpTracerImpl {
   private _opType: OpType
   private _wrappedSpan: WrappedSpan | undefined
   constructor(
@@ -215,6 +218,20 @@ export class ObservableRequestHandlerNoOpTracerImpl {
     _parentSpan?: RequestSpan
   ) {
     this._opType = opType
+  }
+
+  /**
+   * @internal
+   */
+  get clusterName(): string | undefined {
+    return undefined
+  }
+
+  /**
+   * @internal
+   */
+  get clusterUUID(): string | undefined {
+    return undefined
   }
 
   /**
@@ -286,12 +303,196 @@ export class ObservableRequestHandlerNoOpTracerImpl {
 /**
  * @internal
  */
+class ObservableRequestHandlerNoOpMeterImpl {
+  private _opType: OpType
+  constructor(
+    opType: OpType,
+    _observabilityInstruments: ObservabilityInstruments
+  ) {
+    this._opType = opType
+  }
+
+  /**
+   * @internal
+   */
+  setRequestKeyValueAttributes(
+    _cppDocId: CppDocumentId,
+    _durability?: CppDurabilityLevel
+  ): void {}
+
+  /**
+   * @internal
+   */
+  setRequestHttpAttributes(_options?: HttpOpAttributesOptions): void {}
+
+  /**
+   * @internal
+   */
+  processEnd(
+    _clusterName?: string,
+    _clusterUUID?: string,
+    _error?: any
+  ): void {}
+
+  /**
+   * @internal
+   */
+  reset(
+    _opType: OpType,
+    _clusterName?: string,
+    _clusterUUID?: string,
+    _error?: any
+  ): void {}
+}
+
+/**
+ * @internal
+ */
+class ObservableRequestHandlerMeterImpl {
+  private _opType: OpType
+  private _serviceName: ServiceName
+  private readonly _meter: Meter
+  private readonly _getClusterLabelsFn:
+    | (() => Record<string, string | undefined>)
+    | undefined
+  private readonly _ignoreTopLevelOp: boolean
+  private _startTime: HiResTime
+  private _attrs: Record<string, AttributeValue> = {}
+
+  constructor(
+    opType: OpType,
+    observabilityInstruments: ObservabilityInstruments
+  ) {
+    this._opType = opType
+    this._serviceName = serviceNameFromOpType(opType)
+    this._meter = observabilityInstruments.meter
+    this._getClusterLabelsFn = observabilityInstruments.clusterLabelsFn
+    this._startTime = process.hrtime()
+    this._ignoreTopLevelOp = Object.values(DatastructureOp).includes(
+      opType as DatastructureOp
+    )
+  }
+
+  /**
+   * @internal
+   */
+  setRequestKeyValueAttributes(cppDocId: CppDocumentId): void {
+    this._attrs = getAttributesForKeyValueOpType(
+      this._opType as KeyValueOp,
+      cppDocId
+    )
+  }
+
+  /**
+   * @internal
+   */
+  setRequestHttpAttributes(options?: HttpOpAttributesOptions): void {
+    this._attrs = getAttributesForHttpOpType(this._opType as HttpOpType, options)
+  }
+
+  /**
+   * @internal
+   */
+  processEnd(clusterName?: string, clusterUUID?: string, error?: any): void {
+    const endTime = process.hrtime()
+    const duration = hiResTimeToMicros(
+      getHiResTimeDelta(this._startTime, endTime)
+    )
+    if (this._ignoreTopLevelOp) {
+      return
+    }
+
+    // Get cluster labels if not provided
+    if (
+      this._getClusterLabelsFn &&
+      (clusterName === undefined || clusterUUID === undefined)
+    ) {
+      const clusterLabels = this._getClusterLabelsFn()
+      clusterName = clusterName || clusterLabels.clusterName
+      clusterUUID = clusterUUID || clusterLabels.clusterUUID
+    }
+
+    // Build final tags
+    const tags: Record<string, string> = {
+      ...(this._attrs as Record<string, string>),
+    }
+
+    if (Object.keys(tags).length === 0) {
+      tags[OpAttributeName.SystemName] = 'couchbase'
+      tags[OpAttributeName.Service] = this._serviceName
+      tags[OpAttributeName.OperationName] = this._getOpName()
+      tags[OpAttributeName.ReservedUnit] = OpAttributeName.ReservedUnitSeconds
+    } else {
+      tags[OpAttributeName.ReservedUnit] = OpAttributeName.ReservedUnitSeconds
+    }
+
+    // Add cluster labels
+    if (clusterName) {
+      tags[OpAttributeName.ClusterName] = clusterName
+    }
+    if (clusterUUID) {
+      tags[OpAttributeName.ClusterUUID] = clusterUUID
+    }
+
+    // Handle error
+    if (error) {
+      this._handleError(tags, error)
+    }
+
+    // Record the duration
+    this._meter
+      .valueRecorder(OpAttributeName.MeterNameOpDuration, tags)
+      .recordValue(duration)
+  }
+
+  /**
+   * @internal
+   */
+  reset(
+    opType: OpType,
+    clusterName?: string,
+    clusterUUID?: string,
+    error?: any
+  ): void {
+    this.processEnd(clusterName, clusterUUID, error)
+    this._opType = opType
+    this._serviceName = serviceNameFromOpType(opType)
+    this._startTime = process.hrtime()
+    this._attrs = {}
+  }
+
+  private _getOpName(): string {
+    return this._opType.toString()
+  }
+
+  private _handleError(tags: Record<string, string>, error: any): void {
+    const errorType = error?.constructor?.name || '_OTHER'
+    tags[OpAttributeName.ErrorType] = errorType
+  }
+}
+
+/**
+ * @internal
+ */
+type TracerImpl =
+  | ObservableRequestHandlerTracerImpl
+  | ObservableRequestHandlerNoOpTracerImpl
+
+/**
+ * @internal
+ */
+type MeterImpl =
+  | ObservableRequestHandlerMeterImpl
+  | ObservableRequestHandlerNoOpMeterImpl
+
+/**
+ * @internal
+ */
 export class ObservableRequestHandler {
   private _opType: OpType
   private _requestHasEnded: boolean
-  private readonly _tracerImpl:
-    | ObservableRequestHandlerTracerImpl
-    | ObservableRequestHandlerNoOpTracerImpl
+  private readonly _tracerImpl: TracerImpl
+  private readonly _meterImpl: MeterImpl
 
   constructor(
     opType: OpType,
@@ -314,6 +515,17 @@ export class ObservableRequestHandler {
         opType,
         observabilityInstruments,
         parentSpan
+      )
+    }
+    if (observabilityInstruments.meter instanceof NoOpMeter) {
+      this._meterImpl = new ObservableRequestHandlerNoOpMeterImpl(
+        opType,
+        observabilityInstruments
+      )
+    } else {
+      this._meterImpl = new ObservableRequestHandlerMeterImpl(
+        opType,
+        observabilityInstruments
       )
     }
   }
@@ -349,9 +561,24 @@ export class ObservableRequestHandler {
   /**
    * @internal
    */
+  get clusterName(): string | undefined {
+    return this._tracerImpl.clusterName
+  }
+
+  /**
+   * @internal
+   */
+  get clusterUUID(): string | undefined {
+    return this._tracerImpl.clusterUUID
+  }
+
+  /**
+   * @internal
+   */
   end(): void {
     this._requestHasEnded = true
     this._tracerImpl.end()
+    this._meterImpl.processEnd(this.clusterName, this.clusterUUID)
   }
 
   /**
@@ -360,6 +587,7 @@ export class ObservableRequestHandler {
   endWithError(error?: any): void {
     this._requestHasEnded = true
     this._tracerImpl.endWithError(error)
+    this._meterImpl.processEnd(this.clusterName, this.clusterUUID, error)
   }
 
   /**
@@ -386,6 +614,12 @@ export class ObservableRequestHandler {
   ): void {
     this._opType = opType
     this._tracerImpl.reset(opType, parentSpan, withError)
+    this._meterImpl.reset(
+      opType,
+      this.clusterName,
+      this.clusterUUID,
+      withError ? undefined : undefined
+    )
   }
 
   /**
@@ -400,7 +634,7 @@ export class ObservableRequestHandler {
    */
   setRequestHttpAttributes(options?: HttpOpAttributesOptions): void {
     this._tracerImpl.setRequestHttpAttributes(options)
-    // TODO: meter attrs
+    this._meterImpl.setRequestHttpAttributes(options)
   }
 
   /**
@@ -411,7 +645,7 @@ export class ObservableRequestHandler {
     durability?: CppDurabilityLevel
   ): void {
     this._tracerImpl.setRequestKeyValueAttributes(cppDocId, durability)
-    // TODO: meter attrs
+    this._meterImpl.setRequestKeyValueAttributes(cppDocId, durability)
   }
 }
 
