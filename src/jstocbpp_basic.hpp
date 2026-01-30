@@ -42,6 +42,7 @@ struct js_to_cbpp_t<couchbase::core::cluster_credentials> {
         js_to_cbpp(cppObj.password, jsObj.Get("password"));
         js_to_cbpp(cppObj.certificate_path, jsObj.Get("certificate_path"));
         js_to_cbpp(cppObj.key_path, jsObj.Get("key_path"));
+        js_to_cbpp(cppObj.jwt_token, jsObj.Get("jwt_token"));
         js_to_cbpp(cppObj.allowed_sasl_mechanisms,
                    jsObj.Get("allowed_sasl_mechanisms"));
         return cppObj;

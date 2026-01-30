@@ -20,6 +20,7 @@ export interface CppClusterCredentials {
   certificate_path?: string
   key_path?: string
   allowed_sasl_mechanisms?: string[]
+  jwt_token?: string
 }
 
 export interface CppDnsConfig {

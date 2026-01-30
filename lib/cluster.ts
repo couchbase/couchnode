@@ -9,6 +9,7 @@ import {
   Authenticator,
   PasswordAuthenticator,
   CertificateAuthenticator,
+  JwtAuthenticator,
 } from './authenticators'
 import binding, { CppClusterCredentials, CppConnection } from './binding'
 import { errorFromCpp } from './bindingutilities'
@@ -1005,6 +1006,11 @@ export class Cluster {
       if (certAuth.certificatePath || certAuth.keyPath) {
         authOpts.certificate_path = certAuth.certificatePath
         authOpts.key_path = certAuth.keyPath
+      }
+
+      const jwtAuth = auth as JwtAuthenticator
+      if (jwtAuth.token) {
+        authOpts.jwt_token = jwtAuth.token
       }
     }
 

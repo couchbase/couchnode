@@ -119,8 +119,49 @@ export class CertificateAuthenticator implements ICertificateAuthenticator {
 }
 
 /**
+ * IJwtAuthenticator specifies an authenticator which uses a JWT token
+ * to authenticate with the cluster.
+ *
+ * @category Authentication
+ *
+ * Uncommitted: This API is subject to change in the future.
+ */
+export interface IJwtAuthenticator {
+  /**
+   * The token to authenticate with.
+   */
+  token: string
+}
+
+/**
+ * JwtAuthenticator implements a simple IJwtAuthenticator.
+ *
+ * @category Authentication
+ *
+ * Uncommitted: This API is subject to change in the future.
+ */
+export class JwtAuthenticator implements IJwtAuthenticator {
+  /**
+   * The token that will be used to authenticate with.
+   */
+  token: string
+
+  /**
+   * Constructs this JwtAuthenticator with the passed token.
+   *
+   * @param token The token to initialize this authenticator with.
+   */
+  constructor(token: string) {
+    this.token = token
+  }
+}
+
+/**
  * Represents any of the valid authenticators that could be passed to the SDK.
  *
  * @category Authentication
  */
-export type Authenticator = IPasswordAuthenticator | ICertificateAuthenticator
+export type Authenticator =
+  | IPasswordAuthenticator
+  | ICertificateAuthenticator
+  | IJwtAuthenticator
