@@ -6,7 +6,6 @@ const harness = require('./harness')
 const H = harness
 
 async function startWorker(workerData) {
-  /* eslint-disable-next-line node/no-unsupported-features/node-builtins */
   const worker = require('worker_threads')
 
   return await new Promise((resolve, reject) => {
@@ -49,7 +48,7 @@ describe('#worker-threads', function () {
   after(async function () {
     try {
       await H.dco.remove(testKey)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   })

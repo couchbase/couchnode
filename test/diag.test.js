@@ -14,7 +14,7 @@ describe('#diagnostics', function () {
       var res
       try {
         res = await testCluster.diagnostics()
-      } catch (e) {
+      } catch (_e) {
         res = {
           id: '',
           version: 2,

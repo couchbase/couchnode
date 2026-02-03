@@ -1,12 +1,9 @@
-/* eslint-disable @typescript-eslint/explicit-module-boundary-types */
-
-const { performance } = require('perf_hooks');
+const { performance } = require('perf_hooks')
 const http = require('http')
 const MANAGEMENT_PORT = 8091
 const VIEWS_PORT = 8092
 
 class ConsistencyUtils {
-
   constructor(hostname, auth) {
     this.hostname = hostname
     this.auth = auth
@@ -87,7 +84,9 @@ class ConsistencyUtils {
   }
 
   async waitUntilDesignDocumentPresent(bucketName, designDocumentName) {
-    console.debug(`waiting until design document ${designDocumentName} present on all nodes`)
+    console.debug(
+      `waiting until design document ${designDocumentName} present on all nodes`
+    )
     await this.waitUntilAllNodesMatchPredicate(
       `/${bucketName}/_design/${designDocumentName}`,
       this.resourceIsPresent,
@@ -98,7 +97,9 @@ class ConsistencyUtils {
   }
 
   async waitUntilDesignDocumentDropped(bucketName, designDocumentName) {
-    console.debug(`waiting until design document ${designDocumentName} dropped on all nodes`)
+    console.debug(
+      `waiting until design document ${designDocumentName} dropped on all nodes`
+    )
     await this.waitUntilAllNodesMatchPredicate(
       `/${bucketName}/_design/${designDocumentName}`,
       this.resourceIsDropped,
@@ -171,7 +172,9 @@ class ConsistencyUtils {
   }
 
   async waitUntilCollectionPresent(bucketName, scopeName, collectionName) {
-    console.debug(`Waiting until collection ${collectionName} present on all nodes`)
+    console.debug(
+      `Waiting until collection ${collectionName} present on all nodes`
+    )
     const collectionPresent = (response) => {
       for (const scope of response.scopes) {
         if (scope.name === scopeName) {
@@ -192,11 +195,12 @@ class ConsistencyUtils {
       false,
       MANAGEMENT_PORT
     )
-
   }
 
   async waitUntilCollectionDropped(bucketName, scopeName, collectionName) {
-    console.debug(`Waiting until collection ${collectionName} dropped on all nodes`)
+    console.debug(
+      `Waiting until collection ${collectionName} dropped on all nodes`
+    )
     const collectionDropped = (response) => {
       for (const scope of response.scopes) {
         if (scope.name === scopeName) {
@@ -219,7 +223,13 @@ class ConsistencyUtils {
     )
   }
 
-  async waitUntilCustomPredicate(path, predicate, onlyStatusCode = false, port = 8091, errorMsg = "Error matching custom predicate") {
+  async waitUntilCustomPredicate(
+    path,
+    predicate,
+    onlyStatusCode = false,
+    port = 8091,
+    errorMsg = 'Error matching custom predicate'
+  ) {
     await this.waitUntilAllNodesMatchPredicate(
       path,
       predicate,
@@ -229,11 +239,22 @@ class ConsistencyUtils {
     )
   }
 
-  async waitUntilAllNodesMatchPredicate(path, predicate, errorMsg, onlyStatusCode, port) {
+  async waitUntilAllNodesMatchPredicate(
+    path,
+    predicate,
+    errorMsg,
+    onlyStatusCode,
+    port
+  ) {
     try {
       const deadline = performance.now() + 2000
       while (performance.now() < deadline) {
-        const predicateMatched = await this.allNodesMatchPredicate(path, predicate, onlyStatusCode, port)
+        const predicateMatched = await this.allNodesMatchPredicate(
+          path,
+          predicate,
+          onlyStatusCode,
+          port
+        )
         if (predicateMatched) {
           return
         } else {
@@ -250,11 +271,11 @@ class ConsistencyUtils {
     for (const node in this.nodes) {
       const request = {
         hostname: node.split(':')[0],
-        port :port,
+        port: port,
         path: path,
-        auth: this.auth
+        auth: this.auth,
       }
-      const response  = await this.runHttpRequest(request, onlyStatusCode)
+      const response = await this.runHttpRequest(request, onlyStatusCode)
       const predicateMatched = predicate(response)
       if (!predicateMatched) {
         return false
@@ -263,27 +284,24 @@ class ConsistencyUtils {
     return true
   }
 
-  runHttpRequest(
-    httpRequest,
-    onlyStatusCode,
-  ) {
+  runHttpRequest(httpRequest, onlyStatusCode) {
     return new Promise((resolve, reject) => {
       const req = http.get(httpRequest, (res) => {
         if (onlyStatusCode) {
           return resolve(res.statusCode)
         } else if (res.statusCode !== 200) {
-          reject("Non 200 status code from response")
+          reject('Non 200 status code from response')
         }
         const data = []
         let info = {}
-        res.on('data', chunk => {
+        res.on('data', (chunk) => {
           data.push(chunk)
         })
         res.on('end', () => {
           try {
             info = JSON.parse(data)
           } catch (e) {
-            reject (e)
+            reject(e)
           }
           resolve(info)
         })
@@ -303,7 +321,6 @@ class ConsistencyUtils {
 
     const start = performance.now()
 
-    // eslint-disable-next-line no-constant-condition
     while (true) {
       try {
         const config = await this.getConfig()
@@ -315,10 +332,10 @@ class ConsistencyUtils {
 
         await this.sleep(10)
       } catch (e) {
-        console.error("Ignoring error waiting for config: " + e.toString())
+        console.error('Ignoring error waiting for config: ' + e.toString())
       }
       if (performance.now() - start > 2000) {
-        throw new Error("Timeout waiting for config")
+        throw new Error('Timeout waiting for config')
       }
     }
   }
@@ -329,7 +346,7 @@ class ConsistencyUtils {
         hostname: this.hostname,
         port: 8091,
         path: '/pools/nodes',
-        auth: this.auth
+        auth: this.auth,
       }
       const req = http.get(options, (res) => {
         if (res.statusCode !== 200) {
@@ -337,7 +354,7 @@ class ConsistencyUtils {
         }
         const data = []
         const nodeInfo = {}
-        res.on('data', chunk => {
+        res.on('data', (chunk) => {
           data.push(chunk)
         })
         res.on('end', () => {
@@ -360,7 +377,7 @@ class ConsistencyUtils {
   }
 
   sleep(ms = 0) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms))
   }
 }
 

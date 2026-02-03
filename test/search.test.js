@@ -15,7 +15,6 @@ function genericTests(connFn, collFn) {
   let testDocs
   let indexParams
 
-  /* eslint-disable-next-line mocha/no-top-level-hooks */
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Search)
     this.timeout(60000)
@@ -51,11 +50,10 @@ function genericTests(connFn, collFn) {
     delete indexParams.mapping.types['testIndexUUID']
   })
 
-  /* eslint-disable-next-line mocha/no-top-level-hooks */
   after(async function () {
     try {
       await testdata.removeTestData(collFn(), testDocs)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   })
@@ -81,7 +79,6 @@ function genericTests(connFn, collFn) {
   })
 
   it('should see test data correctly', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -109,7 +106,7 @@ function genericTests(connFn, collFn) {
                   highlight: { style: HighlightStyle.HTML },
                 }
               )
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -146,7 +143,6 @@ function genericTests(connFn, collFn) {
   }).timeout(60000)
 
   it('should disable scoring', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -168,7 +164,7 @@ function genericTests(connFn, collFn) {
                   disableScoring: true,
                 }
               )
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -217,7 +213,6 @@ function genericTests(connFn, collFn) {
 }
 
 describe('#search', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(
     () => H.c,
     () => H.dco
@@ -225,13 +220,12 @@ describe('#search', function () {
 })
 
 describe('#scopesearch', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
     H.skipIfMissingFeature(this, H.Features.ScopeSearch)
     H.skipIfMissingFeature(this, H.Features.ScopeSearchIndexManagement)
   })
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
+
   genericTests(
     () => H.s,
     () => H.dco
@@ -304,7 +298,7 @@ describe('#vectorsearch', function () {
   after(async function () {
     try {
       await testdata.removeTestData(H.dco, testDocs)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   })
@@ -414,7 +408,7 @@ describe('#vectorsearch', function () {
     const request = SearchRequest.create(vectorSearch)
     request.withSearchQuery(H.lib.SearchQuery.term(testUid).field('testUid'))
     const limit = 2
-    /* eslint-disable-next-line no-constant-condition */
+
     while (true) {
       var res = null
       try {
@@ -425,7 +419,7 @@ describe('#vectorsearch', function () {
           includeLocations: true,
           highlight: { style: HighlightStyle.HTML },
         })
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length < limit) {
         await H.sleep(100)

@@ -1278,7 +1278,7 @@ export class Transactions {
         }
 
         return txnResult
-      } catch (e) {
+      } catch (_e) {
         // commit failed, retry...
       }
     }

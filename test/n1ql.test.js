@@ -38,7 +38,7 @@ describe('N1QL', function () {
       this.timeout(5000)
       try {
         await testdata.removeTestData(H.dco, testDocs)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -77,13 +77,12 @@ describe('N1QL', function () {
     })
 
     it('should see test data correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
           var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
           res = await H.c.query(qs)
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -136,13 +135,12 @@ describe('N1QL', function () {
         })
       }
 
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
           var qs = `SELECT * FROM ${H.b.name} WHERE testUid='${testUid}'`
           res = await streamQuery(qs)
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -158,7 +156,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with parameters correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -166,7 +163,7 @@ describe('N1QL', function () {
           res = await H.c.query(qs, {
             parameters: [undefined, testUid],
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -182,7 +179,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with named parameters correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -192,7 +188,7 @@ describe('N1QL', function () {
               tuid: testUid,
             },
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -208,7 +204,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should filter undefined named parameters', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -219,7 +214,7 @@ describe('N1QL', function () {
               filterMe: undefined,
             },
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -235,7 +230,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with lots of options specified', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -252,7 +246,7 @@ describe('N1QL', function () {
             profile: H.lib.QueryProfileMode.Timings,
             metrics: true,
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -334,7 +328,7 @@ describe('N1QL', function () {
         for (let i = 0; i < deferredIndexes.length; i++) {
           try {
             await H.c.queryIndexes().dropIndex(H.b.name, deferredIndexes[i])
-          } catch (e) {
+          } catch (_e) {
             // ignore
           }
         }
@@ -385,7 +379,7 @@ describe('N1QL', function () {
       this.timeout(5000)
       try {
         await testdata.removeTestData(H.co, testDocs)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -437,13 +431,12 @@ describe('N1QL', function () {
     })
 
     it('should see test data correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
           var qs = `SELECT * FROM ${H.co.name} WHERE testUid='${testUid}'`
           res = await H.s.query(qs)
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -498,13 +491,12 @@ describe('N1QL', function () {
         })
       }
 
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
           var qs = `SELECT * FROM ${H.co.name} WHERE testUid='${testUid}'`
           res = await streamQuery(qs)
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -520,7 +512,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with parameters correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -528,7 +519,7 @@ describe('N1QL', function () {
           res = await H.s.query(qs, {
             parameters: [undefined, testUid],
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (!res || res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -544,7 +535,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with named parameters correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -554,7 +544,7 @@ describe('N1QL', function () {
               tuid: testUid,
             },
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -570,7 +560,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should filter undefined named parameters', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -581,7 +570,7 @@ describe('N1QL', function () {
               filterMe: undefined,
             },
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -597,7 +586,6 @@ describe('N1QL', function () {
     }).timeout(10000)
 
     it('should work with lots of options specified', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
         try {
@@ -614,7 +602,7 @@ describe('N1QL', function () {
             profile: H.lib.QueryProfileMode.Timings,
             metrics: true,
           })
-        } catch (e) {} // eslint-disable-line no-empty
+        } catch (_e) {} // eslint-disable-line no-empty
 
         if (res.rows.length !== testdata.docCount()) {
           await H.sleep(100)
@@ -724,7 +712,7 @@ describe('N1QL', function () {
               collectionName: H.co.name,
               scopeName: H.s.name,
             })
-          } catch (e) {
+          } catch (_e) {
             // ignore
           }
         }
@@ -788,7 +776,7 @@ function genericTests(collFn) {
       this.timeout(5000)
       try {
         await testdata.removeTestData(collFn(), testDocs)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -875,7 +863,7 @@ function genericTests(collFn) {
         for (let i = 0; i < deferredIndexes.length; i++) {
           try {
             await collFn().queryIndexes().dropIndex(deferredIndexes[i])
-          } catch (e) {
+          } catch (_e) {
             // ignore
           }
         }
@@ -897,11 +885,9 @@ function genericTests(collFn) {
 }
 
 describe('#CollectionQueryIndexManager - default', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
 describe('#CollectionQueryIndexManager - named', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.co)
 })

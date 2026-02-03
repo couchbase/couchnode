@@ -10,7 +10,7 @@ const consistencyutil = require('./consistencyutil')
 try {
   const SegfaultHandler = require('segfault-handler')
   SegfaultHandler.registerHandler()
-} catch (e) {
+} catch (_e) {
   // segfault-handler is just a helper, its not required
 }
 
@@ -429,7 +429,6 @@ class Harness {
 
   skipIfMissingFeature(test, feature) {
     if (!this.supportsFeature(feature)) {
-      /* eslint-disable-next-line mocha/no-skipped-tests */
       test.skip()
       throw new Error('test skipped')
     }
@@ -452,7 +451,6 @@ class Harness {
 
   skipIfMissingAwaitOf() {
     if (!this.supportsForAwaitOf()) {
-      /* eslint-disable-next-line mocha/no-skipped-tests */
       test.skip()
       throw new Error('test skipped')
     }
@@ -518,16 +516,15 @@ var harness = new Harness()
 // These are written as normal functions, not async lambdas
 // due to our need to specify custom timeouts, which are not
 // yet supported on before/after methods yet.
-/* eslint-disable-next-line mocha/no-top-level-hooks */
+
 before(function (done) {
   this.timeout(30000)
   harness.prepare().then(done).catch(done)
 })
-/* eslint-disable-next-line mocha/no-top-level-hooks */
+
 after(function (done) {
   this.timeout(10000)
   harness.cleanup().then(done).catch(done)
 })
 
-/* eslint-disable-next-line mocha/no-exports */
 module.exports = harness

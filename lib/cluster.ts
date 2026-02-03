@@ -491,7 +491,6 @@ export class Cluster {
    * @internal
    */
   [inspect.custom](): Record<string, any> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _auth, ...rest } = this
     return { ...rest, _auth: '***hidden***' }
   }
@@ -500,7 +499,6 @@ export class Cluster {
    * @internal
    */
   toJSON(): Record<string, any> {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     const { _auth, ...rest } = this
     return { ...rest, _auth: '***hidden***' }
   }

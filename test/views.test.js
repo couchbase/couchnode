@@ -118,7 +118,7 @@ describe('#views', function () {
   after(async function () {
     try {
       await testdata.removeTestData(H.dco, testDocs)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   })
@@ -795,7 +795,6 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should see test data correctly', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
 
@@ -852,7 +851,6 @@ describe('#views', function () {
     }).timeout(10000)
 
     it('should receive results in ASC order', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
 
@@ -888,7 +886,6 @@ describe('#views', function () {
     }).timeout(20000)
 
     it('should receive results in DESC order', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
 
@@ -935,7 +932,7 @@ describe('#views', function () {
       const expectedCount =
         keysAndDocIds[testUidKeys[smallestKeyIdx]].length +
         keysAndDocIds[key].length
-      /* eslint-disable-next-line no-constant-condition */
+
       while (true) {
         var res = null
 
@@ -985,7 +982,7 @@ describe('#views', function () {
         namespace: DesignDocumentNamespace.Development,
         limit: 2,
       })
-      /* eslint-disable-next-line no-constant-condition */
+
       while (true) {
         var res = null
 
@@ -1025,7 +1022,7 @@ describe('#views', function () {
       const keysAndDocIds = getkeysAndDocIds(testDocs)
       const expectedDocIds = keysAndDocIds[key]
       const expectedCount = expectedDocIds.length
-      /* eslint-disable-next-line no-constant-condition */
+
       while (true) {
         var res = null
 
@@ -1071,7 +1068,7 @@ describe('#views', function () {
         keysAndDocIds[expectedKeys[1]]
       )
       const expectedCount = expectedDocIds.length
-      /* eslint-disable-next-line no-constant-condition */
+
       while (true) {
         var res = null
 
@@ -1126,7 +1123,6 @@ describe('#views', function () {
         limit: 2,
       })
 
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         var res = null
 
@@ -1164,7 +1160,6 @@ describe('#views', function () {
     }).timeout(20000)
 
     it('should correctly raise error when using incorrect raw option', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       const testUidKeys = [...getTestUidKeys(testUid, 2)]
       const sortedTestUidKeys = [...testUidKeys].sort()
       // get the largest key

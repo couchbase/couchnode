@@ -367,7 +367,6 @@ describe('streamablepromise', function () {
     process.removeListener('unhandledRejection', unhandledRejectionListener)
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#streamablerowpromise', function () {
     streamingTypes.forEach((streamingType) => {
       it(`should return resolved promise (${streamingType})`, async function () {

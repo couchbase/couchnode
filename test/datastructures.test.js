@@ -15,7 +15,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyLst)
-      } catch (e) {
+      } catch (_e) {
         // nothing
       }
     })
@@ -122,7 +122,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyMap)
-      } catch (e) {
+      } catch (_e) {
         // nothing
       }
     })
@@ -237,7 +237,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyQue)
-      } catch (e) {
+      } catch (_e) {
         // nothing
       }
     })
@@ -299,7 +299,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeySet)
-      } catch (e) {
+      } catch (_e) {
         // nothing
       }
     })
@@ -359,16 +359,13 @@ function genericTests(collFn) {
 }
 
 describe('#datastructures', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
 describe('#collections-datastructures', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
   })
 
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.co)
 })

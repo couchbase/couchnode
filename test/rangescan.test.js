@@ -77,7 +77,7 @@ function rangeScanTests(collFn) {
     after(async function () {
       try {
         await testdata.removeTestData(collFn(), testIds)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -555,16 +555,13 @@ function rangeScanTests(collFn) {
 }
 
 describe('#default-rangescan', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   rangeScanTests(() => H.dco)
 })
 
 describe('#collections-rangescan', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
   })
 
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   rangeScanTests(() => H.co)
 })

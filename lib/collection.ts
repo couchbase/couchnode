@@ -675,7 +675,7 @@ export class Collection {
   _subdocDecode(bytes: Buffer): any {
     try {
       return JSON.parse(bytes.toString('utf8'))
-    } catch (e) {
+    } catch (_e) {
       // If we encounter a parse error, assume that we need
       // to return bytes instead of an object.
       return bytes

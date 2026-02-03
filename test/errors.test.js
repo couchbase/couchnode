@@ -17,16 +17,13 @@ function genericTests(collFn) {
 }
 
 describe('#errors', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
 describe('#collections-errors', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
   })
 
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.co)
 })
