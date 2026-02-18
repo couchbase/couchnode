@@ -4166,8 +4166,8 @@ export interface CppBinding extends CppBindingAutogen {
 // can be used to set the path of the desired prebuild which will allow the node-loader package
 // to pull in the corresponding prebuild.
 const binding: CppBinding = process.env.CN_PREBUILD_PATH_OVERRIDE
-  ? // eslint-disable-next-line @typescript-eslint/no-var-requires
+  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
     require(process.env.CN_PREBUILD_PATH_OVERRIDE)
-  : // eslint-disable-next-line @typescript-eslint/no-var-requires
+  : // eslint-disable-next-line @typescript-eslint/no-require-imports
     require('../scripts/prebuilds').loadPrebuild(path.resolve(__dirname, '..'))
 export default binding

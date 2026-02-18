@@ -23,7 +23,7 @@ describe('#analytics', function () {
       try {
         // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
         const result = await testdata.upsertData(H.dco, testUid)
-        if(!result.every((r) => r.status === 'fulfilled')) {
+        if (!result.every((r) => r.status === 'fulfilled')) {
           throw new Error('Failed to upsert all test data')
         }
         testDocs = result.map((r) => r.value)
@@ -37,7 +37,7 @@ describe('#analytics', function () {
   after(async function () {
     try {
       await testdata.removeTestData(H.dco, testDocs)
-    } catch (e) {
+    } catch (_e) {
       // ignore
     }
   })
@@ -148,7 +148,6 @@ describe('#analytics', function () {
   })
 
   it('should see test data correctly', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
 
@@ -158,7 +157,7 @@ describe('#analytics', function () {
         var targetName = '`' + dvName + '`.`' + dsName + '`'
         var qs = `SELECT * FROM ${targetName} WHERE testUid='${testUid}'`
         res = await H.c.analyticsQuery(qs)
-      } catch (err) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -174,7 +173,6 @@ describe('#analytics', function () {
   }).timeout(20000)
 
   it('should work with parameters correctly', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -183,7 +181,7 @@ describe('#analytics', function () {
         res = await H.c.analyticsQuery(qs, {
           parameters: [undefined, testUid],
         })
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -199,7 +197,6 @@ describe('#analytics', function () {
   }).timeout(10000)
 
   it('should work with named parameters correctly', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -210,7 +207,7 @@ describe('#analytics', function () {
             tuid: testUid,
           },
         })
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -226,7 +223,6 @@ describe('#analytics', function () {
   }).timeout(10000)
 
   it('should filter undefined named parameters', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -238,7 +234,7 @@ describe('#analytics', function () {
             filterMe: undefined,
           },
         })
-      } catch (e) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (res.rows.length !== testdata.docCount()) {
         await H.sleep(100)
@@ -254,7 +250,6 @@ describe('#analytics', function () {
   }).timeout(10000)
 
   it('should work with lots of options specified', async function () {
-    /* eslint-disable-next-line no-constant-condition */
     while (true) {
       var res = null
       try {
@@ -266,7 +261,7 @@ describe('#analytics', function () {
             readOnly: true,
           }
         )
-      } catch (err) {} // eslint-disable-line no-empty
+      } catch (_e) {} // eslint-disable-line no-empty
 
       if (!res || res.rows.length !== testdata.docCount()) {
         await H.sleep(100)

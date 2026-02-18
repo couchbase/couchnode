@@ -21,7 +21,6 @@ function genericTests(collFn) {
       }
     })
 
-    /* eslint-disable mocha/no-setup-in-describe */
     describe('#rawbinary', function () {
       let keyIndex = 0
       const transcoder = new RawBinaryTranscoder()
@@ -35,7 +34,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await testdata.removeTestData(collFn(), testKeys)
-        } catch (err) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -114,7 +113,6 @@ function genericTests(collFn) {
           },
         ]
 
-        /* eslint-disable mocha/no-setup-in-describe */
         describe('#encode', function () {
           invalidContent.forEach((contentObj) => {
             it(`should fail to insert invalid content (${contentObj.contentType}) with RawBinaryTranscoder`, async function () {
@@ -176,7 +174,7 @@ function genericTests(collFn) {
                   collFn().remove(`${root}-${contentObj.contentType}`)
                 )
               )
-            } catch (err) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -198,7 +196,6 @@ function genericTests(collFn) {
       })
     })
 
-    /* eslint-disable mocha/no-setup-in-describe */
     describe('#rawstring', function () {
       let keyIndex = 0
       const transcoder = new RawStringTranscoder()
@@ -209,7 +206,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await testdata.removeTestData(collFn(), testKeys)
-        } catch (err) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -288,7 +285,6 @@ function genericTests(collFn) {
           },
         ]
 
-        /* eslint-disable mocha/no-setup-in-describe */
         describe('#encode', function () {
           invalidContent.forEach((contentObj) => {
             it(`should fail to insert invalid content (${contentObj.contentType}) with RawStringTranscoder`, async function () {
@@ -350,7 +346,7 @@ function genericTests(collFn) {
                   collFn().remove(`${root}-${contentObj.contentType}`)
                 )
               )
-            } catch (err) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -372,7 +368,6 @@ function genericTests(collFn) {
       })
     })
 
-    /* eslint-disable mocha/no-setup-in-describe */
     describe('#rawjson', function () {
       let keyIndex = 0
       const transcoder = new RawJsonTranscoder()
@@ -401,7 +396,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await testdata.removeTestData(collFn(), testKeys)
-        } catch (err) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -538,7 +533,6 @@ function genericTests(collFn) {
           },
         ]
 
-        /* eslint-disable mocha/no-setup-in-describe */
         describe('#encode', function () {
           invalidEncodedContent.forEach((contentObj) => {
             it(`should fail to insert invalid content (${contentObj.contentType}) with RawJsonTranscoder`, async function () {
@@ -600,7 +594,7 @@ function genericTests(collFn) {
                   collFn().remove(`${root}-${contentObj.contentType}`)
                 )
               )
-            } catch (err) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -625,7 +619,6 @@ function genericTests(collFn) {
 }
 
 describe('#default-collection', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 

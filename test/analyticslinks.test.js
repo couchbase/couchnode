@@ -24,7 +24,6 @@ describe('#analyticslinks', function () {
     }
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#invalidargument', function () {
     const azurelinks = [
       {
@@ -248,7 +247,6 @@ describe('#analyticslinks', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#dataversenotfound', function () {
     const links = [
       {
@@ -294,7 +292,6 @@ describe('#analyticslinks', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#linknotfound', function () {
     const links = [
       {
@@ -344,7 +341,6 @@ describe('#analyticslinks', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#link-create-replace-drop', function () {
     const extraLink = {
       linkType: AnalyticsLinkType.S3External,
@@ -408,7 +404,6 @@ describe('#analyticslinks', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#link-connect-disconnect', function () {
     // TODO(JSCBC-1293):  Remove deprecated path
     it('should successfully connect a link via deprecated path w/ callback', function (done) {

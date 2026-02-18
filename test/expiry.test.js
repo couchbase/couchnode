@@ -4,7 +4,6 @@ const assert = require('chai').assert
 const H = require('./harness')
 
 function genericTests(collFn) {
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#expiry', function () {
     const thirtyDaysInSeconds = 30 * 24 * 60 * 60
     const fiftyYearsInSeconds = 50 * 365 * 24 * 60 * 60
@@ -85,7 +84,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyMutExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -139,7 +138,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyUpExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -186,7 +185,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyTouchExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -298,7 +297,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyMutExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -380,7 +379,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyUpExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -441,7 +440,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyTouchExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -504,7 +503,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyMutExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -590,7 +589,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyUpExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -658,7 +657,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyTouchExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -749,7 +748,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyMutExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -856,7 +855,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyUpExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
           })
@@ -930,7 +929,7 @@ function genericTests(collFn) {
           afterEach(async function () {
             try {
               await collFn().remove(testKeyTouchExp)
-            } catch (e) {
+            } catch (_e) {
               // ignore
             }
             warningHandler = null
@@ -994,12 +993,10 @@ function genericTests(collFn) {
 }
 
 describe('#default-collection', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
 describe('#named-collection', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
     this.timeout(5000)
@@ -1009,13 +1006,12 @@ describe('#named-collection', function () {
         H.scopeName,
         H.collectionName
       )
-    } catch (e) {
+    } catch (_e) {
       const msg = `Collection ${H.bucketName}.${H.scopeName}.${H.collectionName} not found. Skipping collection tests.`
       console.warn(msg)
       this.skip()
     }
   })
 
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.co)
 })

@@ -1,6 +1,5 @@
 require('ts-node').register()
 
-/* eslint-disable-next-line node/no-unsupported-features/node-builtins */
 const worker = require('worker_threads')
 const assert = require('chai').assert
 const couchbase = require('../lib/couchbase')

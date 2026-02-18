@@ -31,7 +31,7 @@ describe('#Cluster', function () {
     for (const key of testKeys) {
       try {
         await H.dco.remove(key)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     }

@@ -8,7 +8,6 @@ const H = require('./harness')
 function genericTests(connFn) {
   let testScope, testFn
 
-  /* eslint-disable-next-line mocha/no-top-level-hooks */
   before(async function () {
     this.timeout(30000)
 
@@ -41,7 +40,6 @@ function genericTests(connFn) {
     await testdata.upsertData(H.b.scope(testScope).collection('source'), 'docs')
   })
 
-  /* eslint-disable-next-line mocha/no-top-level-hooks */
   after(async function () {
     this.timeout(30000)
 
@@ -188,7 +186,7 @@ function genericTests(connFn) {
       this.timeout(30000)
       try {
         await connFn().eventingFunctions().dropFunction(innerTestFn)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -228,15 +226,13 @@ function genericTests(connFn) {
 }
 
 describe('#eventing', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.c)
 })
 
 describe('#scopeeventing', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.ScopeEventingFunctionManagement)
   })
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
+
   genericTests(() => H.s)
 })

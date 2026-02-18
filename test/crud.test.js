@@ -71,23 +71,23 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyA)
-      } catch (e) {
+      } catch (_e) {
         // ingore
       }
       try {
         await collFn().remove(testKeyUtf8)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
       try {
         await collFn().remove(testKeyBin)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
       for (const key of otherTestKeys) {
         try {
           await collFn().remove(key)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       }
@@ -531,7 +531,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeyIns)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -653,7 +653,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeyIns)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -726,7 +726,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeyIns)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -888,7 +888,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(replicaTestKey)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -1041,7 +1041,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyBin)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -1352,7 +1352,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeyBinDurability)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -1428,7 +1428,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeyBinDurability)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -1503,7 +1503,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeyLck)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -1526,7 +1526,7 @@ function genericTests(collFn) {
       const stime = new Date().getTime()
       try {
         await collFn().upsert(testKeyLck, { foo: 9 }, { timeout: 5000 })
-      } catch (e) {
+      } catch (_e) {
         // this is fine in some cases
       }
       const etime = new Date().getTime()
@@ -1618,7 +1618,7 @@ function genericTests(collFn) {
     after(async function () {
       try {
         await collFn().remove(testKeySd)
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -1682,7 +1682,6 @@ function genericTests(collFn) {
         assert.strictEqual(res.content[0].value, true)
       })
 
-      /* eslint-disable mocha/no-setup-in-describe */
       describe('#macros', function () {
         const macros = [
           H.lib.LookupInMacro.Cas,
@@ -1812,7 +1811,7 @@ function genericTests(collFn) {
         after(async function () {
           try {
             await testdata.removeTestData(collFn(), testDocs)
-          } catch (e) {
+          } catch (_e) {
             // ignore
           }
         })
@@ -2027,7 +2026,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeySdRep)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -2251,7 +2250,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeySdDurability)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -2303,7 +2302,7 @@ function genericTests(collFn) {
       after(async function () {
         try {
           await collFn().remove(testKeySdDurability)
-        } catch (e) {
+        } catch (_e) {
           // ignore
         }
       })
@@ -2455,16 +2454,13 @@ function genericTests(collFn) {
 }
 
 describe('#crud', function () {
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.dco)
 })
 
 describe('#collections-crud', function () {
-  /* eslint-disable-next-line mocha/no-hooks-for-single-case */
   before(function () {
     H.skipIfMissingFeature(this, H.Features.Collections)
   })
 
-  /* eslint-disable-next-line mocha/no-setup-in-describe */
   genericTests(() => H.co)
 })

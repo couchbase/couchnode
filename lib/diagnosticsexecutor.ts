@@ -94,7 +94,7 @@ export class PingExecutor {
   async ping(options: PingOptions): Promise<PingResult> {
     return new Promise((resolve, reject) => {
       // BUG(JSCBC-993): timeout is not currently sent to the C++ client
-      options.timeout
+      void options.timeout
 
       this._cluster.conn.ping(
         {

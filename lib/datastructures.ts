@@ -582,7 +582,7 @@ export class CouchbaseSet {
           )
 
           return
-        } catch (e) {
+        } catch (_e) {
           // continue and retry
         }
       }

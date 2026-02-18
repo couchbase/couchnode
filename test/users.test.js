@@ -140,7 +140,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#user-roles', function () {
     let users = [
       {
@@ -272,7 +271,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#usernotfound', function () {
     it('should fail to get a missing user', async function () {
       await H.throwsHelper(async () => {
@@ -287,7 +285,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#invalidargument', function () {
     const user = {
       username: 'custom-user-1',
@@ -332,7 +329,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#roles', function () {
     const user = {
       username: 'custom-user-1',
@@ -354,7 +350,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#user-groups', function () {
     const groups = [
       {
@@ -483,7 +478,6 @@ describe('#usersmgmt', function () {
     })
   })
 
-  /* eslint-disable mocha/no-setup-in-describe */
   describe('#change-password', function () {
     this.retries(5)
 
@@ -510,7 +504,6 @@ describe('#usersmgmt', function () {
     })
 
     it('should successfully change current user password', async function () {
-      /* eslint-disable-next-line no-constant-condition */
       while (true) {
         try {
           var cluster = await H.lib.Cluster.connect(H.connStr, {
@@ -530,7 +523,7 @@ describe('#usersmgmt', function () {
       await H.sleep(500)
 
       //Assert can connect using new password
-      /* eslint-disable-next-line no-constant-condition */
+
       while (true) {
         try {
           var success_cluster = await H.lib.Cluster.connect(H.connStr, {

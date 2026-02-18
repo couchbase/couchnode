@@ -738,7 +738,7 @@ describe('#transactions', function () {
           H.co,
           testDocsAndIds.map((doc) => doc.id)
         )
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -824,7 +824,7 @@ describe('#transactions', function () {
       try {
         await H.co.remove(testkey1)
         await H.co.remove(testkey2)
-      } catch (err) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -905,7 +905,7 @@ describe('#transactions', function () {
           H.co,
           testDocsAndIds.map((doc) => doc.id)
         )
-      } catch (e) {
+      } catch (_e) {
         // ignore
       }
     })
@@ -1027,7 +1027,7 @@ describe('#transactions', function () {
       try {
         await H.co.remove(testkey1)
         await H.co.remove(testkey2)
-      } catch (err) {
+      } catch (_e) {
         // ignore
       }
     })
