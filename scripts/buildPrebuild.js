@@ -1,3 +1,5 @@
+'use strict'
+
 const prebuilds = require('./prebuilds')
 
 function buildPrebuild(
