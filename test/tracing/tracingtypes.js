@@ -5,6 +5,7 @@ const {
   OpAttributeName,
   SpanStatusCode,
 } = require('../../lib/observabilitytypes')
+const { timeInputToHiResTime } = require('../../lib/observabilityutilities')
 const {
   ThresholdLoggingSpan,
   ThresholdLoggingTracer,
@@ -19,7 +20,7 @@ class TestSpan {
   constructor(name, parentSpan = null, startTime = null) {
     this.name = name
     this.parentSpan = parentSpan
-    this.startTime = startTime || process.hrtime()
+    this.startTime = startTime || timeInputToHiResTime()
     this.endTime = null
     this.attributes = {}
     this.status = { code: SpanStatusCode.UNSET }
@@ -37,7 +38,7 @@ class TestSpan {
   }
 
   end(endTime = null) {
-    this.endTime = endTime || process.hrtime()
+    this.endTime = endTime || timeInputToHiResTime()
   }
 }
 
@@ -82,7 +83,7 @@ class NoOpTestSpan extends NoOpSpan {
   }
 
   end(endTime = null) {
-    this.endTime = endTime || process.hrtime()
+    this.endTime = endTime || timeInputToHiResTime()
   }
 }
 

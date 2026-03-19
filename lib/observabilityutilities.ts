@@ -19,14 +19,48 @@ import {
 } from './observabilitytypes'
 import { QueryOptions } from './querytypes'
 
-const MILLIS_PER_SECOND = 1e3
-const MICROS_PER_SECOND = 1e6
-const NANOS_PER_SECOND = 1e9
+// Define standard time constants
+const MILLIS_PER_SECOND = 1000
+const NANOS_PER_SECOND = 1_000_000_000
+const MICROS_PER_SECOND = 1_000_000
+const NANOS_PER_MILLI = 1_000_000
+
+// Take a snapshot the moment the SDK loads
+const TIME_ORIGIN_MS = Date.now()
+const HRTIME_ORIGIN = process.hrtime()
+
+// Convert the absolute origin into [seconds, nanoseconds]
+const ORIGIN_SECONDS = Math.floor(TIME_ORIGIN_MS / MILLIS_PER_SECOND)
+const ORIGIN_NANOS = (TIME_ORIGIN_MS % MILLIS_PER_SECOND) * NANOS_PER_MILLI
 
 /**
  * @internal
  */
 export type StreamingOptions = AnalyticsQueryOptions | QueryOptions
+
+/**
+ * Generates an absolute Unix epoch time with nanosecond precision.
+ * @internal
+ */
+export function getEpochHiResTime(): [number, number] {
+  // Get the current monotonic time
+  const nowHrTime = process.hrtime()
+
+  // Calculate exactly how much time has passed since our anchor snapshot
+  const [deltaSeconds, deltaNanos] = getHiResTimeDelta(HRTIME_ORIGIN, nowHrTime)
+
+  // Add the high-res delta to our absolute epoch anchor
+  let epochSeconds = ORIGIN_SECONDS + deltaSeconds
+  let epochNanos = ORIGIN_NANOS + deltaNanos
+
+  // Handle nanosecond overflow (if nanos exceed 1 second, carry it over)
+  if (epochNanos >= NANOS_PER_SECOND) {
+    epochSeconds += 1
+    epochNanos -= NANOS_PER_SECOND
+  }
+
+  return [epochSeconds, epochNanos]
+}
 
 /**
  * @internal
@@ -57,6 +91,55 @@ export function millisToHiResTime(millis: number): HiResTime {
   const remainingMillis = millis - seconds * MILLIS_PER_SECOND
   const nanoseconds = remainingMillis * MICROS_PER_SECOND
   return [seconds, nanoseconds]
+}
+
+/**
+ * @internal
+ */
+export function getLatestTime(timeA: HiResTime, timeB: HiResTime): HiResTime {
+  // first compare seconds
+  if (timeA[0] > timeB[0]) {
+    return timeA
+  }
+  if (timeA[0] < timeB[0]) {
+    return timeB
+  }
+
+  // If seconds are exactly the same, compare the nanoseconds
+  if (timeA[1] >= timeB[1]) {
+    return timeA
+  }
+
+  return timeB
+}
+
+/**
+ * @internal
+ */
+export function getCoreSpanEndTime(coreSpanEndTime: HiResTime): HiResTime {
+  // Mitigate Node.js vs C++ clock skew. A parent span must fully encapsulate
+  // its children, so we ensure the parent ends at or after the core child's end time.
+  const currentTime = timeInputToHiResTime()
+  return getLatestTime(currentTime, coreSpanEndTime)
+}
+
+/**
+ * @internal
+ */
+export function timeInputToHiResTime(input?: TimeInput): HiResTime {
+  if (typeof input === 'undefined') {
+    return getEpochHiResTime()
+  }
+  // If a Date object is provided, extract the epoch milliseconds
+  if (input instanceof Date) {
+    return millisToHiResTime(input.getTime())
+  }
+  // If a number is provided, assume it is epoch milliseconds
+  if (typeof input === 'number') {
+    return millisToHiResTime(input)
+  }
+
+  return input
 }
 
 /**
@@ -144,19 +227,4 @@ export function getAttributesForHttpOpType(
   }
 
   return attributes
-}
-
-/**
- * @internal
- */
-export function timeInputToHiResTime(input?: TimeInput): HiResTime {
-  if (typeof input === 'undefined') {
-    return process.hrtime()
-  } else if (input instanceof Date) {
-    return millisToHiResTime(input.getTime())
-  } else if (typeof input === 'number') {
-    // TODO:  is this accurate?
-    return millisToHiResTime(input)
-  }
-  return input
 }

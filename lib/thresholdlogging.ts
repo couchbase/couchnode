@@ -14,6 +14,7 @@ import {
   getHiResTimeDelta,
   hiResTimeToMicros,
   millisToHiResTime,
+  timeInputToHiResTime,
 } from './observabilityutilities'
 import { RequestSpan, RequestTracer } from './tracing'
 
@@ -626,7 +627,7 @@ export class ThresholdLoggingSpan implements RequestSpan {
    */
   private _getTime(input?: TimeInput): HiResTime {
     if (typeof input === 'undefined') {
-      return process.hrtime()
+      return timeInputToHiResTime()
     } else if (input instanceof Date) {
       return millisToHiResTime(input.getTime())
     } else if (typeof input === 'number') {

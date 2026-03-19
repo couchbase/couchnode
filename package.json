@@ -25,8 +25,17 @@
     "hdr-histogram-js": "^3.0.1",
     "node-addon-api": "^8.3.1"
   },
+  "peerDependencies": {
+    "@opentelemetry/api": "^1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@opentelemetry/api": {
+      "optional": true
+    }
+  },
   "devDependencies": {
     "@eslint/js": "^9.39.2",
+    "@opentelemetry/api": "^1.9.0",
     "@trivago/prettier-plugin-sort-imports": "^5.2.2",
     "@tsconfig/node12": "^12.1.4",
     "@types/bindings": "^1.5.5",
@@ -68,7 +77,7 @@
     "build": "cmake-js build && tsc",
     "rebuild": "cmake-js rebuild && tsc",
     "prebuild": "node ./scripts/buildPrebuild.js",
-    "prepare": "tsc",
+    "prepare": "node ./scripts/updateVersion.js && tsc",
     "help-prune": "node ./scripts/prune.js",
     "build-docs": "typedoc",
     "test": "ts-mocha test/*.test.*",

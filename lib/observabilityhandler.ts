@@ -20,14 +20,16 @@ import {
   OpAttributeName,
   SpanStatus,
   SpanStatusCode,
-  TimeInput,
   serviceNameFromOpType,
   ServiceName,
 } from './observabilitytypes'
 import {
   getAttributesForHttpOpType,
   getAttributesForKeyValueOpType,
+  getCoreSpanEndTime,
+  getLatestTime,
   HttpOpAttributesOptions,
+  timeInputToHiResTime,
 } from './observabilityutilities'
 import { hiResTimeToMicros, getHiResTimeDelta } from './observabilityutilities'
 import { RequestSpan, RequestTracer } from './tracing'
@@ -52,7 +54,7 @@ class ObservableRequestHandlerTracerImpl {
     observabilityInstruments: ObservabilityInstruments,
     parentSpan?: RequestSpan
   ) {
-    this._startTime = process.hrtime()
+    this._startTime = timeInputToHiResTime()
     this._opType = opType
     this._serviceName = serviceNameFromOpType(opType)
     this._tracer = observabilityInstruments.tracer
@@ -61,8 +63,8 @@ class ObservableRequestHandlerTracerImpl {
       this._serviceName,
       this._opType,
       this._tracer,
-      parentSpan,
-      this._startTime
+      this._startTime,
+      parentSpan
     )
     this._processedCoreSpan = false
   }
@@ -113,7 +115,7 @@ class ObservableRequestHandlerTracerImpl {
    * @internal
    */
   end(): void {
-    this._endTime = process.hrtime()
+    this._endTime = timeInputToHiResTime()
     this._wrappedSpan.end(this._endTime)
   }
 
@@ -150,7 +152,7 @@ class ObservableRequestHandlerTracerImpl {
     if (withError) {
       this.endWithError()
     }
-    this._startTime = process.hrtime()
+    this._startTime = timeInputToHiResTime()
     this._opType = opType
     this._serviceName = serviceNameFromOpType(opType)
     this._endTime = undefined
@@ -158,8 +160,8 @@ class ObservableRequestHandlerTracerImpl {
       this._serviceName,
       this._opType,
       this._tracer,
-      parentSpan,
-      this._startTime
+      this._startTime,
+      parentSpan
     )
   }
 
@@ -367,7 +369,7 @@ class ObservableRequestHandlerMeterImpl {
     this._serviceName = serviceNameFromOpType(opType)
     this._meter = observabilityInstruments.meter
     this._getClusterLabelsFn = observabilityInstruments.clusterLabelsFn
-    this._startTime = process.hrtime()
+    this._startTime = timeInputToHiResTime()
     this._ignoreTopLevelOp = Object.values(DatastructureOp).includes(
       opType as DatastructureOp
     )
@@ -387,14 +389,17 @@ class ObservableRequestHandlerMeterImpl {
    * @internal
    */
   setRequestHttpAttributes(options?: HttpOpAttributesOptions): void {
-    this._attrs = getAttributesForHttpOpType(this._opType as HttpOpType, options)
+    this._attrs = getAttributesForHttpOpType(
+      this._opType as HttpOpType,
+      options
+    )
   }
 
   /**
    * @internal
    */
   processEnd(clusterName?: string, clusterUUID?: string, error?: any): void {
-    const endTime = process.hrtime()
+    const endTime = timeInputToHiResTime()
     const duration = hiResTimeToMicros(
       getHiResTimeDelta(this._startTime, endTime)
     )
@@ -457,7 +462,7 @@ class ObservableRequestHandlerMeterImpl {
     this.processEnd(clusterName, clusterUUID, error)
     this._opType = opType
     this._serviceName = serviceNameFromOpType(opType)
-    this._startTime = process.hrtime()
+    this._startTime = timeInputToHiResTime()
     this._attrs = {}
   }
 
@@ -466,7 +471,17 @@ class ObservableRequestHandlerMeterImpl {
   }
 
   private _handleError(tags: Record<string, string>, error: any): void {
-    const errorType = error?.constructor?.name || '_OTHER'
+    if (typeof error !== 'object' || error === null) {
+      tags[OpAttributeName.ErrorType] = '_OTHER'
+      return
+    }
+
+    let errorType = error?.name || error?.constructor?.name || '_OTHER'
+
+    if (errorType.endsWith('Error')) {
+      errorType = errorType.slice(0, -5)
+    }
+
     tags[OpAttributeName.ErrorType] = errorType
   }
 }
@@ -674,13 +689,15 @@ export class WrappedSpan implements RequestSpan {
   private _encodingSpans: WrappedEncodingSpan[] | undefined
   private _clusterName: string | undefined
   private _clusterUUID: string | undefined
+  private _startTime: HiResTime
+  private _endTimeWatermark: HiResTime
 
   constructor(
     serviceName: ServiceName,
     opType: OpType,
     tracer: RequestTracer,
-    parentSpan?: RequestSpan | WrappedSpan,
-    startTime?: HiResTime
+    startTime: HiResTime,
+    parentSpan?: RequestSpan | WrappedSpan
   ) {
     this._serviceName = serviceName
     this._opType = opType
@@ -692,8 +709,10 @@ export class WrappedSpan implements RequestSpan {
         ? this._parentSpan._requestSpan
         : this._parentSpan
     this._hasMultipleEncodingSpans = this._opType == KeyValueOp.MutateIn
-    this._requestSpan = this._createRequestSpan(this._opType, pSpan, startTime)
+    this._requestSpan = this._createRequestSpan(this._opType, startTime, pSpan)
     this._endedEncodingSpans = false
+    this._startTime = startTime
+    this._endTimeWatermark = timeInputToHiResTime()
   }
 
   /**
@@ -737,7 +756,8 @@ export class WrappedSpan implements RequestSpan {
     }
     const encodingSpan = this._tracer.requestSpan(
       OpAttributeName.EncodingSpanName,
-      this._requestSpan
+      this._requestSpan,
+      timeInputToHiResTime()
     )
     encodingSpan.setAttribute(OpAttributeName.SystemName, 'couchbase')
     try {
@@ -753,7 +773,7 @@ export class WrappedSpan implements RequestSpan {
       // we wait to set the end time until we process the underylying
       // core span so that we can add the cluster_[name|uuid] attributes
       this._encodingSpans.push(
-        new WrappedEncodingSpan(encodingSpan, process.hrtime())
+        new WrappedEncodingSpan(encodingSpan, timeInputToHiResTime())
       )
     }
   }
@@ -768,7 +788,8 @@ export class WrappedSpan implements RequestSpan {
     }
     const encodingSpan = this._tracer.requestSpan(
       OpAttributeName.EncodingSpanName,
-      this._requestSpan
+      this._requestSpan,
+      timeInputToHiResTime()
     )
     encodingSpan.setAttribute(OpAttributeName.SystemName, 'couchbase')
     try {
@@ -785,9 +806,16 @@ export class WrappedSpan implements RequestSpan {
       // core span so that we can add the cluster_[name|uuid] attributes
       this._encodingSpan = new WrappedEncodingSpan(
         encodingSpan,
-        process.hrtime()
+        timeInputToHiResTime()
       )
     }
+  }
+
+  /**
+   * @internal
+   */
+  maybeUpdateEndTimeWatermark(endTime: HiResTime): void {
+    this._endTimeWatermark = getLatestTime(this._endTimeWatermark, endTime)
   }
 
   /**
@@ -872,10 +900,11 @@ export class WrappedSpan implements RequestSpan {
   ): void {
     const pSpan =
       parentSpan instanceof WrappedSpan ? parentSpan.requestSpan : parentSpan
+    const latestStartTime = getLatestTime(this._startTime, coreSpan.start)
     const newSpan = this._createRequestSpan(
       coreSpan.name,
-      pSpan,
-      coreSpan.start
+      latestStartTime,
+      pSpan
     )
     const children = coreSpan.children
     if (children) {
@@ -886,7 +915,12 @@ export class WrappedSpan implements RequestSpan {
     )) {
       newSpan.setAttribute(attrName, attrVal)
     }
-    newSpan.end(coreSpan.end)
+    const coreSpanEndTime = getCoreSpanEndTime(coreSpan.end)
+    this._endTimeWatermark = getLatestTime(
+      this._endTimeWatermark,
+      coreSpanEndTime
+    )
+    newSpan.end(coreSpanEndTime)
   }
 
   /**
@@ -898,12 +932,13 @@ export class WrappedSpan implements RequestSpan {
   ): void {
     const pSpan =
       parentSpan instanceof WrappedSpan ? parentSpan.requestSpan : parentSpan
+    const latestStartTime = getLatestTime(this._startTime, coreSpan.start)
     const newSpan = new WrappedSpan(
       this._serviceName,
       coreSpan.name as OpType,
       this._tracer,
-      pSpan,
-      coreSpan.start
+      latestStartTime,
+      pSpan
     )
     const children = coreSpan.children
     if (children) {
@@ -914,7 +949,12 @@ export class WrappedSpan implements RequestSpan {
     )) {
       newSpan.setAttribute(attrName, attrVal)
     }
-    newSpan.end(coreSpan.end)
+    const coreSpanEndTime = getCoreSpanEndTime(coreSpan.end)
+    this._endTimeWatermark = getLatestTime(
+      this._endTimeWatermark,
+      coreSpanEndTime
+    )
+    newSpan.end(coreSpanEndTime)
   }
 
   /**
@@ -991,9 +1031,13 @@ export class WrappedSpan implements RequestSpan {
   /**
    * @internal
    */
-  end(endTime?: TimeInput): void {
-    this._requestSpan.end(endTime)
+  end(endTime: HiResTime): void {
+    this._endTimeWatermark = getLatestTime(this._endTimeWatermark, endTime)
+    if (this._parentSpan && this._parentSpan instanceof WrappedSpan) {
+      this._parentSpan.maybeUpdateEndTimeWatermark(this._endTimeWatermark)
+    }
     this._endEncodingSpans()
+    this._requestSpan.end(this._endTimeWatermark)
   }
 
   /**
@@ -1020,9 +1064,12 @@ export class WrappedSpan implements RequestSpan {
    */
   _createRequestSpan(
     spanName: string,
-    parentSpan?: RequestSpan,
-    startTime?: HiResTime
+    startTime: HiResTime,
+    parentSpan?: RequestSpan
   ): RequestSpan {
+    if (typeof startTime === 'undefined') {
+      startTime = timeInputToHiResTime()
+    }
     return this._tracer.requestSpan(spanName, parentSpan, startTime)
   }
 }
