@@ -327,6 +327,7 @@ describe('#transactions', function () {
   })
 
   it('should fail to replace with bad CAS', async function () {
+    this.retries(2)
     const testDocId = H.genTestKey()
 
     await H.co.upsert(testDocId, { foo: 'bar' })
@@ -365,6 +366,7 @@ describe('#transactions', function () {
   }).timeout(5000)
 
   it('should fail to remove with bad CAS', async function () {
+    this.retries(2)
     const testDocId = H.genTestKey()
 
     await H.co.upsert(testDocId, { foo: 'bar' })

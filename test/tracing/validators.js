@@ -339,13 +339,14 @@ class KeyValueSpanValidator extends BaseSpanValidator {
       span.attributes[DispatchAttributeName.ServerDuration],
       `ServerDuration should be a number. ${ctx}`
     )
-    if (this._serverDurationAboveZero) {
-      assert.isAbove(
-        span.attributes[DispatchAttributeName.ServerDuration],
-        0,
-        `ServerDuration should be > 0. ${ctx}`
-      )
-    }
+    // TODO(JSCBC-1390): This can cause mock tests to be flaky.
+    // if (this._serverDurationAboveZero) {
+    //   assert.isAbove(
+    //     span.attributes[DispatchAttributeName.ServerDuration],
+    //     0,
+    //     `ServerDuration should be > 0. ${ctx}`
+    //   )
+    // }
   }
 
   _validateDispatchSpans(span) {

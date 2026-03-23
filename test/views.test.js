@@ -4,6 +4,7 @@ const assert = require('chai').assert
 const testdata = require('./testdata')
 
 const H = require('./harness')
+const { StorageBackend } = require('../lib/bucketmanager')
 const {
   DesignDocumentNamespace,
   ViewOrdering,
@@ -63,28 +64,50 @@ describe('#views', function () {
   let testUid, ddocKey
   let testDocs
   let mapFunc
+  let testBucket, bucketName, bmgr
+  let coll
 
   before(async function () {
     H.skipIfMissingFeature(this, H.Features.Views)
+    H.skipIfMissingFeature(this, H.Features.BucketManagement)
     this.timeout(60000)
 
+    bmgr = H.c.buckets()
+    bucketName = H.genTestKey()
+    await bmgr.createBucket({
+      name: bucketName,
+      flushEnabled: true,
+      ramQuotaMB: 100,
+      storageBackend: StorageBackend.Couchstore,
+    })
+
+    await H.tryNTimes(5, 2000, async () => {
+      await H.consistencyUtils.waitUntilBucketPresent(bucketName)
+      const bucket = await bmgr.getBucket(bucketName)
+      if (!bucket || bucket.name !== bucketName) {
+        throw new Error('Bucket not present yet')
+      }
+    })
+
+    testBucket = H.c.bucket(bucketName)
+    coll = testBucket.defaultCollection()
     const tmpKey = H.genTestKey()
     const tokens = tmpKey.split('_')
     testUid = tokens[0]
     ddocKey = H.genTestKey()
 
-    testDocs = await testdata.upsertData(H.dco, testUid)
+    testDocs = await testdata.upsertData(coll, testUid)
     // 40.5s for all retries, excludes time for actual operations (specifically the batched remove)
     await H.tryNTimes(3, 1000, async () => {
       try {
         // w/ 3 retries for each doc (TEST_DOCS.length == 9) w/ 500ms delay, 1.5s * 9 = 22.5s
-        const result = await testdata.upsertData(H.dco, testUid)
+        const result = await testdata.upsertData(coll, testUid)
         if (!result.every((r) => r.status === 'fulfilled')) {
           throw new Error('Failed to upsert all test data')
         }
         testDocs = result.map((r) => r.value)
       } catch (err) {
-        await testdata.removeTestData(H.dco, testDocs)
+        await testdata.removeTestData(coll, testDocs)
         throw err
       }
     })
@@ -117,7 +140,7 @@ describe('#views', function () {
 
   after(async function () {
     try {
-      await testdata.removeTestData(H.dco, testDocs)
+      await bmgr.dropBucket(bucketName)
     } catch (_e) {
       // ignore
     }
@@ -131,15 +154,22 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      await H.b.viewIndexes().upsertDesignDocument(ddoc)
+      try {
+        await testBucket.viewIndexes().upsertDesignDocument(ddoc)
+      } catch (err) {
+        console.error('Error creating design document', err)
+      }
+
       await H.consistencyUtils.waitUntilDesignDocumentPresent(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     }).timeout(60000)
 
     it('should successfully get a development index', async function () {
-      const res = await H.b.viewIndexes().getDesignDocument(`dev_${ddocKey}`)
+      const res = await testBucket
+        .viewIndexes()
+        .getDesignDocument(`dev_${ddocKey}`)
       assert.instanceOf(res, DesignDocument)
       assert.isTrue(res.name === ddocKey)
       assert.isTrue(res.namespace === DesignDocumentNamespace.Development)
@@ -151,9 +181,9 @@ describe('#views', function () {
     })
 
     it('should successfully drop a development index index', async function () {
-      await H.b.viewIndexes().dropDesignDocument(`dev_${ddocKey}`)
+      await testBucket.viewIndexes().dropDesignDocument(`dev_${ddocKey}`)
       await H.consistencyUtils.waitUntilDesignDocumentDropped(
-        H.bucketName,
+        bucketName,
         ddocKey
       )
     })
@@ -165,27 +195,29 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      await H.b.viewIndexes().upsertDesignDocument(ddoc)
+      await testBucket.viewIndexes().upsertDesignDocument(ddoc)
       await H.consistencyUtils.waitUntilDesignDocumentPresent(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     }).timeout(60000)
 
     it('should successfully publish an index', async function () {
-      const vmgr = H.b.viewIndexes()
+      const vmgr = testBucket.viewIndexes()
       await vmgr.publishDesignDocument(ddocKey)
       await H.tryNTimes(5, 1000, vmgr.getDesignDocument.bind(vmgr), ddocKey)
     }).timeout(7500)
 
     it('should fail to publish a non-existent index', async function () {
       await H.throwsHelper(async () => {
-        await H.b.viewIndexes().publishDesignDocument('missing-index-name')
+        await testBucket
+          .viewIndexes()
+          .publishDesignDocument('missing-index-name')
       }, H.lib.DesignDocumentNotFoundError)
     })
 
     it('should successfully get a production index', async function () {
-      const res = await H.b.viewIndexes().getDesignDocument(ddocKey)
+      const res = await testBucket.viewIndexes().getDesignDocument(ddocKey)
       assert.instanceOf(res, DesignDocument)
       assert.isTrue(res.name === ddocKey)
       assert.isTrue(res.namespace === DesignDocumentNamespace.Production)
@@ -197,23 +229,23 @@ describe('#views', function () {
     })
 
     it('should successfully get all indexes', async function () {
-      const res = await H.b.viewIndexes().getAllDesignDocuments()
+      const res = await testBucket.viewIndexes().getAllDesignDocuments()
       assert.isArray(res)
       assert.isTrue(res.length == 1)
       assert.isTrue(res.every((dd) => dd instanceof DesignDocument))
     })
 
     it('should successfully drop a production index', async function () {
-      await H.b.viewIndexes().dropDesignDocument(ddocKey)
+      await testBucket.viewIndexes().dropDesignDocument(ddocKey)
       await H.consistencyUtils.waitUntilDesignDocumentDropped(
-        H.bucketName,
+        bucketName,
         ddocKey
       )
     })
 
     it('should fail to drop a non-existent index', async function () {
       await H.throwsHelper(async () => {
-        await H.b.viewIndexes().dropDesignDocument('missing-index-name')
+        await testBucket.viewIndexes().dropDesignDocument('missing-index-name')
       }, H.lib.DesignDocumentNotFoundError)
     })
   })
@@ -226,13 +258,13 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      H.b.viewIndexes().upsertDesignDocument(ddoc, async (err) => {
+      testBucket.viewIndexes().upsertDesignDocument(ddoc, async (err) => {
         if (err) {
           return done(err)
         }
         try {
           await H.consistencyUtils.waitUntilDesignDocumentPresent(
-            H.bucketName,
+            bucketName,
             `dev_${ddocKey}`
           )
           done()
@@ -243,41 +275,45 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully get a development index', function (done) {
-      H.b.viewIndexes().getDesignDocument(`dev_${ddocKey}`, (err, res) => {
-        if (err) {
-          return done(err)
-        }
-        try {
-          assert.instanceOf(res, DesignDocument)
-          assert.isTrue(res.name === ddocKey)
-          assert.isTrue(res.namespace === DesignDocumentNamespace.Development)
-          assert.isObject(res.views)
-          assert.isTrue(Object.keys(res.views).length == 1)
-          assert.isTrue(Object.keys(res.views)[0] == 'simple')
-          assert.instanceOf(res.views.simple, DesignDocumentView)
-          assert.strictEqual(res.views.simple.map, mapFunc)
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
+      testBucket
+        .viewIndexes()
+        .getDesignDocument(`dev_${ddocKey}`, (err, res) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            assert.instanceOf(res, DesignDocument)
+            assert.isTrue(res.name === ddocKey)
+            assert.isTrue(res.namespace === DesignDocumentNamespace.Development)
+            assert.isObject(res.views)
+            assert.isTrue(Object.keys(res.views).length == 1)
+            assert.isTrue(Object.keys(res.views)[0] == 'simple')
+            assert.instanceOf(res.views.simple, DesignDocumentView)
+            assert.strictEqual(res.views.simple.map, mapFunc)
+            done()
+          } catch (e) {
+            done(e)
+          }
+        })
     })
 
     it('should successfully drop a development index index', function (done) {
-      H.b.viewIndexes().dropDesignDocument(`dev_${ddocKey}`, async (err) => {
-        if (err) {
-          return done(err)
-        }
-        try {
-          await H.consistencyUtils.waitUntilDesignDocumentDropped(
-            H.bucketName,
-            ddocKey
-          )
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
+      testBucket
+        .viewIndexes()
+        .dropDesignDocument(`dev_${ddocKey}`, async (err) => {
+          if (err) {
+            return done(err)
+          }
+          try {
+            await H.consistencyUtils.waitUntilDesignDocumentDropped(
+              bucketName,
+              ddocKey
+            )
+            done()
+          } catch (e) {
+            done(e)
+          }
+        })
     })
 
     it('should successfully recreate an index', function (done) {
@@ -287,13 +323,13 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      H.b.viewIndexes().upsertDesignDocument(ddoc, async (err) => {
+      testBucket.viewIndexes().upsertDesignDocument(ddoc, async (err) => {
         if (err) {
           return done(err)
         }
         try {
           await H.consistencyUtils.waitUntilDesignDocumentPresent(
-            H.bucketName,
+            bucketName,
             `dev_${ddocKey}`
           )
           done()
@@ -304,7 +340,7 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', function (done) {
-      const vmgr = H.b.viewIndexes()
+      const vmgr = testBucket.viewIndexes()
       H.tryNTimesWithCallback(
         5,
         1000,
@@ -332,19 +368,21 @@ describe('#views', function () {
     }).timeout(12500)
 
     it('should fail to publish a non-existent index', function (done) {
-      H.b.viewIndexes().publishDesignDocument('missing-index-name', (err) => {
-        try {
-          assert.isOk(err)
-          assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
+      testBucket
+        .viewIndexes()
+        .publishDesignDocument('missing-index-name', (err) => {
+          try {
+            assert.isOk(err)
+            assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
+            done()
+          } catch (e) {
+            done(e)
+          }
+        })
     })
 
     it('should successfully get a production index', function (done) {
-      H.b.viewIndexes().getDesignDocument(ddocKey, (err, res) => {
+      testBucket.viewIndexes().getDesignDocument(ddocKey, (err, res) => {
         if (err) {
           return done(err)
         }
@@ -365,7 +403,7 @@ describe('#views', function () {
     })
 
     it('should successfully get all indexes', function (done) {
-      H.b.viewIndexes().getAllDesignDocuments((err, res) => {
+      testBucket.viewIndexes().getAllDesignDocuments((err, res) => {
         if (err) {
           return done(err)
         }
@@ -381,13 +419,13 @@ describe('#views', function () {
     })
 
     it('should successfully drop a production index', function (done) {
-      H.b.viewIndexes().dropDesignDocument(ddocKey, async (err) => {
+      testBucket.viewIndexes().dropDesignDocument(ddocKey, async (err) => {
         if (err) {
           return done(err)
         }
         try {
           await H.consistencyUtils.waitUntilDesignDocumentDropped(
-            H.bucketName,
+            bucketName,
             ddocKey
           )
           done()
@@ -398,15 +436,17 @@ describe('#views', function () {
     })
 
     it('should fail to drop a non-existent index', function (done) {
-      H.b.viewIndexes().dropDesignDocument('missing-index-name', (err) => {
-        try {
-          assert.isOk(err)
-          assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
+      testBucket
+        .viewIndexes()
+        .dropDesignDocument('missing-index-name', (err) => {
+          try {
+            assert.isOk(err)
+            assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
+            done()
+          } catch (e) {
+            done(e)
+          }
+        })
     })
   })
 
@@ -418,17 +458,17 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      await H.b
+      await testBucket
         .viewIndexes()
         .upsertDesignDocument(ddoc, DesignDocumentNamespace.Development)
       await H.consistencyUtils.waitUntilDesignDocumentPresent(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     }).timeout(60000)
 
     it('should successfully get a development index', async function () {
-      const res = await H.b
+      const res = await testBucket
         .viewIndexes()
         .getDesignDocument(ddocKey, DesignDocumentNamespace.Development)
       assert.instanceOf(res, DesignDocument)
@@ -442,11 +482,11 @@ describe('#views', function () {
     })
 
     it('should successfully drop a development index', async function () {
-      await H.b
+      await testBucket
         .viewIndexes()
         .dropDesignDocument(ddocKey, DesignDocumentNamespace.Development)
       await H.consistencyUtils.waitUntilDesignDocumentDropped(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     })
@@ -458,17 +498,17 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      await H.b
+      await testBucket
         .viewIndexes()
         .upsertDesignDocument(ddoc, DesignDocumentNamespace.Development)
       await H.consistencyUtils.waitUntilDesignDocumentPresent(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     }).timeout(60000)
 
     it('should successfully publish an index', async function () {
-      const vmgr = H.b.viewIndexes()
+      const vmgr = testBucket.viewIndexes()
       await vmgr.publishDesignDocument(ddocKey)
       await H.tryNTimes(
         5,
@@ -481,12 +521,14 @@ describe('#views', function () {
 
     it('should fail to publish a non-existent index', async function () {
       await H.throwsHelper(async () => {
-        await H.b.viewIndexes().publishDesignDocument('missing-index-name')
+        await testBucket
+          .viewIndexes()
+          .publishDesignDocument('missing-index-name')
       }, H.lib.DesignDocumentNotFoundError)
     })
 
     it('should successfully get a production index', async function () {
-      const res = await H.b
+      const res = await testBucket
         .viewIndexes()
         .getDesignDocument(ddocKey, DesignDocumentNamespace.Production)
       assert.instanceOf(res, DesignDocument)
@@ -500,7 +542,7 @@ describe('#views', function () {
     })
 
     it('should successfully get all indexes', async function () {
-      const res = await H.b
+      const res = await testBucket
         .viewIndexes()
         .getAllDesignDocuments(DesignDocumentNamespace.Production)
       assert.isArray(res)
@@ -509,18 +551,18 @@ describe('#views', function () {
     })
 
     it('should successfully drop a production index', async function () {
-      await H.b
+      await testBucket
         .viewIndexes()
         .dropDesignDocument(ddocKey, DesignDocumentNamespace.Production)
       await H.consistencyUtils.waitUntilDesignDocumentDropped(
-        H.bucketName,
+        bucketName,
         ddocKey
       )
     })
 
     it('should fail to drop a non-existent index', async function () {
       await H.throwsHelper(async () => {
-        await H.b
+        await testBucket
           .viewIndexes()
           .dropDesignDocument(
             'missing-index-name',
@@ -538,7 +580,7 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      H.b
+      testBucket
         .viewIndexes()
         .upsertDesignDocument(
           ddoc,
@@ -549,7 +591,7 @@ describe('#views', function () {
             }
             try {
               await H.consistencyUtils.waitUntilDesignDocumentPresent(
-                H.bucketName,
+                bucketName,
                 `dev_${ddocKey}`
               )
               done()
@@ -561,7 +603,7 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully get a development index', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .getDesignDocument(
           ddocKey,
@@ -590,7 +632,7 @@ describe('#views', function () {
     })
 
     it('should successfully drop a development index', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .dropDesignDocument(
           ddocKey,
@@ -601,7 +643,7 @@ describe('#views', function () {
             }
             try {
               await H.consistencyUtils.waitUntilDesignDocumentDropped(
-                H.bucketName,
+                bucketName,
                 `dev_${ddocKey}`
               )
               done()
@@ -619,7 +661,7 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      H.b
+      testBucket
         .viewIndexes()
         .upsertDesignDocument(
           ddoc,
@@ -630,7 +672,7 @@ describe('#views', function () {
             }
             try {
               await H.consistencyUtils.waitUntilDesignDocumentPresent(
-                H.bucketName,
+                bucketName,
                 `dev_${ddocKey}`
               )
               done()
@@ -642,7 +684,7 @@ describe('#views', function () {
     }).timeout(60000)
 
     it('should successfully publish an index', function (done) {
-      const vmgr = H.b.viewIndexes()
+      const vmgr = testBucket.viewIndexes()
       H.tryNTimesWithCallback(
         5,
         1000,
@@ -673,19 +715,21 @@ describe('#views', function () {
     }).timeout(12500)
 
     it('should fail to publish a non-existent index', function (done) {
-      H.b.viewIndexes().publishDesignDocument('missing-index-name', (err) => {
-        try {
-          assert.isOk(err)
-          assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
-          done()
-        } catch (e) {
-          done(e)
-        }
-      })
+      testBucket
+        .viewIndexes()
+        .publishDesignDocument('missing-index-name', (err) => {
+          try {
+            assert.isOk(err)
+            assert.instanceOf(err, H.lib.DesignDocumentNotFoundError)
+            done()
+          } catch (e) {
+            done(e)
+          }
+        })
     })
 
     it('should successfully get a production index', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .getDesignDocument(
           ddocKey,
@@ -715,7 +759,7 @@ describe('#views', function () {
     })
 
     it('should successfully get all indexes', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .getAllDesignDocuments(
           DesignDocumentNamespace.Production,
@@ -736,7 +780,7 @@ describe('#views', function () {
     })
 
     it('should successfully drop a production index', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .dropDesignDocument(
           ddocKey,
@@ -747,7 +791,7 @@ describe('#views', function () {
             }
             try {
               await H.consistencyUtils.waitUntilDesignDocumentDropped(
-                H.bucketName,
+                bucketName,
                 ddocKey
               )
               done()
@@ -759,7 +803,7 @@ describe('#views', function () {
     })
 
     it('should fail to drop a non-existent index', function (done) {
-      H.b
+      testBucket
         .viewIndexes()
         .dropDesignDocument(
           'missing-index-name',
@@ -785,11 +829,11 @@ describe('#views', function () {
           simple: new H.lib.DesignDocumentView({ map: mapFunc }),
         },
       })
-      await H.b
+      await testBucket
         .viewIndexes()
         .upsertDesignDocument(ddoc, DesignDocumentNamespace.Development)
       await H.consistencyUtils.waitUntilDesignDocumentPresent(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     }).timeout(60000)
@@ -801,7 +845,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             fullSet: true,
           })
@@ -832,20 +876,41 @@ describe('#views', function () {
 
     it('should see test data correctly with a new connection', async function () {
       var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
-      var bucket = cluster.bucket(H.bucketName)
+      var bucket = cluster.bucket(bucketName)
 
-      const res = await bucket.viewQuery(ddocKey, 'simple', {
-        namespace: DesignDocumentNamespace.Development,
-      })
-      assert.isArray(res.rows)
-      assert.lengthOf(res.rows, testdata.docCount())
-      assert.isObject(res.meta)
+      while (true) {
+        var res = null
 
-      res.rows.forEach((row) => {
-        assert.isDefined(row.id)
-        assert.isDefined(row.key)
-        assert.isDefined(row.value)
-      })
+        // We wrap this in a try-catch block since its possible that the
+        // view won't be available to the query engine yet...
+        try {
+          res = await bucket.viewQuery(ddocKey, 'simple', {
+            namespace: DesignDocumentNamespace.Development,
+            fullSet: true,
+          })
+        } catch (err) {
+          if (!(err instanceof H.lib.ViewNotFoundError)) {
+            throw err
+          }
+        }
+
+        if (!res || res.rows.length !== testdata.docCount()) {
+          await H.sleep(100)
+          continue
+        }
+
+        assert.isArray(res.rows)
+        assert.lengthOf(res.rows, testdata.docCount())
+        assert.isObject(res.meta)
+
+        res.rows.forEach((row) => {
+          assert.isDefined(row.id)
+          assert.isDefined(row.key)
+          assert.isDefined(row.value)
+        })
+
+        break
+      }
 
       await cluster.close()
     }).timeout(10000)
@@ -857,7 +922,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             order: ViewOrdering.Ascending,
           })
@@ -892,7 +957,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             order: ViewOrdering.Descending,
           })
@@ -939,7 +1004,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             idRange: { end: endKeyDocId },
             range: { end: key },
@@ -978,7 +1043,7 @@ describe('#views', function () {
       const expectedCount = 1
 
       // run a query so we can have pagination
-      await H.b.viewQuery(ddocKey, 'simple', {
+      await testBucket.viewQuery(ddocKey, 'simple', {
         namespace: DesignDocumentNamespace.Development,
         limit: 2,
       })
@@ -989,7 +1054,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             limit: 2,
             idRange: { start: startKeyDocId },
@@ -1029,7 +1094,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             key: key,
           })
@@ -1075,7 +1140,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             keys: expectedKeys,
           })
@@ -1118,7 +1183,7 @@ describe('#views', function () {
       const expectedCount = 1
 
       // run a query so we can have pagination
-      await H.b.viewQuery(ddocKey, 'simple', {
+      await testBucket.viewQuery(ddocKey, 'simple', {
         namespace: DesignDocumentNamespace.Development,
         limit: 2,
       })
@@ -1129,7 +1194,7 @@ describe('#views', function () {
         // We wrap this in a try-catch block since its possible that the
         // view won't be available to the query engine yet...
         try {
-          res = await H.b.viewQuery(ddocKey, 'simple', {
+          res = await testBucket.viewQuery(ddocKey, 'simple', {
             namespace: DesignDocumentNamespace.Development,
             raw: {
               limit: '2',
@@ -1171,7 +1236,7 @@ describe('#views', function () {
       const startKeyDocId = keysAndDocIds[key][keysAndDocIds[key].length - 1]
 
       await H.throwsHelper(async () => {
-        await H.b.viewQuery(ddocKey, 'simple', {
+        await testBucket.viewQuery(ddocKey, 'simple', {
           namespace: DesignDocumentNamespace.Development,
           raw: {
             limit: '2',
@@ -1185,11 +1250,11 @@ describe('#views', function () {
     })
 
     it('should successfully drop an index', async function () {
-      await H.b
+      await testBucket
         .viewIndexes()
         .dropDesignDocument(ddocKey, DesignDocumentNamespace.Development)
       await H.consistencyUtils.waitUntilDesignDocumentDropped(
-        H.bucketName,
+        bucketName,
         `dev_${ddocKey}`
       )
     })

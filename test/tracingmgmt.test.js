@@ -352,12 +352,14 @@ function tracingTests(clusterFn, bucketFn, tracerFn) {
 
       before(function () {
         H.skipIfMissingFeature(this, H.Features.BucketManagement)
-
-        testBucket = H.genTestKey()
         bmgr = cluster.buckets()
       })
 
-      after(async function () {
+      beforeEach(async function () {
+        testBucket = H.genTestKey()
+      })
+
+      afterEach(async function () {
         try {
           await bmgr.dropBucket(testBucket)
         } catch (_e) {
@@ -868,9 +870,7 @@ function tracingTests(clusterFn, bucketFn, tracerFn) {
         }
       })
 
-      // What I want to do is below, but EVT mgmt is soooooo flaky it is problematic for CI, especially when something
-      // goes wrong, it is painful to cleanup and then it can impact other tests.
-      // Running tests locally indicates that the operations themselves have the appropriate tracing hooks.
+      // Only doing minimal testing for eventing function mgmt.  See JSCBC-1390 for details
       it('should successfully perform eventing function mgmt operations', async function () {
         validator.reset().op(EventingFunctionMgmtOp.EventingGetAllFunctions)
         const fns = await emgr.getAllFunctions()
@@ -890,170 +890,43 @@ function tracingTests(clusterFn, bucketFn, tracerFn) {
         assert.isArray(fns)
         validator.validate()
       })
-
-      /*
-      it('should successfully perform eventing function mgmt operations', async function () {
-        validator.reset().op(EventingFunctionMgmtOp.EventingUpsertFunction)
-        await emgr.upsertFunction(fnDef)
-        validator.validate()
-
-        validator.reset().op(EventingFunctionMgmtOp.EventingGetAllFunctions)
-        const fns = await emgr.getAllFunctions()
-        assert.isAtLeast(fns.length, 1)
-        validator.validate()
-
-        // For some reason the getFunction causes the tests to be VERY flaky
-        // validator.reset().op(EventingFunctionMgmtOp.EventingGetFunction)
-        // const fn = await emgr.getFunction(fnName)
-        // assert.equal(fn.name, fnName)
-        // validator.validate()
-
-        validator.reset().op(EventingFunctionMgmtOp.EventingGetStatus)
-        const status = await emgr.functionsStatus()
-        assert.isAtLeast(status.functions.length, 1)
-        validator.validate()
-
-        validator.reset().op(EventingFunctionMgmtOp.EventingDropFunction)
-        await emgr.dropFunction(fnName)
-        validator.validate()
-
-        validator
-          .reset()
-          .op(EventingFunctionMgmtOp.EventingGetFunction)
-          .error(true)
-        try {
-          await emgr.getFunction(fnName)
-        } catch (_e) {
-          // ignore
-        }
-        validator.validate()
-
-        validator
-          .reset()
-          .op(EventingFunctionMgmtOp.EventingDropFunction)
-          .error(true)
-        try {
-          await emgr.dropFunction(fnName)
-        } catch (_e) {
-          // ignore
-        }
-        validator.validate()
-      })
-
-      it('should successfully perform eventing function mgmt operations w/ parent span', async function () {
-        validator.reset()
-        let parentSpan = tracer.requestSpan(
-          `${EventingFunctionMgmtOp.EventingUpsertFunction}-parent-span`
-        )
-        validator
-          .op(EventingFunctionMgmtOp.EventingUpsertFunction)
-          .parent(parentSpan)
-        await emgr.upsertFunction(fnDef, { parentSpan: parentSpan })
-        validator.validate()
-
-        validator.reset()
-        parentSpan = tracer.requestSpan(
-          `${EventingFunctionMgmtOp.EventingGetAllFunctions}-parent-span`
-        )
-        validator
-          .op(EventingFunctionMgmtOp.EventingGetAllFunctions)
-          .parent(parentSpan)
-        const fns = await emgr.getAllFunctions({ parentSpan: parentSpan })
-        assert.isAtLeast(fns.length, 1)
-        validator.validate()
-
-        // For some reason the getFunction causes the tests to be VERY flaky
-        // validator.reset()
-        // parentSpan = tracer.requestSpan(`${EventingFunctionMgmtOp.EventingGetFunction}-parent-span`)
-        // validator.op(EventingFunctionMgmtOp.EventingGetFunction).parent(parentSpan)
-        // const fn = await emgr.getFunction(fnName, { parentSpan: parentSpan })
-        // assert.equal(fn.name, fnName)
-        // validator.validate()
-
-        validator.reset()
-        parentSpan = tracer.requestSpan(
-          `${EventingFunctionMgmtOp.EventingGetStatus}-parent-span`
-        )
-        validator
-          .op(EventingFunctionMgmtOp.EventingGetStatus)
-          .parent(parentSpan)
-        const status = await emgr.functionsStatus({ parentSpan: parentSpan })
-        assert.isAtLeast(status.functions.length, 1)
-        validator.validate()
-
-        validator.reset()
-        parentSpan = tracer.requestSpan(
-          `${EventingFunctionMgmtOp.EventingDropFunction}-parent-span`
-        )
-        validator
-          .op(EventingFunctionMgmtOp.EventingDropFunction)
-          .parent(parentSpan)
-        await emgr.dropFunction(fnName, { parentSpan: parentSpan })
-        validator.validate()
-
-        validator.reset()
-        parentSpan = tracer.requestSpan(
-          `${EventingFunctionMgmtOp.EventingGetFunction}-parent-span`
-        )
-        validator
-          .op(EventingFunctionMgmtOp.EventingGetFunction)
-          .parent(parentSpan)
-          .error(true)
-        try {
-          await emgr.getFunction(fnName, { parentSpan: parentSpan })
-        } catch (_e) {
-          // ignore
-        }
-        validator.validate()
-      })
-      */
     })
 
     describe('#Query Index Management Operations', function () {
       this.timeout(60000)
-      let idxName, pIdxName, qmgr, bmgr, testBucket
+      let idxName, pIdxName, qmgr, indexes, testBucket
 
       before(async function () {
-        H.skipIfMissingFeature(this, H.Features.BucketManagement)
         H.skipIfMissingFeature(this, H.Features.Query)
-      })
 
-      beforeEach(async function () {
-        testBucket = H.genTestKey()
-        bmgr = cluster.buckets()
-
-        await bmgr.createBucket({
-          name: testBucket,
-          flushEnabled: true,
-          ramQuotaMB: 256,
-        })
-
-        await H.tryNTimes(5, 2000, async () => {
-          await H.consistencyUtils.waitUntilBucketPresent(testBucket)
-          const bucket = await bmgr.getBucket(testBucket)
-          if (!bucket || bucket.name !== testBucket) {
-            throw new Error('Bucket not present yet')
-          }
-        })
-
+        testBucket = H.b.name
         idxName = H.genTestKey()
         pIdxName = `${idxName}-primary`
+        indexes = [idxName, pIdxName]
         qmgr = cluster.queryIndexes()
       })
 
       afterEach(async function () {
-        try {
-          await bmgr.dropBucket(testBucket)
-        } catch (_e) {
-          // ignore
+        for (const idx of indexes) {
+          try {
+            await qmgr.dropIndex(testBucket, idx, { ignoreIfNotExists: true })
+          } catch (_e) {
+            // ignore
+          }
         }
       })
 
       it('should successfully perform query index mgmt operations', async function () {
         validator.reset().op(QueryIndexMgmtOp.QueryIndexCreate)
-        await qmgr.createPrimaryIndex(testBucket, {
-          name: pIdxName,
-        })
+        // depending on how tests are ordered, we may already have an index here, so we ignore failure and
+        // just validate the span
+        try {
+          await qmgr.createPrimaryIndex(testBucket, {
+            name: pIdxName,
+          })
+        } catch (_e) {
+          validator.error(true)
+        }
         validator.validate()
 
         validator.reset().op(QueryIndexMgmtOp.QueryIndexCreate)
@@ -1090,6 +963,7 @@ function tracingTests(clusterFn, bucketFn, tracerFn) {
           await qmgr.createIndex(testBucket, idxName, ['name'], {
             deferred: true,
           })
+          indexes.push(idxName)
         }
         idxs = await qmgr.getAllIndexes(testBucket)
         const filteredIdexes = idxs.filter((idx) => idx.state === 'deferred')
@@ -1115,10 +989,17 @@ function tracingTests(clusterFn, bucketFn, tracerFn) {
           `${QueryIndexMgmtOp.QueryIndexCreate}-parent-span`
         )
         validator.op(QueryIndexMgmtOp.QueryIndexCreate).parent(parentSpan)
-        await qmgr.createPrimaryIndex(testBucket, {
-          name: pIdxName,
-          parentSpan: parentSpan,
-        })
+
+        // depending on how tests are ordered, we may already have an index here, so we ignore failure and
+        // just validate the span
+        try {
+          await qmgr.createPrimaryIndex(testBucket, {
+            name: pIdxName,
+            parentSpan: parentSpan,
+          })
+        } catch (_e) {
+          validator.error(true)
+        }
         validator.validate()
 
         validator.reset()

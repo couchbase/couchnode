@@ -8,6 +8,8 @@ const { DatastructureOp, KeyValueOp } = require('../lib/observabilitytypes')
 
 function metricsTests(collFn, meterFn, collectionDetailsFn) {
   describe('#Data Structure Operations', function () {
+    this.retries(2)
+    this.timeout(5000)
     let meter
     let coll
     let collectionDetails

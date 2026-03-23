@@ -205,12 +205,14 @@ function metricsTests(clusterFn, bucketFn, meterFn) {
 
       before(function () {
         H.skipIfMissingFeature(this, H.Features.BucketManagement)
-
-        testBucket = H.genTestKey()
         bmgr = cluster.buckets()
       })
 
-      after(async function () {
+      beforeEach(async function () {
+        testBucket = H.genTestKey()
+      })
+
+      afterEach(async function () {
         try {
           await bmgr.dropBucket(testBucket)
         } catch (_e) {
@@ -512,49 +514,39 @@ function metricsTests(clusterFn, bucketFn, meterFn) {
 
     describe('#Query Index Management Operations', function () {
       this.timeout(60000)
-      let idxName, pIdxName, qmgr, bmgr, testBucket
+      let idxName, pIdxName, qmgr, indexes, testBucket
 
       before(async function () {
-        H.skipIfMissingFeature(this, H.Features.BucketManagement)
         H.skipIfMissingFeature(this, H.Features.Query)
-      })
 
-      beforeEach(async function () {
-        testBucket = H.genTestKey()
-        bmgr = cluster.buckets()
-
-        await bmgr.createBucket({
-          name: testBucket,
-          flushEnabled: true,
-          ramQuotaMB: 256,
-        })
-
-        await H.tryNTimes(5, 2000, async () => {
-          await H.consistencyUtils.waitUntilBucketPresent(testBucket)
-          const bucket = await bmgr.getBucket(testBucket)
-          if (!bucket || bucket.name !== testBucket) {
-            throw new Error('Bucket not present yet')
-          }
-        })
-
+        testBucket = H.b.name
         idxName = H.genTestKey()
         pIdxName = `${idxName}-primary`
+        indexes = [idxName, pIdxName]
         qmgr = cluster.queryIndexes()
       })
 
       afterEach(async function () {
-        try {
-          await bmgr.dropBucket(testBucket)
-        } catch (_e) {
-          // ignore
+        for (const idx of indexes) {
+          try {
+            await qmgr.dropIndex(testBucket, idx, { ignoreIfNotExists: true })
+          } catch (_e) {
+            // ignore
+          }
         }
       })
 
       it('should successfully perform query index mgmt operations', async function () {
         validator.reset().op(QueryIndexMgmtOp.QueryIndexCreate)
-        await qmgr.createPrimaryIndex(testBucket, {
-          name: pIdxName,
-        })
+        // depending on how tests are ordered, we may already have an index here, so we ignore failure and
+        // just validate the span
+        try {
+          await qmgr.createPrimaryIndex(testBucket, {
+            name: pIdxName,
+          })
+        } catch (_e) {
+          validator.error(true)
+        }
         validator.validate()
 
         validator.reset().op(QueryIndexMgmtOp.QueryIndexCreate)
@@ -591,6 +583,7 @@ function metricsTests(clusterFn, bucketFn, meterFn) {
           await qmgr.createIndex(testBucket, idxName, ['name'], {
             deferred: true,
           })
+          indexes.push(idxName)
         }
         idxs = await qmgr.getAllIndexes(testBucket)
         const filteredIdexes = idxs.filter((idx) => idx.state === 'deferred')

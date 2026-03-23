@@ -8,6 +8,7 @@ const {
   ThresholdLoggingTestTracer,
 } = require('./tracing/tracingtypes')
 const { createKeyValueValidator } = require('./tracing/validators')
+const { EncodingFailureError, DecodingFailureError } = require('../lib/errors')
 const { DurabilityLevel } = require('../lib/generaltypes')
 const { KeyValueOp } = require('../lib/observabilitytypes')
 const { MutateInSpec, LookupInSpec } = require('../lib/sdspecs')
@@ -76,10 +77,10 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
 
       const errorTranscoder = {
         encode: () => {
-          throw new Error('encode error')
+          throw new EncodingFailureError('encode error')
         },
         decode: () => {
-          throw new Error('decode error')
+          throw new DecodingFailureError('decode error')
         },
       }
 

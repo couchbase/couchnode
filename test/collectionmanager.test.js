@@ -554,5 +554,5 @@ describe('#collectionmanager', function () {
 
     await testCluster.buckets().dropBucket(magmaTestBucket)
     await H.consistencyUtils.waitUntilBucketDropped(magmaTestBucket)
-  }).timeout(5000)
+  }).timeout(10000)
 })

@@ -6,6 +6,7 @@ const { NoOpTestMeter, TestMeter } = require('./metrics/metertypes')
 const { createKeyValueValidator } = require('./metrics/validators')
 const { KeyValueOp } = require('../lib/observabilitytypes')
 const { MutateInSpec, LookupInSpec } = require('../lib/sdspecs')
+const { EncodingFailureError, DecodingFailureError } = require('../lib/errors')
 const testdata = require('./testdata')
 
 const INVALID_KEY_NAME = 'not-a-key'
@@ -71,10 +72,10 @@ function metricsTests(collFn, meterFn, collectionDetailsFn) {
 
       const errorTranscoder = {
         encode: () => {
-          throw new Error('encode error')
+          throw new EncodingFailureError('encode error')
         },
         decode: () => {
-          throw new Error('decode error')
+          throw new DecodingFailureError('decode error')
         },
       }
 
@@ -139,6 +140,7 @@ function metricsTests(collFn, meterFn, collectionDetailsFn) {
                 await coll[funcName](testKey, testObjVal)
               }
             } catch (_e) {
+              console.log(`Expected error in ${funcName}:`, _e.message)
               // ignore
             }
             validator.validate()
