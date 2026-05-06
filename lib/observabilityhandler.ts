@@ -725,6 +725,7 @@ export class WrappedSpan implements RequestSpan {
   private readonly _tracer: RequestTracer
   private readonly _hasMultipleEncodingSpans: boolean
   readonly _requestSpan: RequestSpan
+  private readonly _isRecording: boolean
   private _parentSpan: RequestSpan | WrappedSpan | undefined
   private _endedEncodingSpans: boolean
   private _encodingSpan: WrappedEncodingSpan | undefined
@@ -752,6 +753,7 @@ export class WrappedSpan implements RequestSpan {
         : this._parentSpan
     this._hasMultipleEncodingSpans = this._opType == KeyValueOp.MutateIn
     this._requestSpan = this._createRequestSpan(this._opType, startTime, pSpan)
+    this._isRecording = this._requestSpan.isRecording?.() ?? true
     this._endedEncodingSpans = false
     this._startTime = startTime
     this._endTimeWatermark = timeInputToHiResTime()
@@ -1020,6 +1022,9 @@ export class WrappedSpan implements RequestSpan {
    * @internal
    */
   processCoreSpan(coreSpan: CppWrapperSdkSpan): void {
+    if (!this._isRecording) {
+      return
+    }
     this._maybeSetAttributeFromCoreSpan(
       coreSpan,
       CppOpAttributeName.ClusterName
@@ -1086,6 +1091,9 @@ export class WrappedSpan implements RequestSpan {
    * @internal
    */
   setAttribute(key: string, value: AttributeValue): void {
+    if (!this._isRecording) {
+      return
+    }
     if (key === OpAttributeName.ClusterName) {
       this._clusterName = value as string
     } else if (key === OpAttributeName.ClusterUUID) {

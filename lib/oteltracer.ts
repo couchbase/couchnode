@@ -101,6 +101,14 @@ export class OTelWrapperSpan implements RequestSpan {
   end(endTime?: TimeInput): void {
     this._otelSpan.end(endTime as OTelTimeInput)
   }
+
+  /**
+   * Delegates to the underlying OTel span's isRecording, allowing the SDK
+   * to skip attribute and dispatch span work when the sampler dropped the span.
+   */
+  isRecording(): boolean {
+    return this._otelSpan.isRecording()
+  }
 }
 
 /**

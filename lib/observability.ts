@@ -36,6 +36,13 @@ export class NoOpSpan implements RequestSpan {
   /**
    * @internal
    */
+  isRecording(): boolean {
+    return false
+  }
+
+  /**
+   * @internal
+   */
   get name(): string {
     return ''
   }

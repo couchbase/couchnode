@@ -574,6 +574,14 @@ export class ThresholdLoggingSpan implements RequestSpan {
   addEvent(): void {}
 
   /**
+   * Always returns true — threshold logging spans must record every operation
+   * to evaluate against configured thresholds.
+   */
+  isRecording(): boolean {
+    return true
+  }
+
+  /**
    * Sets the status of the span.
    *
    * @param status - The span status containing code and optional message.

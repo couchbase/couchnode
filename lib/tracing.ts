@@ -45,6 +45,13 @@ export interface RequestSpan {
      * @param endTime - Optional end time; defaults to current time if not provided.
      */
     end(endTime?: TimeInput): void
+
+    /**
+     * Returns whether this span is actively recording. When false, setAttribute
+     * and processCoreSpan work is skipped. Defaults to true when not implemented,
+     * preserving backward compatibility with existing custom implementations.
+     */
+    isRecording?(): boolean
   }
 
   /**
