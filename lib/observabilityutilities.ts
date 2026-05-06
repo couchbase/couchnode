@@ -14,6 +14,7 @@ import {
   HttpOpType,
   KeyValueOp,
   OpAttributeName,
+  ServiceName,
   serviceNameFromOpType,
   TimeInput,
 } from './observabilitytypes'
@@ -154,7 +155,7 @@ export function getAttributesForKeyValueOpType(
 } {
   const attributes: { [key: string]: AttributeValue } = {
     [OpAttributeName.SystemName]: 'couchbase',
-    [OpAttributeName.Service]: serviceNameFromOpType(opType),
+    [OpAttributeName.Service]: ServiceName.KeyValue,
     [OpAttributeName.OperationName]: opType,
     [OpAttributeName.BucketName]: cppDocId.bucket,
     [OpAttributeName.ScopeName]: cppDocId.scope,

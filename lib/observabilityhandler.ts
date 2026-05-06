@@ -1,4 +1,4 @@
-import {
+import binding, {
   CppDocumentId,
   CppDurabilityLevel,
   CppWrapperSdkChildSpan,
@@ -35,6 +35,8 @@ import { hiResTimeToMicros, getHiResTimeDelta } from './observabilityutilities'
 import { RequestSpan, RequestTracer } from './tracing'
 import { getErrorMessage } from './utilities'
 
+const _DATASTRUCTURE_OPS = new Set<string>(Object.values(DatastructureOp))
+
 /**
  * @internal
  */
@@ -52,9 +54,10 @@ class ObservableRequestHandlerTracerImpl {
   constructor(
     opType: OpType,
     observabilityInstruments: ObservabilityInstruments,
-    parentSpan?: RequestSpan
+    parentSpan?: RequestSpan,
+    startTime?: HiResTime
   ) {
-    this._startTime = timeInputToHiResTime()
+    this._startTime = startTime ?? timeInputToHiResTime()
     this._opType = opType
     this._serviceName = serviceNameFromOpType(opType)
     this._tracer = observabilityInstruments.tracer
@@ -196,15 +199,37 @@ class ObservableRequestHandlerTracerImpl {
     cppDocId: CppDocumentId,
     durability?: CppDurabilityLevel
   ): void {
-    const opAttrs = getAttributesForKeyValueOpType(
-      this._opType as KeyValueOp,
-      cppDocId,
-      durability
+    this._wrappedSpan.setAttribute(OpAttributeName.SystemName, 'couchbase')
+    this._wrappedSpan.setAttribute(OpAttributeName.Service, ServiceName.KeyValue)
+    this._wrappedSpan.setAttribute(OpAttributeName.OperationName, this._opType)
+    this._wrappedSpan.setAttribute(OpAttributeName.BucketName, cppDocId.bucket)
+    this._wrappedSpan.setAttribute(OpAttributeName.ScopeName, cppDocId.scope)
+    this._wrappedSpan.setAttribute(
+      OpAttributeName.CollectionName,
+      cppDocId.collection
     )
-    for (const [k, v] of Object.entries(opAttrs)) {
-      this._wrappedSpan.setAttribute(k, v)
+    if (durability && durability !== binding.durability_level.none) {
+      if (durability === binding.durability_level.majority) {
+        this._wrappedSpan.setAttribute(
+          OpAttributeName.DurabilityLevel,
+          'majority'
+        )
+      } else if (
+        durability === binding.durability_level.majority_and_persist_to_active
+      ) {
+        this._wrappedSpan.setAttribute(
+          OpAttributeName.DurabilityLevel,
+          'majority_and_persist_to_active'
+        )
+      } else if (
+        durability === binding.durability_level.persist_to_majority
+      ) {
+        this._wrappedSpan.setAttribute(
+          OpAttributeName.DurabilityLevel,
+          'persist_to_majority'
+        )
+      }
     }
-    // TODO: meter attrs
   }
 }
 
@@ -363,16 +388,15 @@ class ObservableRequestHandlerMeterImpl {
 
   constructor(
     opType: OpType,
-    observabilityInstruments: ObservabilityInstruments
+    observabilityInstruments: ObservabilityInstruments,
+    startTime?: HiResTime
   ) {
     this._opType = opType
     this._serviceName = serviceNameFromOpType(opType)
     this._meter = observabilityInstruments.meter
     this._getClusterLabelsFn = observabilityInstruments.clusterLabelsFn
-    this._startTime = timeInputToHiResTime()
-    this._ignoreTopLevelOp = Object.values(DatastructureOp).includes(
-      opType as DatastructureOp
-    )
+    this._startTime = startTime ?? timeInputToHiResTime()
+    this._ignoreTopLevelOp = _DATASTRUCTURE_OPS.has(opType as string)
   }
 
   /**
@@ -500,6 +524,28 @@ type MeterImpl =
   | ObservableRequestHandlerMeterImpl
   | ObservableRequestHandlerNoOpMeterImpl
 
+const _NOOP_TRACER_IMPL = new ObservableRequestHandlerNoOpTracerImpl(
+  '' as OpType,
+  null as unknown as ObservabilityInstruments
+)
+const _NOOP_METER_IMPL = new ObservableRequestHandlerNoOpMeterImpl(
+  '' as OpType,
+  null as unknown as ObservabilityInstruments
+)
+
+/**
+ * Returns true when both tracer and meter are NoOp, enabling the fast-path bypass in KV ops.
+ * @internal
+ */
+export function isNoopObservabilityInstruments(
+  instruments: ObservabilityInstruments
+): boolean {
+  return (
+    (!instruments.tracer || instruments.tracer instanceof NoOpTracer) &&
+    instruments.meter instanceof NoOpMeter
+  )
+}
+
 /**
  * @internal
  */
@@ -516,31 +562,27 @@ export class ObservableRequestHandler {
   ) {
     this._opType = opType
     this._requestHasEnded = false
+    const startTime = timeInputToHiResTime()
     if (
       !observabilityInstruments.tracer ||
       observabilityInstruments.tracer instanceof NoOpTracer
     ) {
-      this._tracerImpl = new ObservableRequestHandlerNoOpTracerImpl(
-        opType,
-        observabilityInstruments,
-        parentSpan
-      )
+      this._tracerImpl = _NOOP_TRACER_IMPL
     } else {
       this._tracerImpl = new ObservableRequestHandlerTracerImpl(
         opType,
         observabilityInstruments,
-        parentSpan
+        parentSpan,
+        startTime
       )
     }
     if (observabilityInstruments.meter instanceof NoOpMeter) {
-      this._meterImpl = new ObservableRequestHandlerNoOpMeterImpl(
-        opType,
-        observabilityInstruments
-      )
+      this._meterImpl = _NOOP_METER_IMPL
     } else {
       this._meterImpl = new ObservableRequestHandlerMeterImpl(
         opType,
-        observabilityInstruments
+        observabilityInstruments,
+        startTime
       )
     }
   }

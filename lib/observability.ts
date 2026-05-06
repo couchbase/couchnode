@@ -62,18 +62,20 @@ export async function wrapObservableBindingCall<
 >(
   fn: ObservableBindingFunc<TReq, TResp>,
   req: TReq,
-  obsReqHandler: ObservableRequestHandler
+  obsReqHandler: ObservableRequestHandler | null
 ): Promise<[Error | null, TResp]> {
   return await new Promise(
     (resolve: (res: [Error | null, res: TResp]) => void) => {
-      req.wrapper_span_name = obsReqHandler.wrapperSpanName
+      if (obsReqHandler) {
+        req.wrapper_span_name = obsReqHandler.wrapperSpanName
+      }
       fn(req, (cppErr: CppError | null, res: TResp) => {
         let err = null
         if (cppErr) {
           err = errorFromCpp(cppErr)
-          obsReqHandler.processCoreSpan(cppErr.cpp_core_span)
+          obsReqHandler?.processCoreSpan(cppErr.cpp_core_span)
         } else {
-          obsReqHandler.processCoreSpan(res.cpp_core_span)
+          obsReqHandler?.processCoreSpan(res.cpp_core_span)
         }
         resolve([err, res])
       })

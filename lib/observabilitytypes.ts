@@ -320,58 +320,47 @@ export enum ServiceName {
   Views = 'views',
 }
 
+const _OP_TYPE_TO_SERVICE = new Map<string, ServiceName>([
+  ...Object.values(KeyValueOp).map((v) => [v, ServiceName.KeyValue] as const),
+  ...Object.values(DatastructureOp).map(
+    (v) => [v, ServiceName.KeyValue] as const
+  ),
+  [StreamingOp.Analytics, ServiceName.Analytics],
+  [StreamingOp.Query, ServiceName.Query],
+  [StreamingOp.Search, ServiceName.Search],
+  [StreamingOp.View, ServiceName.Views],
+  ...Object.values(AnalyticsMgmtOp).map(
+    (v) => [v, ServiceName.Analytics] as const
+  ),
+  ...Object.values(BucketMgmtOp).map(
+    (v) => [v, ServiceName.Management] as const
+  ),
+  ...Object.values(CollectionMgmtOp).map(
+    (v) => [v, ServiceName.Management] as const
+  ),
+  ...Object.values(EventingFunctionMgmtOp).map(
+    (v) => [v, ServiceName.Eventing] as const
+  ),
+  ...Object.values(QueryIndexMgmtOp).map(
+    (v) => [v, ServiceName.Query] as const
+  ),
+  ...Object.values(SearchIndexMgmtOp).map(
+    (v) => [v, ServiceName.Search] as const
+  ),
+  ...Object.values(UserMgmtOp).map(
+    (v) => [v, ServiceName.Management] as const
+  ),
+  ...Object.values(ViewIndexMgmtOp).map(
+    (v) => [v, ServiceName.Views] as const
+  ),
+])
+
 /**
  * @internal
  */
 export function serviceNameFromOpType(opType: OpType): ServiceName {
-  if (Object.values(KeyValueOp).includes(opType as KeyValueOp)) {
-    return ServiceName.KeyValue
-  } else if (
-    Object.values(DatastructureOp).includes(opType as DatastructureOp)
-  ) {
-    return ServiceName.KeyValue
-  } else if (Object.values(StreamingOp).includes(opType as StreamingOp)) {
-    switch (opType) {
-      case StreamingOp.Analytics:
-        return ServiceName.Analytics
-      case StreamingOp.Query:
-        return ServiceName.Query
-      case StreamingOp.Search:
-        return ServiceName.Search
-      case StreamingOp.View:
-        return ServiceName.Views
-    }
-  } else if (
-    Object.values(AnalyticsMgmtOp).includes(opType as AnalyticsMgmtOp)
-  ) {
-    return ServiceName.Analytics
-  } else if (Object.values(BucketMgmtOp).includes(opType as BucketMgmtOp)) {
-    return ServiceName.Management
-  } else if (
-    Object.values(CollectionMgmtOp).includes(opType as CollectionMgmtOp)
-  ) {
-    return ServiceName.Management
-  } else if (
-    Object.values(EventingFunctionMgmtOp).includes(
-      opType as EventingFunctionMgmtOp
-    )
-  ) {
-    return ServiceName.Eventing
-  } else if (
-    Object.values(QueryIndexMgmtOp).includes(opType as QueryIndexMgmtOp)
-  ) {
-    return ServiceName.Query
-  } else if (
-    Object.values(SearchIndexMgmtOp).includes(opType as SearchIndexMgmtOp)
-  ) {
-    return ServiceName.Search
-  } else if (Object.values(UserMgmtOp).includes(opType as UserMgmtOp)) {
-    return ServiceName.Management
-  } else if (
-    Object.values(ViewIndexMgmtOp).includes(opType as ViewIndexMgmtOp)
-  ) {
-    return ServiceName.Views
-  }
+  const svc = _OP_TYPE_TO_SERVICE.get(opType as string)
+  if (svc !== undefined) return svc
   throw new Error(`Unknown OpType: ${opType}`)
 }
 
