@@ -333,6 +333,10 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                                     function_status::paused},
                      {"pausing", couchbase::core::management::eventing::
                                      function_status::pausing},
+                     {"resuming", couchbase::core::management::eventing::
+                                      function_status::resuming},
+                     {"unknown", couchbase::core::management::eventing::
+                                     function_status::unknown},
                  }));
 
     exports.Set(

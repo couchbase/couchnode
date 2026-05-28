@@ -1724,10 +1724,11 @@ export function eventingFunctionStatusFromCpp(
   if (status === binding.management_eventing_function_status.pausing) {
     return EventingFunctionStatus.Pausing
   }
+  if (status === binding.management_eventing_function_status.resuming) {
+    return EventingFunctionStatus.Resuming
+  }
 
-  throw new errs.InvalidArgumentError(
-    new Error('Unrecognized EventingFunctionStatus')
-  )
+  return EventingFunctionStatus.Unknown
 }
 
 /**

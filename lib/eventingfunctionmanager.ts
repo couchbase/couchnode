@@ -126,6 +126,16 @@ export enum EventingFunctionStatus {
    * Indicates that the eventing function is pausing.
    */
   Pausing = 'pausing',
+
+  /**
+   * Indicates that the eventing function is resuming.
+   */
+  Resuming = 'resuming',
+
+  /**
+   * Indicates that the SDK received a status it does not recognize.
+   */
+  Unknown = 'unknown',
 }
 
 /**

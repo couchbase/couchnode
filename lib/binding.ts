@@ -3179,6 +3179,8 @@ export interface CppBindingAutogen {
     deployed: CppManagementEventingFunctionStatus
     paused: CppManagementEventingFunctionStatus
     pausing: CppManagementEventingFunctionStatus
+    resuming: CppManagementEventingFunctionStatus
+    unknown: CppManagementEventingFunctionStatus
   }
   management_eventing_function_deployment_status: {
     deployed: CppManagementEventingFunctionDeploymentStatus
