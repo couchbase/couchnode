@@ -3,7 +3,8 @@ import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { CollectionManager } from './collectionmanager'
 import { PingExecutor } from './diagnosticsexecutor'
-import { PingOptions, PingResult } from './diagnosticstypes'
+import { PingOptions, PingResult, WaitUntilReadyOptions } from './diagnosticstypes'
+import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
 import { Scope } from './scope'
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
@@ -187,6 +188,36 @@ export class Bucket {
           ...options_,
           bucket: this.name,
         }),
+      callback
+    )
+  }
+
+  /**
+   * Waits until the bucket reaches the desired state or the timeout elapses.
+   *
+   * @param timeout The time in milliseconds to wait for the bucket to become ready.
+   * @param options Optional parameters.
+   * @param callback A callback to be invoked after execution.
+   */
+  waitUntilReady(
+    timeout: number,
+    options?: WaitUntilReadyOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const exec = new WaitUntilReadyExecutor(this._cluster, this.name)
+
+    const timeout_ = timeout
+    const options_ = options
+    return PromiseHelper.wrapAsync(
+      () => exec.waitUntilReady(timeout_, options_),
       callback
     )
   }

@@ -93,4 +93,122 @@ describe('#diagnostics', function () {
       await cluster.close()
     })
   })
+
+  describe('#waitUntilReady', function () {
+    it('should wait until a cluster is ready', async function () {
+      var res = await H.c.waitUntilReady(1500)
+      assert.isUndefined(res)
+    })
+
+    it('should wait until a bucket is ready', async function () {
+      var res = await H.b.waitUntilReady(1500)
+      assert.isUndefined(res)
+    })
+
+    it('should wait until ready for a desired state of Online', async function () {
+      var res = await H.c.waitUntilReady(1500, {
+        desiredState: H.lib.ClusterState.Online,
+      })
+      assert.isUndefined(res)
+    })
+
+    it('should wait until ready for a desired state of Degraded', async function () {
+      var res = await H.c.waitUntilReady(1500, {
+        desiredState: H.lib.ClusterState.Degraded,
+      })
+      assert.isUndefined(res)
+    })
+
+    it('should wait for explicit bucket scoped KV', async function () {
+      var res = await H.b.waitUntilReady(1500, {
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      })
+      assert.isUndefined(res)
+    })
+
+    it('should resolve immediately when only KV is requested at cluster scope', async function () {
+      var res = await H.c.waitUntilReady(1500, {
+        serviceTypes: [H.lib.ServiceType.KeyValue],
+      })
+      assert.isUndefined(res)
+    })
+
+    it('should emit a warn when filtering services at cluster scope', async function () {
+      this.timeout(5000)
+      var warnings = []
+      var cluster = await H.lib.Cluster.connect(H.connStr, {
+        ...H.connOpts,
+        logger: {
+          warn: (message) => warnings.push(message),
+        },
+      })
+      try {
+        await cluster.waitUntilReady(1500, {
+          serviceTypes: [H.lib.ServiceType.KeyValue],
+        })
+        assert.isTrue(
+          warnings.some(
+            (m) =>
+              m.includes('ignoring') &&
+              m.includes('kv') &&
+              m.includes('cluster scope')
+          ),
+          'expected a warn about ignoring kv at cluster scope, got: ' +
+            warnings.join(' | ')
+        )
+      } finally {
+        await cluster.close()
+      }
+    })
+
+    it('should support node style callbacks', async function () {
+      await new Promise((resolve, reject) => {
+        H.c.waitUntilReady(1500, (err, res) => {
+          if (err) {
+            reject(err)
+            return
+          }
+          try {
+            assert.isUndefined(res)
+            resolve()
+          } catch (e) {
+            reject(e)
+          }
+        })
+      })
+    })
+
+    it('should wait until a new cluster is ready', async function () {
+      this.timeout(15000)
+      var cluster = await H.lib.Cluster.connect(H.connStr, H.connOpts)
+      try {
+        var res = await cluster.waitUntilReady(10000)
+        assert.isUndefined(res)
+      } finally {
+        await cluster.close()
+      }
+    })
+
+    it('should raise InvalidArgument for a non positive timeout', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.waitUntilReady(-1)
+      }, H.lib.InvalidArgumentError)
+    })
+
+    it('should raise InvalidArgument for an Offline desired state', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.waitUntilReady(1500, {
+          desiredState: H.lib.ClusterState.Offline,
+        })
+      }, H.lib.InvalidArgumentError)
+    })
+
+    it('should raise InvalidArgument for an invalid service type', async function () {
+      await H.throwsHelper(async () => {
+        await H.c.waitUntilReady(1500, {
+          serviceTypes: ['test-service'],
+        })
+      }, H.lib.InvalidArgumentError)
+    })
+  })
 })

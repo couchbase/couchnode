@@ -23,7 +23,9 @@ import {
   DiagnosticsResult,
   PingOptions,
   PingResult,
+  WaitUntilReadyOptions,
 } from './diagnosticstypes'
+import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
 import { EventingFunctionManager } from './eventingfunctionmanager'
 import {
   CouchbaseLogger,
@@ -984,6 +986,37 @@ export class Cluster {
 
     const options_ = options
     return PromiseHelper.wrapAsync(() => exec.ping(options_), callback)
+  }
+
+  /**
+   * Waits until the cluster reaches the desired state or the timeout elapses.
+   * The default desired state is ClusterState.Online.
+   *
+   * @param timeout The time in milliseconds to wait for the cluster to become ready.
+   * @param options Optional parameters for this operation.
+   * @param callback A callback to be invoked after execution.
+   */
+  waitUntilReady(
+    timeout: number,
+    options?: WaitUntilReadyOptions,
+    callback?: NodeCallback<void>
+  ): Promise<void> {
+    if (options instanceof Function) {
+      callback = arguments[1]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const exec = new WaitUntilReadyExecutor(this)
+
+    const timeout_ = timeout
+    const options_ = options
+    return PromiseHelper.wrapAsync(
+      () => exec.waitUntilReady(timeout_, options_),
+      callback
+    )
   }
 
   /**

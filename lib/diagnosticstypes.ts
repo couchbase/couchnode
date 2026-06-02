@@ -394,3 +394,44 @@ export interface DiagnosticsOptions {
    */
   reportId?: string
 }
+
+/**
+ * Represents the desired state of a cluster.
+ *
+ * @category Diagnostics
+ */
+export enum ClusterState {
+  /**
+   * Indicates that all nodes and their sockets are reachable.
+   */
+  Online = 'online',
+
+  /**
+   * Indicates that at least one socket per service is reachable.
+   */
+  Degraded = 'degraded',
+
+  /**
+   * Indicates that not even one socket per service is reachable.
+   * Invalid as a desired state for waitUntilReady.
+   */
+  Offline = 'offline',
+}
+
+/**
+ * Options for the waitUntilReady operation on a Cluster or Bucket.
+ *
+ * @category Diagnostics
+ */
+export interface WaitUntilReadyOptions {
+  /**
+   * The desired cluster state to wait for.
+   * Defaults to ClusterState.Online.
+   */
+  desiredState?: ClusterState
+
+  /**
+   * The set of services to wait on.
+   */
+  serviceTypes?: ServiceType[]
+}

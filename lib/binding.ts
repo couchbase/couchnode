@@ -3926,6 +3926,7 @@ export interface CppConnection extends CppConnectionAutogen {
       report_id?: string
       bucket_name?: string
       services?: CppServiceType[]
+      timeout?: number
     },
     callback: (
       err: CppError | null,
