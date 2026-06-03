@@ -882,6 +882,36 @@ function genericTests(collFn) {
       }).timeout(60000)
     })
   })
+
+  describe('#CollectionQueryIndexManagement - invalid argument validation', function () {
+    it('should throw InvalidArgumentError when scopeName is provided in options', async function () {
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().dropPrimaryIndex({ scopeName: 'testScope' })
+      }, H.lib.InvalidArgumentError)
+
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().getAllIndexes({ scopeName: 'testScope' })
+      }, H.lib.InvalidArgumentError)
+
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().dropIndex('testIndex', { scopeName: 'testScope' })
+      }, H.lib.InvalidArgumentError)
+    })
+
+    it('should throw InvalidArgumentError when collectionName is provided in options', async function () {
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().createPrimaryIndex({ collectionName: 'testCollection' })
+      }, H.lib.InvalidArgumentError)
+
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().getAllIndexes({ collectionName: 'testCollection' })
+      }, H.lib.InvalidArgumentError)
+
+      await H.throwsHelper(async () => {
+        await collFn().queryIndexes().dropIndex('testIndex', { collectionName: 'testCollection' })
+      }, H.lib.InvalidArgumentError)
+    })
+  })
 }
 
 describe('#CollectionQueryIndexManager - default', function () {

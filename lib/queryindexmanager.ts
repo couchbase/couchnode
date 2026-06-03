@@ -1,7 +1,7 @@
 import { CppQueryContext } from './binding'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
-import { CouchbaseError, IndexNotFoundError } from './errors'
+import { CouchbaseError, IndexNotFoundError, InvalidArgumentError } from './errors'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import {
@@ -652,6 +652,22 @@ class InternalQueryIndexManager {
 }
 
 /**
+ * @internal
+ */
+function _checkCollectionQueryIndexManagerOptions(options: {
+  collectionName?: string
+  scopeName?: string
+}): void {
+  if (options.collectionName !== undefined || options.scopeName !== undefined) {
+    throw new InvalidArgumentError(
+      new Error(
+        'collectionName and scopeName are not supported on CollectionQueryIndexManager. Use CollectionQueryIndexManager directly instead.'
+      )
+    )
+  }
+}
+
+/**
  * CollectionQueryIndexManager provides an interface for managing the
  * query indexes on the collection.
  *
@@ -694,6 +710,8 @@ export class CollectionQueryIndexManager {
     if (!options) {
       options = {}
     }
+
+    _checkCollectionQueryIndexManagerOptions(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexCreate,
@@ -743,6 +761,8 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
+    _checkCollectionQueryIndexManagerOptions(options)
+
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexCreate,
       this._manager.observabilityInstruments,
@@ -791,6 +811,8 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
+    _checkCollectionQueryIndexManagerOptions(options)
+
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexDrop,
       this._manager.observabilityInstruments,
@@ -835,6 +857,8 @@ export class CollectionQueryIndexManager {
     if (!options) {
       options = {}
     }
+
+    _checkCollectionQueryIndexManagerOptions(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexDrop,
@@ -881,6 +905,8 @@ export class CollectionQueryIndexManager {
       options = {}
     }
 
+    _checkCollectionQueryIndexManagerOptions(options)
+
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexGetAll,
       this._manager.observabilityInstruments,
@@ -922,6 +948,8 @@ export class CollectionQueryIndexManager {
     if (!options) {
       options = {}
     }
+
+    _checkCollectionQueryIndexManagerOptions(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexBuildDeferred,
@@ -968,6 +996,8 @@ export class CollectionQueryIndexManager {
     if (!options) {
       options = {}
     }
+
+    _checkCollectionQueryIndexManagerOptions(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexWatchIndexes,
