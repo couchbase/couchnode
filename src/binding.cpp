@@ -51,7 +51,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
                 cbppLogLevel = couchbase::core::logger::level::info;
             } else if (logLevelStr == "warn") {
                 cbppLogLevel = couchbase::core::logger::level::warn;
-            } else if (logLevelStr == "err") {
+            } else if (logLevelStr == "err" || logLevelStr == "error") {
                 cbppLogLevel = couchbase::core::logger::level::err;
             } else if (logLevelStr == "critical") {
                 cbppLogLevel = couchbase::core::logger::level::critical;
