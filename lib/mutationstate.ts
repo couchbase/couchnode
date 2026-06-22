@@ -64,7 +64,7 @@ export class MutationState {
       this._data[bucketName][vbId] = cppToken
     } else {
       const otherToken = this._data[bucketName][vbId]
-      const otherTokenSeqNo = parseInt(otherToken.toJSON().sequence, 10)
+      const otherTokenSeqNo = parseInt(otherToken.toJSON().sequence_number, 10)
       if (otherTokenSeqNo < vbSeqNo) {
         this._data[bucketName][vbId] = cppToken
       }
