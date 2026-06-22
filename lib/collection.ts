@@ -1953,8 +1953,14 @@ export class Collection {
     const transcoder = options.transcoder || this.transcoder
     const timeout = options.timeout || this._kvScanTimeout
     const idsOnly = options.idsOnly || false
-    const batchByteLimit = options.batchByteLimit || this._scanBatchByteLimit
-    const batchItemLimit = options.batchByteLimit || this._scanBatchItemLimit
+    const batchByteLimit =
+      typeof options.batchByteLimit !== 'undefined'
+        ? options.batchByteLimit
+        : this._scanBatchByteLimit
+    const batchItemLimit =
+      typeof options.batchItemLimit !== 'undefined'
+        ? options.batchItemLimit
+        : this._scanBatchItemLimit
 
     if (typeof options.concurrency !== 'undefined' && options.concurrency < 1) {
       throw new InvalidArgumentError(
