@@ -56,7 +56,7 @@ void Constants::Init(Napi::Env env, Napi::Object exports)
 
     exports.Set(
         "protocol_mutate_in_request_body_doc_flag",
-        cbppEnumToJs<std::byte>(
+        cbppEnumToJs<std::uint8_t>(
             env, {
                      {"mkdoc", couchbase::core::protocol::
                                    mutate_in_request_body::doc_flag_mkdoc},
