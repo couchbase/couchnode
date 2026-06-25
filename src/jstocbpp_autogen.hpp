@@ -2031,6 +2031,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
         js_to_cbpp<bool>(cppObj.replica, jsObj.Get("replica"));
+        // dispatched_to_node_id
         return cppObj;
     }
     static inline Napi::Value
@@ -2044,6 +2045,7 @@ struct js_to_cbpp_t<
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
         resObj.Set("replica", cbpp_to_js<bool>(env, cppObj.replica));
+        // dispatched_to_node_id
         return resObj;
     }
 };
@@ -3162,6 +3164,7 @@ struct js_to_cbpp_t<
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<bool>(cppObj.deleted, jsObj.Get("deleted"));
         js_to_cbpp<bool>(cppObj.is_replica, jsObj.Get("is_replica"));
+        // dispatched_to_node_id
         return cppObj;
     }
     static inline Napi::Value
@@ -3177,6 +3180,7 @@ struct js_to_cbpp_t<
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("deleted", cbpp_to_js<bool>(env, cppObj.deleted));
         resObj.Set("is_replica", cbpp_to_js<bool>(env, cppObj.is_replica));
+        // dispatched_to_node_id
         return resObj;
     }
 };
@@ -3607,7 +3611,7 @@ struct js_to_cbpp_t<couchbase::core::operations::decrement_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::decrement_response cppObj;
         // ctx
-        js_to_cbpp<std::uint64_t>(cppObj.content, jsObj.Get("content"));
+        cppObj.content = js_to_cbpp_u64(jsObj.Get("content"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<couchbase::mutation_token>(cppObj.token, jsObj.Get("token"));
         // cpp_core_span
@@ -3621,7 +3625,7 @@ struct js_to_cbpp_t<couchbase::core::operations::decrement_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("content", cbpp_to_js<std::uint64_t>(env, cppObj.content));
+        resObj.Set("content", cbpp_to_js_u64(env, cppObj.content));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("token",
                    cbpp_to_js<couchbase::mutation_token>(env, cppObj.token));
@@ -3642,9 +3646,11 @@ struct js_to_cbpp_t<couchbase::core::operations::decrement_request> {
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.expiry, jsObj.Get("expiry"));
-        js_to_cbpp<std::uint64_t>(cppObj.delta, jsObj.Get("delta"));
-        js_to_cbpp<std::optional<std::uint64_t>>(cppObj.initial_value,
-                                                 jsObj.Get("initial_value"));
+        cppObj.delta = js_to_cbpp_u64(jsObj.Get("delta"));
+        auto js_initial_value = jsObj.Get("initial_value");
+        if (!js_initial_value.IsUndefined() && !js_initial_value.IsNull()) {
+            cppObj.initial_value = js_to_cbpp_u64(js_initial_value);
+        }
         js_to_cbpp<couchbase::durability_level>(cppObj.durability_level,
                                                 jsObj.Get("durability_level"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -3664,7 +3670,7 @@ struct js_to_cbpp_t<couchbase::core::operations::decrement_request> {
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
         resObj.Set("expiry", cbpp_to_js<std::uint32_t>(env, cppObj.expiry));
-        resObj.Set("delta", cbpp_to_js<std::uint64_t>(env, cppObj.delta));
+        resObj.Set("delta", cbpp_to_js_u64(env, cppObj.delta));
         resObj.Set("initial_value", cbpp_to_js<std::optional<std::uint64_t>>(
                                         env, cppObj.initial_value));
         resObj.Set("durability_level", cbpp_to_js<couchbase::durability_level>(
@@ -3694,9 +3700,11 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.expiry, jsObj.Get("expiry"));
-        js_to_cbpp<std::uint64_t>(cppObj.delta, jsObj.Get("delta"));
-        js_to_cbpp<std::optional<std::uint64_t>>(cppObj.initial_value,
-                                                 jsObj.Get("initial_value"));
+        cppObj.delta = js_to_cbpp_u64(jsObj.Get("delta"));
+        auto js_initial_value = jsObj.Get("initial_value");
+        if (!js_initial_value.IsUndefined() && !js_initial_value.IsNull()) {
+            cppObj.initial_value = js_to_cbpp_u64(js_initial_value);
+        }
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
@@ -3718,7 +3726,7 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
         resObj.Set("expiry", cbpp_to_js<std::uint32_t>(env, cppObj.expiry));
-        resObj.Set("delta", cbpp_to_js<std::uint64_t>(env, cppObj.delta));
+        resObj.Set("delta", cbpp_to_js_u64(env, cppObj.delta));
         resObj.Set("initial_value", cbpp_to_js<std::optional<std::uint64_t>>(
                                         env, cppObj.initial_value));
         resObj.Set("timeout",
@@ -5218,7 +5226,7 @@ struct js_to_cbpp_t<couchbase::core::operations::increment_response> {
         auto jsObj = jsVal.ToObject();
         couchbase::core::operations::increment_response cppObj;
         // ctx
-        js_to_cbpp<std::uint64_t>(cppObj.content, jsObj.Get("content"));
+        cppObj.content = js_to_cbpp_u64(jsObj.Get("content"));
         js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
         js_to_cbpp<couchbase::mutation_token>(cppObj.token, jsObj.Get("token"));
         // cpp_core_span
@@ -5232,7 +5240,7 @@ struct js_to_cbpp_t<couchbase::core::operations::increment_response> {
     {
         auto resObj = Napi::Object::New(env);
         // ctx
-        resObj.Set("content", cbpp_to_js<std::uint64_t>(env, cppObj.content));
+        resObj.Set("content", cbpp_to_js_u64(env, cppObj.content));
         resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
         resObj.Set("token",
                    cbpp_to_js<couchbase::mutation_token>(env, cppObj.token));
@@ -5253,9 +5261,11 @@ struct js_to_cbpp_t<couchbase::core::operations::increment_request> {
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.expiry, jsObj.Get("expiry"));
-        js_to_cbpp<std::uint64_t>(cppObj.delta, jsObj.Get("delta"));
-        js_to_cbpp<std::optional<std::uint64_t>>(cppObj.initial_value,
-                                                 jsObj.Get("initial_value"));
+        cppObj.delta = js_to_cbpp_u64(jsObj.Get("delta"));
+        auto js_initial_value = jsObj.Get("initial_value");
+        if (!js_initial_value.IsUndefined() && !js_initial_value.IsNull()) {
+            cppObj.initial_value = js_to_cbpp_u64(js_initial_value);
+        }
         js_to_cbpp<couchbase::durability_level>(cppObj.durability_level,
                                                 jsObj.Get("durability_level"));
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
@@ -5275,7 +5285,7 @@ struct js_to_cbpp_t<couchbase::core::operations::increment_request> {
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
         resObj.Set("expiry", cbpp_to_js<std::uint32_t>(env, cppObj.expiry));
-        resObj.Set("delta", cbpp_to_js<std::uint64_t>(env, cppObj.delta));
+        resObj.Set("delta", cbpp_to_js_u64(env, cppObj.delta));
         resObj.Set("initial_value", cbpp_to_js<std::optional<std::uint64_t>>(
                                         env, cppObj.initial_value));
         resObj.Set("durability_level", cbpp_to_js<couchbase::durability_level>(
@@ -5305,9 +5315,11 @@ struct js_to_cbpp_t<
         js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
         js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
         js_to_cbpp<std::uint32_t>(cppObj.expiry, jsObj.Get("expiry"));
-        js_to_cbpp<std::uint64_t>(cppObj.delta, jsObj.Get("delta"));
-        js_to_cbpp<std::optional<std::uint64_t>>(cppObj.initial_value,
-                                                 jsObj.Get("initial_value"));
+        cppObj.delta = js_to_cbpp_u64(jsObj.Get("delta"));
+        auto js_initial_value = jsObj.Get("initial_value");
+        if (!js_initial_value.IsUndefined() && !js_initial_value.IsNull()) {
+            cppObj.initial_value = js_to_cbpp_u64(js_initial_value);
+        }
         js_to_cbpp<std::optional<std::chrono::milliseconds>>(
             cppObj.timeout, jsObj.Get("timeout"));
         // retries
@@ -5329,7 +5341,7 @@ struct js_to_cbpp_t<
                    cbpp_to_js<std::uint16_t>(env, cppObj.partition));
         resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
         resObj.Set("expiry", cbpp_to_js<std::uint32_t>(env, cppObj.expiry));
-        resObj.Set("delta", cbpp_to_js<std::uint64_t>(env, cppObj.delta));
+        resObj.Set("delta", cbpp_to_js_u64(env, cppObj.delta));
         resObj.Set("initial_value", cbpp_to_js<std::optional<std::uint64_t>>(
                                         env, cppObj.initial_value));
         resObj.Set("timeout",

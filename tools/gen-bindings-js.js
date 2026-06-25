@@ -8,6 +8,7 @@ const CustomDefinedTypes = [
   'couchbase::retry_strategy',
   'couchbase::core::query_context',
   'couchbase::core::wrapper_sdk_span',
+  'couchbase::node_id',
 ]
 
 const handleJsVariant = {
@@ -19,8 +20,35 @@ const handleJsVariant = {
 }
 
 const otherObservableTypes = [
-  'couchbase::core::range_scan_orchestrator_options'
+  'couchbase::core::range_scan_orchestrator_options',
 ]
+
+// Counter delta / initial / content are uint64 in the core.  The shared
+// integral marshalling rounds them through a JS number (lossy above 2^53), so
+// these fields opt into exact bigint marshalling via cbpp_to_js_u64 /
+// js_to_cbpp_u64 (see src/jstocbpp_cpptypes.hpp).  The map value is the TS type
+// emitted for the field: response values come back as `bigint`; request inputs
+// accept `number | bigint` so existing number callers are unaffected.
+const bigIntFields = {
+  'couchbase::core::operations::increment_response': { content: 'bigint' },
+  'couchbase::core::operations::decrement_response': { content: 'bigint' },
+  'couchbase::core::operations::increment_request': {
+    delta: 'number | bigint',
+    initial_value: 'number | bigint',
+  },
+  'couchbase::core::operations::decrement_request': {
+    delta: 'number | bigint',
+    initial_value: 'number | bigint',
+  },
+  'couchbase::core::operations::increment_request_with_legacy_durability': {
+    delta: 'number | bigint',
+    initial_value: 'number | bigint',
+  },
+  'couchbase::core::operations::decrement_request_with_legacy_durability': {
+    delta: 'number | bigint',
+    initial_value: 'number | bigint',
+  },
+}
 
 function getTsType(type, typeDb) {
   // special case for std::vector<std::byte> which is a Buffer
@@ -257,6 +285,7 @@ function isIgnoredField(st, fieldName) {
     fieldName === 'internal' ||
     fieldName === 'revive_document' ||
     fieldName === 'cpp_core_span' ||
+    fieldName === 'dispatched_to_node_id' ||
     (fieldName.endsWith('_') &&
       !StructsWithAllowedPrivateField.includes(st.name))
   ) {
@@ -266,7 +295,7 @@ function isIgnoredField(st, fieldName) {
   return false
 }
 
-function getOpReqName(name){
+function getOpReqName(name) {
   if (name.endsWith('_request')) {
     return name.substr(0, name.length - 8)
   }
@@ -379,7 +408,6 @@ async function go() {
   for (const op of opStructRespsWithTracing) {
     console.log(op)
   }
-  
 
   // filter out the custom types
   opsStructs = opsStructs.filter(
@@ -412,10 +440,14 @@ async function go() {
       ? getStructTsName(opStruct.name + '_request')
       : getStructTsName(opStruct.name)
 
-    if (opStruct.fields.find(f => f.name === 'parent_span')) {
-      outJsAll.write(`export interface ${jsTypeName} extends CppObservableRequest {`)
-    } else if (opStruct.fields.find(f => f.name === 'cpp_core_span')) {
-      outJsAll.write(`export interface ${jsTypeName} extends CppObservableResponse {`)
+    if (opStruct.fields.find((f) => f.name === 'parent_span')) {
+      outJsAll.write(
+        `export interface ${jsTypeName} extends CppObservableRequest {`
+      )
+    } else if (opStruct.fields.find((f) => f.name === 'cpp_core_span')) {
+      outJsAll.write(
+        `export interface ${jsTypeName} extends CppObservableResponse {`
+      )
     } else {
       outJsAll.write(`export interface ${jsTypeName} {`)
     }
@@ -429,9 +461,12 @@ async function go() {
         return
       }
 
+      // counter fields opt into exact bigint marshalling (see bigIntFields)
+      const bigIntType = (bigIntFields[opStruct.name] || {})[field.name]
+
       // special case for optional fields
       if (field.type.name === 'std::optional') {
-        const jsFieldType = getTsType(field.type.of, ops)
+        const jsFieldType = bigIntType || getTsType(field.type.of, ops)
         outJsAll.write(`  ${field.name}?: ${jsFieldType}`)
       } else if (field.type.name === 'template') {
         const jsFieldName = field.name
@@ -439,7 +474,7 @@ async function go() {
         outJsAll.write(`  ${jsFieldName}: ${jsFieldType}`)
       } else {
         const jsFieldName = field.name
-        const jsFieldType = getTsType(field.type, ops)
+        const jsFieldType = bigIntType || getTsType(field.type, ops)
 
         if (
           opStruct.name === 'couchbase::core::impl::subdoc::command' &&
@@ -522,11 +557,13 @@ async function go() {
   const observableRequestTypes = []
   opReqTypes.forEach((x) => {
     const jsReqName = getStructTsName(x + '_request')
-    if (opStructReqsWithTracing.find(r => getOpReqName(r) === x)) {
+    if (opStructReqsWithTracing.find((r) => getOpReqName(r) === x)) {
       observableRequestTypes.push(jsReqName)
     }
   })
-  outJsAll.write(`export type CppObservableRequests = ${observableRequestTypes.join(" | ")}`)
+  outJsAll.write(
+    `export type CppObservableRequests = ${observableRequestTypes.join(' | ')}`
+  )
   outJsAll.write('')
 
   //outJsAll.write('//#endregion Autogen Code')
@@ -572,26 +609,40 @@ async function go() {
       `    auto callbackJsFn = info[1].As<Napi::Function>();`
     )
     const reqArgs = ['optsJsObj']
-    const reqHasTracing = opStructReqsWithTracing.find(r => getOpReqName(r) === x)
+    const reqHasTracing = opStructReqsWithTracing.find(
+      (r) => getOpReqName(r) === x
+    )
     if (reqHasTracing) {
       outCppFuncDefs.write(``)
-      outCppFuncDefs.write(`    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;`)
-      outCppFuncDefs.write(`    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));`)
+      outCppFuncDefs.write(
+        `    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;`
+      )
+      outCppFuncDefs.write(
+        `    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));`
+      )
       outCppFuncDefs.write(`    if (!span_name.empty()) {`)
-      outCppFuncDefs.write(`        wrapper_span = std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(span_name);`)
+      outCppFuncDefs.write(
+        `        wrapper_span = std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(span_name);`
+      )
       outCppFuncDefs.write(`    }`)
       reqArgs.push('wrapper_span')
     }
     outCppFuncDefs.write(``)
     outCppFuncDefs.write(`    executeOp("${cppBaseOpName}",`)
     if (x.endsWith('_with_legacy_durability')) {
-      outCppFuncDefs.write(`              jsToCbpp<${x}>(${reqArgs.join(", ")}),`)
+      outCppFuncDefs.write(
+        `              jsToCbpp<${x}>(${reqArgs.join(', ')}),`
+      )
     } else if (x.endsWith('>')) {
       const reqTokens = x.split('<')
       const cppReqName = reqTokens[0] + '_request<' + reqTokens[1]
-      outCppFuncDefs.write(`              jsToCbpp<${cppReqName}>(${reqArgs.join(", ")}),`)
+      outCppFuncDefs.write(
+        `              jsToCbpp<${cppReqName}>(${reqArgs.join(', ')}),`
+      )
     } else {
-      outCppFuncDefs.write(`              jsToCbpp<${x}_request>(${reqArgs.join(", ")}),`)
+      outCppFuncDefs.write(
+        `              jsToCbpp<${x}_request>(${reqArgs.join(', ')}),`
+      )
     }
     if (reqHasTracing) {
       outCppFuncDefs.write(`              callbackJsFn,`)
@@ -682,7 +733,9 @@ async function go() {
     outCppStructDefs.write(`    static inline ${st.name}`)
     if (opStructReqsWithTracing.includes(st.name)) {
       outCppStructDefs.write(`    from_js(Napi::Value jsVal,`)
-      outCppStructDefs.write(`            std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)`)
+      outCppStructDefs.write(
+        `            std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)`
+      )
     } else {
       outCppStructDefs.write(`    from_js(Napi::Value jsVal)`)
     }
@@ -729,7 +782,10 @@ async function go() {
     })
     outCppStructDefs.write(`        ${st.name} cppObj;`)
     st.fields.forEach((field) => {
-      if (opStructReqsWithTracing.includes(st.name) && field.name == 'parent_span' ) {
+      if (
+        opStructReqsWithTracing.includes(st.name) &&
+        field.name == 'parent_span'
+      ) {
         outCppStructDefs.write(`        cppObj.${field.name} = wrapperSpan;`)
       } else if (isIgnoredField(st, field.name)) {
         outCppStructDefs.write(`        // ${field.name}`)
@@ -738,6 +794,24 @@ async function go() {
         handleJsVariant.fields.includes(field.name)
       ) {
         outCppStructDefs.write(`        cppObj.${field.name} = ${field.name};`)
+      } else if ((bigIntFields[st.name] || {})[field.name]) {
+        // exact uint64: accept either a JS number or bigint (see bigIntFields)
+        if (field.type.name === 'std::optional') {
+          outCppStructDefs.write(
+            `        auto js_${field.name} = jsObj.Get("${field.name}");`
+          )
+          outCppStructDefs.write(
+            `        if (!js_${field.name}.IsUndefined() && !js_${field.name}.IsNull()) {`
+          )
+          outCppStructDefs.write(
+            `            cppObj.${field.name} = js_to_cbpp_u64(js_${field.name});`
+          )
+          outCppStructDefs.write(`        }`)
+        } else {
+          outCppStructDefs.write(
+            `        cppObj.${field.name} = js_to_cbpp_u64(jsObj.Get("${field.name}"));`
+          )
+        }
       } else {
         const fieldType = getCppType(field.type)
         outCppStructDefs.write(
@@ -749,12 +823,19 @@ async function go() {
     outCppStructDefs.write(`    }`)
 
     outCppStructDefs.write(`    static inline Napi::Value`)
-    if (st.name.endsWith('response') || otherObservableTypes.includes(st.name)) {
+    if (
+      st.name.endsWith('response') ||
+      otherObservableTypes.includes(st.name)
+    ) {
       outCppStructDefs.write(`    to_js(Napi::Env env,`)
       outCppStructDefs.write(`          const ${st.name} &cppObj,`)
-      outCppStructDefs.write(`          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan = nullptr)`)
+      outCppStructDefs.write(
+        `          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan = nullptr)`
+      )
     } else {
-      outCppStructDefs.write(`    to_js(Napi::Env env, const ${st.name} &cppObj)`)
+      outCppStructDefs.write(
+        `    to_js(Napi::Env env, const ${st.name} &cppObj)`
+      )
     }
     outCppStructDefs.write(`    {`)
     outCppStructDefs.write(`        auto resObj = Napi::Object::New(env);`)
@@ -782,8 +863,13 @@ async function go() {
       return
     })
     st.fields.forEach((field) => {
-      if (field.name == 'cpp_core_span' && opStructRespsWithTracing.includes(st.name)) {
-        outCppStructDefs.write(`        resObj.Set("${field.name}", cbpp_wrapper_span_to_js(env, wrapperSpan));`)
+      if (
+        field.name == 'cpp_core_span' &&
+        opStructRespsWithTracing.includes(st.name)
+      ) {
+        outCppStructDefs.write(
+          `        resObj.Set("${field.name}", cbpp_wrapper_span_to_js(env, wrapperSpan));`
+        )
         return
       }
       if (isIgnoredField(st, field.name)) {
@@ -796,6 +882,17 @@ async function go() {
         handleJsVariant.fields.includes(field.name)
       ) {
         fieldName = `${fieldName}_value`
+      }
+      // exact uint64 response values (e.g. counter content) marshal to bigint.
+      // optional uint64 inputs are left to the generic path: their to_js is
+      // unused (requests only marshal JS->C++) and cbpp_to_js_u64 takes a plain
+      // uint64, not std::optional<uint64_t>.
+      const bigIntType = (bigIntFields[st.name] || {})[field.name]
+      if (bigIntType && field.type.name !== 'std::optional') {
+        outCppStructDefs.write(
+          `        resObj.Set("${fieldName}", cbpp_to_js_u64(env, cppObj.${field.name}));`
+        )
+        return
       }
       const fieldType = getCppType(field.type)
       outCppStructDefs.write(

@@ -1046,6 +1046,34 @@ function genericTests(collFn) {
       }
     })
 
+    describe('#bigint', function () {
+      // Lightweight smoke test of the bigint plumbing; the FIT performer covers
+      // the full 64-bit boundary/overflow cases against a real server.
+      it('should accept bigint deltas and expose an exact value64', async function () {
+        const key = H.genTestKey()
+        await collFn().insert(key, 100)
+        try {
+          const ires = await collFn().binary().increment(key, 5n)
+          assert.isObject(ires)
+          assert.isOk(ires.cas)
+          assert.strictEqual(typeof ires.value, 'number')
+          assert.strictEqual(typeof ires.value64, 'bigint')
+          assert.strictEqual(ires.value, 105)
+          assert.strictEqual(ires.value64, 105n)
+
+          const dres = await collFn().binary().decrement(key, 3n)
+          assert.strictEqual(dres.value, 102)
+          assert.strictEqual(dres.value64, 102n)
+        } finally {
+          try {
+            await collFn().remove(key)
+          } catch (_e) {
+            // ignore
+          }
+        }
+      })
+    })
+
     describe('#increment', function () {
       it('should increment successfully', async function () {
         var res = await collFn().binary().increment(testKeyBin, 3)

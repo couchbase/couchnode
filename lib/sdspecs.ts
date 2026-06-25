@@ -313,9 +313,13 @@ export class MutateInSpec {
     }
 
     if (value !== undefined) {
-      // BUG(JSCBC-755): As a solution to our oversight of not accepting arrays of
-      // values to various sub-document operations, we have exposed an option instead.
-      if (!options.multi) {
+      if (typeof value === 'bigint') {
+        // Subdoc counter delta: emit the bigint as a bare integer literal to
+        // preserve full 64-bit precision (JSON.stringify throws on a bigint).
+        value = value.toString()
+      } else if (!options.multi) {
+        // BUG(JSCBC-755): As a solution to our oversight of not accepting arrays of
+        // values to various sub-document operations, we have exposed an option instead.
         value = JSON.stringify(value)
       } else {
         if (!Array.isArray(value)) {
@@ -567,7 +571,9 @@ export class MutateInSpec {
    * Creates a MutateInSpec for incrementing the value of a field in a document.
    *
    * @param path The path to the field.
-   * @param value The value to add.
+   * @param value The value to add.  A `bigint` may be provided for values above
+   * `Number.MAX_SAFE_INTEGER` (2^53 - 1), carried through without loss of
+   * precision.
    * @param options Optional parameters for this operation.
    * @param options.createPath
    * Whether or not the path to the field should be created if it does not
@@ -578,13 +584,15 @@ export class MutateInSpec {
    */
   static increment(
     path: string,
-    value: any,
+    value: number | bigint,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
+    // bigint is carried through exactly (see _create); the number path is unchanged.
+    const delta = typeof value === 'bigint' ? value : +value
     return this._create(
       binding.protocol_subdoc_opcode.counter,
       path,
-      +value,
+      delta,
       options
     )
   }
@@ -593,7 +601,9 @@ export class MutateInSpec {
    * Creates a MutateInSpec for decrementing the value of a field in a document.
    *
    * @param path The path to the field.
-   * @param value The value to subtract.
+   * @param value The value to subtract.  A `bigint` may be provided for values
+   * above `Number.MAX_SAFE_INTEGER` (2^53 - 1), carried through without loss of
+   * precision.
    * @param options Optional parameters for this operation.
    * @param options.createPath
    * Whether or not the path to the field should be created if it does not
@@ -604,13 +614,15 @@ export class MutateInSpec {
    */
   static decrement(
     path: string,
-    value: any,
+    value: number | bigint,
     options?: { createPath?: boolean; xattr?: boolean }
   ): MutateInSpec {
+    // bigint is carried through exactly (see _create); the number path is unchanged.
+    const delta = typeof value === 'bigint' ? -value : -1 * +value
     return this._create(
       binding.protocol_subdoc_opcode.counter,
       path,
-      -1 * +value,
+      delta,
       options
     )
   }

@@ -332,8 +332,19 @@ export class MutateInResult {
 export class CounterResult {
   /**
    * The new value of the document after the operation completed.
+   *
+   * **NOTE:** This is a JavaScript `number` and loses precision for counter
+   * values above `Number.MAX_SAFE_INTEGER` (2^53 - 1).  Use `value64` to read
+   * the exact value across the full 64-bit unsigned range.
    */
   value: number
+
+  /**
+   * The new value of the document after the operation completed, as an exact
+   * `bigint`.  Unlike `value`, this preserves the full 64-bit unsigned range
+   * without loss of precision.
+   */
+  value64: bigint
 
   /**
    * The updated CAS for the document.
@@ -350,6 +361,7 @@ export class CounterResult {
    */
   constructor(data: CounterResult) {
     this.value = data.value
+    this.value64 = data.value64
     this.cas = data.cas
     this.token = data.token
   }

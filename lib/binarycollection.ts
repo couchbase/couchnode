@@ -12,8 +12,11 @@ export interface IncrementOptions {
    * The initial value to use for the document if it does not already exist.
    * Not specifying this value indicates the operation should fail if the
    * document does not exist.
+   *
+   * A `bigint` may be provided to specify a value above
+   * `Number.MAX_SAFE_INTEGER` (2^53 - 1) without loss of precision.
    */
-  initial?: number
+  initial?: number | bigint
 
   /**
    * Specifies the expiry time for the document.
@@ -64,8 +67,11 @@ export interface DecrementOptions {
    * The initial value to use for the document if it does not already exist.
    * Not specifying this value indicates the operation should fail if the
    * document does not exist.
+   *
+   * A `bigint` may be provided to specify a value above
+   * `Number.MAX_SAFE_INTEGER` (2^53 - 1) without loss of precision.
    */
-  initial?: number
+  initial?: number | bigint
 
   /**
    * Specifies the expiry time for the document.
@@ -210,13 +216,14 @@ export class BinaryCollection {
    * indicated in the delta parameter.
    *
    * @param key The key to increment.
-   * @param delta The amount to increment the key.
+   * @param delta The amount to increment the key.  A `bigint` may be provided
+   * for values above `Number.MAX_SAFE_INTEGER` (2^53 - 1).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   increment(
     key: string,
-    delta: number,
+    delta: number | bigint,
     options?: IncrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
@@ -228,13 +235,14 @@ export class BinaryCollection {
    * indicated in the delta parameter.
    *
    * @param key The key to increment.
-   * @param delta The amount to increment the key.
+   * @param delta The amount to decrement the key.  A `bigint` may be provided
+   * for values above `Number.MAX_SAFE_INTEGER` (2^53 - 1).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   decrement(
     key: string,
-    delta: number,
+    delta: number | bigint,
     options?: DecrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {

@@ -553,6 +553,7 @@ export interface CppGetAllReplicasResponseEntry {
   cas: CppCas
   flags: number
   replica: boolean
+  // dispatched_to_node_id
 }
 export interface CppGetAllReplicasRequest extends CppObservableRequest {
   id: CppDocumentId
@@ -797,6 +798,7 @@ export interface CppLookupInAllReplicasResponseEntry {
   cas: CppCas
   deleted: boolean
   is_replica: boolean
+  // dispatched_to_node_id
 }
 export interface CppLookupInAllReplicasResponseEntryLookupInEntry {
   path: string
@@ -880,7 +882,7 @@ export interface CppGetProjectedRequest extends CppObservableRequest {
 }
 export interface CppDecrementResponse extends CppObservableResponse {
   // ctx
-  content: number
+  content: bigint
   cas: CppCas
   token: CppMutationToken
 }
@@ -889,8 +891,8 @@ export interface CppDecrementRequest extends CppObservableRequest {
   partition: number
   opaque: number
   expiry: number
-  delta: number
-  initial_value?: number
+  delta: number | bigint
+  initial_value?: number | bigint
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -902,8 +904,8 @@ export interface CppDecrementWithLegacyDurabilityRequest
   partition: number
   opaque: number
   expiry: number
-  delta: number
-  initial_value?: number
+  delta: number | bigint
+  initial_value?: number | bigint
   timeout?: CppMilliseconds
   // retries
   // parent_span
@@ -1214,7 +1216,7 @@ export interface CppMutateInWithLegacyDurabilityRequest
 }
 export interface CppIncrementResponse extends CppObservableResponse {
   // ctx
-  content: number
+  content: bigint
   cas: CppCas
   token: CppMutationToken
 }
@@ -1223,8 +1225,8 @@ export interface CppIncrementRequest extends CppObservableRequest {
   partition: number
   opaque: number
   expiry: number
-  delta: number
-  initial_value?: number
+  delta: number | bigint
+  initial_value?: number | bigint
   durability_level: CppDurabilityLevel
   timeout?: CppMilliseconds
   // retries
@@ -1236,8 +1238,8 @@ export interface CppIncrementWithLegacyDurabilityRequest
   partition: number
   opaque: number
   expiry: number
-  delta: number
-  initial_value?: number
+  delta: number | bigint
+  initial_value?: number | bigint
   timeout?: CppMilliseconds
   // retries
   // parent_span

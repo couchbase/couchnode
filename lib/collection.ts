@@ -2527,7 +2527,7 @@ export class Collection {
    */
   _binaryIncrement(
     key: string,
-    delta: number,
+    delta: number | bigint,
     options?: IncrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
@@ -2600,7 +2600,10 @@ export class Collection {
         return new CounterResult({
           cas: resp.cas,
           token: resp.token,
-          value: resp.content,
+          // resp.content is an exact bigint from the binding; `value` keeps the
+          // historical `number` shape (lossy above 2^53), `value64` is exact.
+          value: Number(resp.content),
+          value64: resp.content,
         })
       }, callback)
     } catch (e) {
@@ -2614,7 +2617,7 @@ export class Collection {
    */
   _binaryDecrement(
     key: string,
-    delta: number,
+    delta: number | bigint,
     options?: DecrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
@@ -2687,7 +2690,10 @@ export class Collection {
         return new CounterResult({
           cas: resp.cas,
           token: resp.token,
-          value: resp.content,
+          // resp.content is an exact bigint from the binding; `value` keeps the
+          // historical `number` shape (lossy above 2^53), `value64` is exact.
+          value: Number(resp.content),
+          value64: resp.content,
         })
       }, callback)
     } catch (e) {

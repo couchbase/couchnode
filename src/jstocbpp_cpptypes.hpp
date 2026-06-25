@@ -33,6 +33,25 @@ struct js_to_cbpp_t<T, typename std::enable_if_t<std::is_integral_v<T>>> {
     }
 };
 
+// Exact 64-bit marshalling for counter delta / initial / content: the shared
+// integral template rounds uint64 through a JS number (a double), so these go
+// via BigInt instead.  Free functions, not specializations -- only the fields
+// opted in by the generator use them (see bigIntFields in gen-bindings-js.js).
+static inline Napi::Value cbpp_to_js_u64(Napi::Env env, std::uint64_t cppObj)
+{
+    return Napi::BigInt::New(env, cppObj);
+}
+
+static inline std::uint64_t js_to_cbpp_u64(Napi::Value jsVal)
+{
+    if (jsVal.IsBigInt()) {
+        bool lossless;
+        return jsVal.As<Napi::BigInt>().Uint64Value(&lossless);
+    }
+    // Back-compat: a plain JS number marshals as before (via Int64Value()).
+    return static_cast<std::uint64_t>(jsVal.ToNumber().Int64Value());
+}
+
 // floating point types
 template <typename T>
 struct js_to_cbpp_t<T, typename std::enable_if_t<std::is_floating_point_v<T>>> {
