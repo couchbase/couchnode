@@ -901,6 +901,7 @@ export class Collection {
       }
 
       if (projStart >= 0) {
+        content = {}
         if (!needReproject) {
           for (let i = 0; i < paths.length; ++i) {
             const projPath = paths[i]
@@ -910,12 +911,13 @@ export class Collection {
             }
           }
         } else {
-          content = {}
-
           const reprojRes = res.content[projStart]
           for (let j = 0; j < paths.length; ++j) {
             const reprojPath = paths[j]
             const value = SdUtils.getByPath(reprojRes.value, reprojPath)
+            if (value === undefined) {
+              continue
+            }
             content = SdUtils.insertByPath(content, reprojPath, value)
           }
         }
