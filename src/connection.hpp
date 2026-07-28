@@ -2,6 +2,7 @@
 #include "addondata.hpp"
 #include "instance.hpp"
 #include "jstocbpp.hpp"
+#include <core/logger/logger.hxx>
 #include <core/tracing/wrapper_sdk_tracer.hxx>
 #include <core/utils/movable_function.hxx>
 #include <napi.h>
@@ -38,7 +39,15 @@ public:
 
     void invoke(FwdFunc &&callback)
     {
-        _ttsf.BlockingCall(new FwdFunc(std::move(callback)));
+        auto *fn = new FwdFunc(std::move(callback));
+        auto status = _ttsf.BlockingCall(fn);
+        if (status != napi_ok) {
+            // BlockingCall only takes ownership of fn once the item is queued,
+            // so on failure it is still ours to free.
+            CB_LOG_WARNING("Unable to queue callback for execution (status={})",
+                           static_cast<int>(status));
+            delete fn;
+        }
         _ttsf.Release();
     }
 
