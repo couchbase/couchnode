@@ -39,7 +39,14 @@ config.json
 /deps/couchbase-cxx-cache
 *.tar.gz
 /tools/bindings.json
+.cache/
 
 # Extra stuff
 /dist/
 .DS_Store
+
+# AI things
+.agents/
+.claude/
+.ai_discussions/
+.opencode/
