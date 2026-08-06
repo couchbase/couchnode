@@ -1,0 +1,49 @@
+syntax = "proto3";
+
+package protocol.run;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Run";
+option java_package = "com.couchbase.client.protocol.run";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/run";
+option ruby_package = "FIT::Protocol::Run";
+
+
+// Controls how the performer streams back results.
+//
+// The driver currently maintains a 10 second buffer, e.g. it is only writing data that's at least 10 seconds old.  This
+// is to handle out-of-order responses from the performer and to give it some flexibility w.r.t. batching.  The performer
+// should never send back data that is older than this buffer - the results are undefined if it does.
+//
+// Note that there is no provision for dropping packets currently.  It is expected that the performer (and driver, and
+// network) can keep up streaming back results from any workload.  Workloads could potentially last multiple hours, even
+// days, and most workloads will generate continuous traffic.
+
+// See CBD-4975 for discussion of streaming.  The two main points are:
+// 1. Naively sending back results one at a time did not scale.
+// 2. Batching results in BatchedResults increased flow-rate by nearly 2 orders of magnitude.
+message ConfigStreaming {
+  // The next two parameters are only mandatory on grpc.Workloads, which are explicitly testing various streaming
+  // approaches.  Otherwise they should be regarded as optional
+  // hints.  If the performer follows them then it will automatically get what has been tested to most reliably
+  // return results.  But it can override them if it has done its own testing and found its own best path for that
+  // language.
+
+  // If present, the performer should stream back BatchedResults, aiming to contain this number of results.
+  // The performer can return less elements than this in a batch (so it does not have to wait for a write queue to
+  // fill first).
+  optional int32 batch_size = 1;
+
+  // Whether the performer should enable flow control.  This will mean different things to different
+  // GRPC implementations, but the concept is to only send responses when the GRPC response stream reports itself ready.
+  // If the performer is unable to keep up with the flow rate then this effectively just moves the filling queue from
+  // GRPC's to one owned by the performer, but this can still be beneficial as the performer can keep better metrics
+  // on its own queue.
+  bool flow_control = 2;
+
+  // Whether the performer should stream back metrics.
+  bool enable_metrics = 3;
+}
+
+message Config {
+    optional ConfigStreaming streaming_config = 1;
+}

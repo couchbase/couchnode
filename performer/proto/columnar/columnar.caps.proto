@@ -1,0 +1,275 @@
+syntax = "proto3";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/caps";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+message PerApiElementGeneric {
+  // Currently empty.
+}
+
+message CredentialSupport {
+  bool supports_jwt_credential = 1;
+  bool supports_certificate_credential = 2;
+  bool supports_set_credential = 3;
+}
+
+message PerApiElementClusterNewInstance {
+  //  The SDK implements a dispatch timeout, which is optional. The SDK may or may not implement this feature.
+  bool supports_dispatch_timeout = 1;
+}
+
+message PerApiElementClusterClose {
+  // Currently empty.
+}
+
+// How the SDK exposes executeQuery().
+message PerApiElementExecuteQuery {
+  // Covers whether the SDK follows the "standard" model of an initial `executeQuery()` call returning a `QueryResult`
+  // that can then be iterated through.
+  enum ExecuteQueryReturns {
+    // Should never be sent.  Included as a standard protobuf best practice.
+    EXECUTE_QUERY_RETURNS_UNSPECIFIED = 0;
+
+    // An SDK that has a "standard" model something like the following:
+    // `QueryResult result = executeQuery(...)`
+    // `PromiseLike<QueryResult> result = executeQuery(...)`
+    EXECUTE_QUERY_RETURNS_QUERY_RESULT = 1;
+
+    // An SDK that looks something like the following (likely just used by push-based SDKs):
+    // `QueryMetadata metadata = executeQuery(...)`
+    EXECUTE_QUERY_RETURNS_QUERY_METADATA = 2;
+
+    // If your SDK does not fall into one of these paradigms, or you're not sure which is the best fit: please escalate for discussion.
+  }
+
+  ExecuteQueryReturns execute_query_returns = 1;
+
+  // Covers how a user allows users to stream and iterate rows.
+  enum RowIteration {
+    // Should never be sent.  Included as a standard protobuf best practice.
+    ROW_ITERATION_UNSPECIFIED = 0;
+
+    // If row iteration in this SDK mode looks something like (it might be a Stream or similar rather than an Iterator):
+    // ```
+    // var iterator = queryResult.rowsAs<SomeContent>()
+    // while (iterator.hasNext()) {
+    //   SomeContent row = iterator.next()
+    // }
+    // ```
+    // or
+    // ```
+    // var iterator = queryResult.rowsAs()
+    // while (iterator.hasNext()) {
+    //   var row = iterator.next()
+    // }
+    // ```
+    ROW_ITERATION_STREAMING_ITERATOR_BASED = 1;
+
+    // If row iteration in this SDK mode looks something like:
+    // ```
+    // executeQuery("SELECT...", (row) => { })
+    // ```
+    ROW_ITERATION_STREAMING_PUSH_BASED = 2;
+
+    // All Columnar SDKs should be streaming-centric, but some may have optional modes that are fully buffered.
+    // If row iteration in this SDK mode looks something like:
+    // `List<SomeContent> rows = queryResult.rowsAs<SomeContent>()`
+    // or
+    // `List rows = queryResult.rows()`
+    // The important distinction is that the rows are fully buffered by the SDK already, by the point `executeQuery` returns.
+    ROW_ITERATION_BUFFERED = 3;
+
+    // If your SDK does not fall into one of these paradigms, or you're not sure which is the best fit: please escalate for discussion.
+  }
+
+  RowIteration row_iteration = 2;
+
+  // Covers how/if SDKs allow users to convert rows directly into specific types.
+  enum RowDeserialization {
+    // Should never be sent.  Included as a standard protobuf best practice.
+    ROW_DESERIALIZATION_UNSPECIFIED = 0;
+
+    // If the user can specify that rows be converted into a particular type, but only for all rows.  Something like:
+    // `Iterator<UserDAO> users = queryResult.rowsAs<UserDAO>()`
+    // or `executeQuery<UserDAO>("SELECT", (row: UserDAO) => {})`
+    ROW_DESERIALIZATION_STATIC_ROW_TYPING = 1;
+
+    // If the user can specify that rows be converted into a particular type, and can specify a different type for each
+    // row.  Something like:
+    // ```
+    // const rows = queryResult.rows()
+    // for (const row in rows) {
+    //    row.contentAs<UserDAO>()
+    // }
+    // ```
+    // or
+    // ```
+    // executeQuery("SELECT", row => row.contentAs<UserDAO>())`
+    // ```
+    ROW_DESERIALIZATION_STATIC_ROW_TYPING_INDIVIDUAL = 2;
+
+    // If rows are generally exposed however the Deserializer exposes them, with the type being decided dynamically by
+    // the Deserializer.  Something like:
+    // ```
+    // const queryResult = await executeQuery("SELECT")
+    // const rows = queryResult.rows()
+    // for await (const row of rows) {
+    //    // with default Deserializer row is probably a platform-native object, like a JS object here in Node
+    // }
+    // ```
+    // or with a custom Deserializer
+    // ```
+    // const queryResult = await executeQuery("SELECT", queryOptions().deserializer(UserDAODeserializer))
+    // const rows = queryResult.rows()
+    // for (const row in rows) {
+    //    // row is of type UserDAO
+    // }
+    // ```
+    ROW_DESERIALIZATION_DYNAMIC_ROW_TYPING = 3;
+
+    // If your SDK does not fall into one of these paradigms, or you're not sure which is the best fit: please escalate for discussion.
+  }
+
+  RowDeserialization row_deserialization = 3;
+
+  // If the SDK includes the PassthroughDeserializer.  This is likely to go hand-in-hand with ROW_DESERIALIZATION_DYNAMIC_ROW_TYPING.
+  bool supports_passthrough_deserializer = 4;
+  bool supports_custom_deserializer = 5;
+}
+
+message SdkConnectionError {
+  // Enum to specify the type of invalid credential error.
+  enum InvalidCredentialErrorType {
+    // Should never be sent.  Included as a standard protobuf best practice.
+    UNSPECIFIED_CREDENTIAL_ERROR = 0;
+
+    // The SDK returns an error of type INVALID_CREDENTIAL_EXCEPTION when a
+    // connection attempt fails due to incorrect username or password.
+    AS_INVALID_CREDENTIAL_EXCEPTION = 1;
+
+    // The SDK returns error type for COLUMNAR_TIMEOUT_EXCEPTION, when a connection attempt fails
+    // after the minimum of the three timeout expires ie connect, dispatch and query
+    AS_TIMEOUT_EXCEPTION = 2;
+
+    // The SDK returns a error which driver can't understand
+    UNKNOWN_CREDENTIAL_ERROR_EXCEPTION = 3;
+  }
+
+  // Enum to specify the type of bootstrap error.
+  enum BootstrapErrorType {
+    // Should never be sent.  Included as a standard protobuf best practice.
+    UNSPECIFIED_BOOTSTRAP_ERROR = 0;
+
+    // The SDK returns error type for COLUMNAR_TIMEOUT_EXCEPTION, when a connection attempt fails
+    // after the minimum of the three timeout expires ie connect, dispatch and query
+    ERROR_AS_TIMEOUT_EXCEPTION = 1;
+
+    // The SDK returns an error of type COLUMNAR_ERROR
+    // when a connection attempt fast fails without any sub exception like timeout.
+    AS_COLUMNAR_ERROR = 2;
+
+    // The SDK returns a error of some other type of topology tracking error when a connection attempt fails.
+    OTHER_BOOTSTRAP_ERROR = 3;
+
+    // The SDK returns a error which driver can't understand
+    UNKNOWN_BOOTSTRAP_ERROR_EXCEPTION = 4;
+  }
+
+  // The type of error sdk returns if cluster connection fails when user passes wrong username or password.
+  InvalidCredentialErrorType invalid_cred_error_type = 1;
+  BootstrapErrorType bootstrap_error_type = 2;
+}
+
+message FetchPerformerCapsRequest {
+}
+
+// Should never be sent.  Included as a standard protobuf best practice.
+enum SDK {
+  SDK_UNSPECIFIED = 0;
+  SDK_JAVA = 1;
+  SDK_PYTHON = 2;
+  SDK_GO = 3;
+  SDK_PHP = 4;
+  SDK_RUBY = 5;
+  SDK_NET = 6;
+  SDK_NODE = 7;
+  SDK_SCALA = 8;
+  SDK_KOTLIN = 9;
+  SDK_CXX = 10;
+}
+
+enum AnalyticsProduct {
+  // The SDKs for Capella Columnar
+  COLUMNAR = 0;
+
+  // The SDKs for Enterprise Analytics and (in future) Capella Analytics
+  ANALYTICS = 1;
+}
+
+message FetchPerformerCapsResponse {
+
+  SDK sdk = 1;
+
+  // Identifies the version of the Columnar SDK.  For example, "1.1.2".
+  string sdk_version = 2;
+
+  // Per-ApiElement
+  // --------------
+  // The previous iteration of the FIT GRPC had broad capability flags that lacked the granularity to cover the various
+  // per-SDK implementation nuances, leaving that to be handled on the driver-side with hardcoded per-SDK branches.
+  //
+  // In this iteration, the performer instead declares support for each individual element of the API, and some details
+  // of how they have exposed support for it.
+  // "Individual element" is intentionally left vague to give case-by-case flexibility.  It could be as granular as a
+  // single new option, or as broad as everything related to links management.
+  //
+  // Each is exposed as a map with a key of mode_index, allowing the SDK to report different support levels for different modes.
+  // (Modes are explained just below).
+  //
+  // IMPORTANT: if the performer does not populate a map for an element, the driver will think the SDK does not support
+  // that element.  It may flag this as a bug or simply not run tests for it, as appropriate.
+  //
+  // Another benefit of this flexible model is the SDK does not have to support (or pretend to support) every mode for
+  // every feature.
+  //
+  // Modes
+  // -----
+  // Modes are used purely for FIT to loop over, running the same tests against each of them.  It's left up to each
+  // performer & SDK how best to use this.  Many SDKs have the concept of multiple APIs or modes that the user can
+  // choose from.
+  //
+  // SDKs that only have one mode of operation should just use mode_index = 0 for all elements.
+  //
+  // Per-mode cluster connections
+  // ----------------------------
+  // The driver assumes either:
+  //   (1) There is only one cluster_new_instance mode which is used for operations of all modes.
+  //     OR
+  //   (2) For all operation modes that have been declared (e.g. for execute_query), the same mode has been declared
+  //       in cluster_new_instance. The driver will ensure that the cluster connection used for the operation has been
+  //       created with the same mode.
+
+  // ColumnarService.ClusterNewInstance and everything that exists at time of commit under those messages.
+  map<int32, PerApiElementClusterNewInstance> cluster_new_instance = 3;
+
+  // ColumnarService.ClusterClose and ColumnarService.CloseAllClusters, and everything that exists at time of commit under those messages.
+  map<int32, PerApiElementClusterClose> cluster_close = 4;
+
+  // ColumnarCrossService.ExecuteQuery and everything that exists at time of commit under those messages, for instance.executeQuery().
+  map<int32, PerApiElementExecuteQuery> cluster_execute_query = 5;
+
+  // ColumnarCrossService.ExecuteQuery and everything that exists at time of commit under those messages, for scope.executeQuery().
+  map<int32, PerApiElementExecuteQuery> scope_execute_query = 6;
+
+  map<int32, SdkConnectionError> sdk_connection_error = 7;
+
+  AnalyticsProduct analytics_product = 8;
+
+  // WWhether the SDK supports async queries, that is startQuery.
+  bool supports_server_async_queries = 9;
+
+  CredentialSupport credential_support = 10;
+}

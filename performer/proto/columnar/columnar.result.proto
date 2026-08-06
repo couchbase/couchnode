@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+import "columnar.errors.proto";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/result";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+import "columnar.metadata.proto";
+
+message EmptyResultOrFailureResponse {
+  oneof result {
+    bool empty_success = 1;
+    Error error = 2;
+  }
+  ResponseMetadata metadata = 3;
+}

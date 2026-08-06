@@ -1,0 +1,42 @@
+syntax = "proto3";
+
+package protocol.sdk.kv;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv";
+option java_package = "com.couchbase.client.protocol.sdk.kv";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv";
+option ruby_package = "FIT::Protocol::SDK::KV";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+
+message IncrementOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Expiry expiry = 2;
+    optional int64 delta = 3;
+    optional int64 initial = 4;
+    optional shared.DurabilityType durability = 5;
+    optional string parent_span_id = 6;
+}
+
+message DecrementOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Expiry expiry = 2;
+    optional int64 delta = 3;
+    optional int64 initial = 4;
+    optional shared.DurabilityType durability = 5;
+    optional string parent_span_id = 6;
+}
+
+message AppendOptions {
+    optional int32 timeout_msecs = 1;
+    optional int64 cas = 2 [jstype = JS_STRING];
+    optional shared.DurabilityType durability = 5;
+    optional string parent_span_id = 6;
+}
+
+message PrependOptions {
+    optional int32 timeout_msecs = 1;
+    optional int64 cas = 2 [jstype = JS_STRING];
+    optional shared.DurabilityType durability = 5;
+    optional string parent_span_id = 6;
+}

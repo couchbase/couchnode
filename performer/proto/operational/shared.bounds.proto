@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+// We may need the flexibility to do various forms of counter, e.g.:
+// 1. Aim to do 1m operations across all threads.
+// 2. Each thread does 1m operations.
+// (1) is the simplest and most useful, so is the only one supported for now.  And `counterId` lets us do (2) with it anyway.
+message CounterGlobal {
+  // The performer should initialise the counter at this value, and will generally keep going until the counter reaches 0
+  int32 count = 1;
+}
+
+message Counter {
+  // Each counter is identified by its id, which the performer creates on-demand.
+  // Counters with the same id are shared across workloads and WorkloadRunRequests.  Use unique ids
+  // when you want isolated counters (e.g. per-workload count bounds), and shared ids when you
+  // want a single counter to coordinate multiple workloads (e.g. counter_eq bounds with setCounter).
+  string counter_id = 1;
+
+  oneof counter {
+    CounterGlobal global = 2;
+  }
+}
+
+// The performer will run the bounded item until this much time has elapsed.
+message ForTime {
+  int32 seconds = 1;
+}
+
+// Controls how a given workload is bounded.
+// A simple bounding would be to just run X operations as fast as possible, and then stop.
+// In future we will support more advanced bounds, such as the performer maintaining a target throughput of 100 ops/sec and
+// seeing what the latency is, for 60 seconds.
+message Bounds {
+  oneof bounds {
+    // The performer decrements the counter and continues iff counter is now > 0
+    Counter counter = 1;
+    ForTime for_time = 2;
+    // The performer should not change the counter, just continue iff its equal to the initial value
+    Counter counter_eq = 3;
+
+  }
+}
+
+// Empty but included anyway per GRPC best practices.
+message SetCounterResponse {
+
+}
+
+// Clear all counters for a given performer.
+message ClearAllCountersRequest {
+
+}
+
+// Empty but included anyway per GRPC best practices.
+message ClearAllCountersResponse {
+
+}

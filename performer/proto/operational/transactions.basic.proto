@@ -1,0 +1,28 @@
+// Contains basic low-level primitives that have no dependencies.
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+enum AttemptStates {
+    NOTHING_WRITTEN=0;
+    PENDING=1;
+    ABORTED=2;
+    COMMITTED=3;
+    COMPLETED=4;
+    ROLLED_BACK=5;
+    UNKNOWN=6;
+}
+
+// Exists for legacy reasons.  Newer messages should use DocLocation.
+message DocId {
+    string bucket_name = 1;
+    string scope_name = 2;
+    string collection_name = 3;
+    string doc_id = 4;
+}
+

@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+import "shared.transaction_config.proto";
+import "shared.transcoders.proto";
+import "observability.config.proto";
+import "sdk.circuit_breaker.config.proto";
+
+message ClusterConfig {
+    // Will only be sent to ExtSDKIntegration-enabled performers.
+    optional TransactionsConfig transactions_config = 1;
+
+    // The performer should use a custom JsonSerializer when creating the Cluster.
+    // This custom JsonSerializer is required to have specific serialization and deserialization logic, which the driver
+    // will validate.  See the Java performer for implementation details.
+    bool use_custom_serializer = 2;
+
+    // Used for TLS enabled clusters such as Capella clusters.
+    // Note that use_tls should only be used by SDKs that have such a field (e.g. Java).  Many SDKs do not have a
+    // use_tls equivalent, and TLS is enabled via couchbases:// on the connection string.  The driver will use the
+    // appropriate option.
+    bool use_tls = 3;
+
+    // If specified, it's the path to an certificate in PEM format, that the SDK should apply in whatever way makes sense
+    // for it.
+    // If `cert_path` is specified, `cert` will not be.  (They are not `oneof`, for backwards compatibility).
+    // Note that now FIT is mainly tested through Docker, `cert_path` is generally not usable since it's non-trivial
+    // to pass files between Docker containers.  `cert` should generally be used instead.
+    optional string cert_path = 4;
+
+    // If specified, it's an X509 certificate in PEM format, e.g.
+    //
+    //-----BEGIN CERTIFICATE-----
+    //MIIDKDCCAhCgAwIBAgIGAYfmPG2mMA0GCSqGSIb3DQEBCwUAMDYxNDAyBgNVBAMT
+    //K2FwcHMuY2xvdWQtbmF0aXZlLmZnMWIucDEub3BlbnNoaWZ0YXBwcy5jb20wHhcN
+    //...
+    //I+VkRC5NwrqMsnR3149LAVcj6Jen8hMjLM0wR8Frqu2zV9HW5yHMQmOTOKE=
+    //-----END CERTIFICATE-----
+    //
+    // The SDK should apply it in whatever way makes sense for it.  Some SDKs (e.g. the C++ wrappers) cannot pass
+    // in such a certificate directly to the SDK.  In this case they should write it to a temporary file first.
+    //
+    // If `cert_path` is specified, `cert` will not be.  (They are not `oneof`, for backwards compatibility).
+    // `cert` can be used where it's not easy to pass `cert_path`, such as when the driver and performer are on
+    // separate nodes or Docker containers.
+    optional string cert = 26;
+
+    // The SDK should skip certificate validation.  It's SDK dependent how to implement this.  On JVM it may involve
+    // applying InsecureTrustManager, while on a C++ wrapper it may require manipulating the connstr to pass "?tls_verify=none".
+    // Not every SDK can support this option against every backend.  See internal discussion:
+    // https://couchbase.slack.com/archives/G9682CWN7/p1698333449931709
+    // Behind cap CLUSTER_CONFIG_INSECURE.
+    optional bool insecure = 27;
+
+    // Following taken from:
+    // https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0059-sdk3-foundation.md#configuration
+    optional int32 kv_connect_timeout_secs = 5;
+    optional int32 kv_timeout_millis = 6;
+    optional int32 kv_durable_timeout_millis = 7;
+    optional int32 view_timeout_secs = 8;
+    optional int32 query_timeout_secs = 9;
+    optional int32 analytics_timeout_secs = 10;
+    optional int32 search_timeout_secs = 11;
+    optional int32 management_timeout_secs = 12;
+    optional Transcoder transcoder = 13;
+    optional bool enable_mutation_tokens = 14;
+    optional int32 tcp_keep_alive_time_millis = 15;
+    optional bool enable_tcp_keep_alives = 16;
+    optional bool force_i_p_v4 = 17;
+    optional int32 config_poll_interval_secs = 18;
+    optional int32 config_poll_floor_interval_secs = 19;
+    optional int32 config_idle_redial_timeout_secs = 20;
+    optional int32 num_kv_connections = 21;
+    optional int32 max_http_connections = 22;
+    optional int32 idle_http_connection_timeout_secs = 23;
+
+    // Whether some sort of observability (e.g. OpenTelemetry) output should be configured.  The performer should pass this in to the cluster
+    // config's `requestTracer` and/or `meter` settings (depending on whether tracing and/or metrics is enabled).
+    //
+    // These will generally create OpenTelemetry SDK objects, e.g. SdkTracerProvider and SdkMeterProvider.
+    // These must be closed at the same time as this cluster connection is closed.  Otherwise the SdkMeterProvider will
+    // continue outputting metrics until the application ends.
+    optional observability.Config observability_config = 24;
+
+    optional int32 kv_scan_timeout_secs = 25;
+
+    optional sdk.circuit_breaker.Config circuit_breaker_config = 28;
+
+    optional string preferred_server_group = 29;
+
+    // A Application telemetry endpoint WebSocket URI of the form "ws://<host>:<port>/<path>"
+    optional string app_telemetry_endpoint = 30;
+    optional int32 app_telemetry_backoff_secs = 31;
+    optional bool enable_app_telemetry = 32;
+    optional int32 app_telemetry_ping_interval_secs = 33;
+    optional int32 app_telemetry_ping_timeout_secs = 34;
+}
+
+message Authenticator {
+    message PasswordAuthenticator {
+        string username = 1;
+        string password = 2;
+    }
+
+    message CertificateAuthenticator {
+        // An X509  certificate in PEM format, e.g.
+        //
+        //-----BEGIN CERTIFICATE-----
+        //MIIDKDCCAhCgAwIBAgIGAYfmPG2mMA0GCSqGSIb3DQEBCwUAMDYxNDAyBgNVBAMT
+        //K2FwcHMuY2xvdWQtbmF0aXZlLmZnMWIucDEub3BlbnNoaWZ0YXBwcy5jb20wHhcN
+        //...
+        //I+VkRC5NwrqMsnR3149LAVcj6Jen8hMjLM0wR8Frqu2zV9HW5yHMQmOTOKE=
+        //-----END CERTIFICATE-----
+        //
+        // The SDK should apply it in whatever way makes sense for it.  Some SDKs (e.g. the C++ wrappers) cannot pass
+        // in such a certificate directly to the SDK.  In this case they should write it to a temporary file first.
+        string cert = 1;
+
+        // An X509 key in PEM format, e.g.
+        //
+        //-----BEGIN RSA PRIVATE KEY-----
+        //MIIJKAIBAAKCAgEAwiYPcb0zL9B5ZCn5mo/sF2QwdNr/aKjdfvnO6hx9h80klu5m
+        //...
+        //QZ57rjd7D6hDSzbSxNW54ktF0ZJrBZatfXJize2/WL1SzSAkm7rJovUWXKA=
+        //-----END RSA PRIVATE KEY-----
+        //
+        // The SDK should apply it in whatever way makes sense for it.  Some SDKs (e.g. the C++ wrappers) cannot pass
+        // in such a certificate directly to the SDK.  In this case they should write it to a temporary file first.
+        string key = 2;
+    }
+
+    message JwtAuthenticator {
+        string jwt = 1;
+    }
+
+    oneof authenticator {
+        PasswordAuthenticator password_auth = 1;
+        CertificateAuthenticator certificate_auth = 2;
+        JwtAuthenticator jwt_auth = 3;
+    }
+}
+
+// Only sent to ExtSDKIntegration-supporting performers.
+// Creates a cluster connection, with an optional cluster & transactions configuration.
+message ClusterConnectionCreateRequest {
+    // The id to use for this connection.
+    string cluster_connection_id = 1;
+
+    // Details of the cluster connection.
+    // cluster_hostname is the connection string.  As with all fields (see rule 1 in README.md), the performer should
+    // pass this directly to the SDK without manipulation.  E.g. it should not prepend couchbase:// or similar.
+    string cluster_hostname = 2;
+
+    // Either these two fields will be set or authenticator will be set, but not both.
+    // These will always be set until the performer returns the SupportsAuthenticator capability.
+    string cluster_username = 3;
+    string cluster_password = 4;
+
+    optional ClusterConfig cluster_config = 5;
+
+    // Can apply SDK tunables that can't be represented generically in GRPC.
+    //
+    // One example is for performance testing, where we may want to experiment with various approaches in say the Java SDK.
+    // So one run may send "com.couchbase.executorMaxThreadCount"="10", and the next set it to "20".
+    //
+    // Interpretation of the tunables, and how to apply them inside the SDK, is completely SDK-dependent.
+    //
+    // The intent is that the tunables be associated with the cluster connection, but this may not be possible in all
+    // implementations - e.g. Java uses global system properties instead.
+    //
+    // Generally performers can ignore this field unless they are explicitly planning on using it.
+    map<string, string> tunables = 6;
+
+    // Either this will be set or username/password will be set, but not both.
+    // These will never be set until the performer returns the SupportsAuthenticator capability.
+    optional Authenticator authenticator = 7;
+}
+
+message ClusterConnectionCreateResponse {
+    // The number of cluster connections the performer has, after opening this one.
+    int32 cluster_connection_count = 1;
+}
+
+message ClusterConnectionCloseRequest {
+    string cluster_connection_id = 1;
+}
+
+message ClusterConnectionCloseResponse {
+    // The number of cluster connections the performer has, after closing this one.
+    int32 cluster_connection_count = 2;
+}
+
+message DisconnectConnectionsRequest {
+}
+
+message DisconnectConnectionsResponse {
+}
+

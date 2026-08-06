@@ -1,0 +1,51 @@
+// These are in shared package rather then transactions, to avoid problems with Go import cycles.
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+import "hooks.transactions.proto";
+import "shared.collection.proto";
+
+// Options that can be overridden at the individual transaction level.
+// Note that pre-ExtSDKIntegration, this struct was empty.  Not in the implementation, where PerTransactionConfig existed,
+// but here at the FIT level.  So, it will only be populated for ExtSDKIntegration performers.
+message TransactionsConfig {
+    // Durability to use for all mutating KV operations, both in cleanup and all transactions initiated.
+    optional shared.Durability durability = 1;
+
+    // Timeout (nee expirationTime) for all transactions.
+    optional int64 timeout_millis = 2;
+
+    repeated hooks.transactions.Hook hook = 3;
+
+    optional shared.Collection metadata_collection = 4;
+
+    optional TransactionsCleanupConfig cleanup_config = 5;
+
+    optional TransactionsConfigQuery query_config = 6;
+}
+
+message TransactionsCleanupConfig {
+    // Whether to run the lost cleanup thread(s).
+    optional bool cleanup_lost_attempts = 1;
+
+    // Whether to run the cleanup thread cleaning up attempts from this client.
+    optional bool cleanup_client_attempts = 2;
+
+    // Length of the lost cleanup window, in millis.
+    optional int64 cleanup_window_millis = 3;
+
+    // Additional collections to add to the cleanup set.
+    // Can be ignored if not ExtSDKIntegration.
+    repeated shared.Collection cleanup_collection = 4;
+}
+
+message TransactionsConfigQuery {
+    optional shared.ScanConsistency scan_consistency = 1;
+}

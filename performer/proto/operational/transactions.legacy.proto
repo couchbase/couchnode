@@ -1,0 +1,132 @@
+// Contains legacy or deprecated messages that we want to eventually remove.  See performer.proto for the reasoning.
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "hooks.transactions.proto";
+import "transactions.extensions.proto";
+import "transactions.basic.proto";
+import "transactions.cleanup.proto";
+import "shared.basic.proto";
+
+
+
+message CreateTransactionFactoryResponse {
+    string cluster_connection_id = 1;
+}
+
+message CloseTransactionsRequest {
+}
+
+message CloseTransactionsResponse {
+}
+
+message TransactionsFactoryCreateResponse {
+    string transactions_factory_ref = 1;
+}
+
+message TransactionAttempt {
+    AttemptStates state = 1;
+    string attempt_id = 2;
+    DocId atr = 3; // Can be empty iff state=NOTHING_WRITTEN
+}
+
+// Requests the performer creates a connection to a Couchbase cluster, and return performer caps.
+// In the transactions package as it was part of the original transactions-only implementation, and has been replaced now.
+message CreateConnectionRequest {
+    string cluster_hostname = 1;
+    string cluster_username = 2;
+    string cluster_password = 3;
+
+    // As of ExtSDKIntegration this field will no longer be sent and should be ignored.  It is unclear why it was ever
+    // required.
+    string bucket_name = 4 [ deprecated = true ];
+
+    // As of ExtSDKIntegration this field will no longer be sent and should be ignored.  The driver will now always
+    // explicitly send a clusterConnectionId.
+    bool use_as_default_connection = 5 [ deprecated = true ];
+
+    // The performer should use a custom JsonSerializer when creating the Cluster.
+    // This custom JsonSerializer is required to have specific serialization and deserialization logic, which the driver
+    // will validate.  See the Java performer for implementation details.
+    bool use_custom_serializer = 6;
+
+    // Used for TLS enabled clusters such as Capella clusters
+    bool use_tls = 7;
+    optional string cert_path = 8;
+
+    option deprecated = true;
+}
+
+// Returns the capabilities of the performer (or more specifically, the transactions-implementation-under-test by that
+// performer), along with a reference to the created cluster connection.
+// As of ExtSDKIntegration, this is now legacy.  Performers should implement getPerformerCaps and createClusterConnection instead.  This
+message CreateConnectionResponse {
+    repeated Caps performer_caps = 1;
+
+    // Human-readable string identifying the performer.  For example, "java".
+    string performer_user_agent = 2;
+
+    // Identifies the version of the library under test.  For example, "1.1.2".
+    string performer_library_version = 4;
+
+    // Defined https://hackmd.io/foGjnSSIQmqfks2lXwNp8w#Protocol-Versions
+    // Must be "1.0", "2.0" or "2.1" any other values will cause the driver to abort.
+    string protocol_version = 3;
+
+    // The APIs this implementation supports.  This is primarily used to run tests on multiple APIs, so if an
+    // implementation only supports one, it should just return one - see comments for `API` for details. If the
+    // performer does not return anything, it will be assumed to support just API.DEFAULT.
+    repeated shared.API supported_apis = 6;
+
+    string cluster_connection_id = 5;
+
+    option deprecated = true;
+}
+
+
+message TransactionProcessCleanupQueueRequest {
+    string transactions_factory_ref = 1;
+    string cluster_connection_id = 2;
+
+    option deprecated = true;
+}
+
+message TransactionCleanupQueueResult {
+  repeated TransactionCleanupAttempt attempts = 1;
+
+  option deprecated = true;
+}
+
+
+message ClientRecordRemoveRequest {
+    string client_uuid = 1;
+    // Any hooks can only use HookPoints in the CLIENT_RECORD_* range
+    repeated hooks.transactions.Hook hook = 2;
+
+    // This is only needed for KV operations, so the driver will usually send the default cluster connection.
+    string cluster_connection_id = 8;
+
+    option deprecated = true;
+}
+
+message ClientRecordRemoveResponse {
+  bool success = 1;
+
+  option deprecated = true;
+}
+
+// Parameters for the Query Statement
+message CommandQueryParameters {
+  option deprecated = true;
+
+  // Extra deprecated as it was never possible to set timeout on TransactionQueryOptions
+  int32 timeout = 10 [ deprecated = true ];
+
+  shared.ScanConsistency scan_consistency = 11;
+}

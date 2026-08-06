@@ -1,0 +1,94 @@
+syntax = "proto3";
+
+package protocol.run;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Run";
+option java_package = "com.couchbase.client.protocol.run";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/run";
+option ruby_package = "FIT::Protocol::Run";
+
+import "sdk.workload.proto";
+import "meta.workload.proto";
+import "google/protobuf/timestamp.proto";
+import "transactions.performer.proto";
+import "streams.top_level.proto";
+import "metrics.top_level.proto";
+import "run.config.proto";
+import "run.workloads.proto";
+
+// For optimal streaming performance, batches of results can be returned.
+message BatchedResult {
+  repeated Result result = 1;
+}
+
+// The performer returns a stream of run.Result to the driver.
+// When and what results it should return, are detailed elsewhere in the GRPC.
+message Result {
+  oneof result {
+    // Each sdk.Command should return back one of these results.
+    sdk.Result sdk = 3;
+
+    // Each meta.Command should return back one of these results.
+    meta.Result grpc = 4;
+
+    // The performer can send back metrics whenever it wishes.  However, due to the way database results are currently
+    // joined with the bucket results (which are in one second buckets), it's only useful to send back a maximum of
+    // one per second.
+    metrics.Result metrics = 5;
+
+    // For optimal streaming performance, batches of results can be returned.
+    BatchedResult batched = 6;
+
+    // Something significant has happened on a stream (such as creation or completion).
+    // The actual streamed results will be returned elsewhere (usually as Results).
+    streams.Signal stream = 7;
+
+    // Result of a single transaction.
+    transactions.TransactionResult transaction = 8;
+  }
+
+  // Performance times are always returned so it's easier for the performers to code-share between performance and
+  // integration testing.
+  //
+  // Clocks are hard.  Many OS/platform combinations cannot guarantee nanosecond level precision of a wallclock time,
+  // but can provide such precision for elapsed time.
+  // So:
+  //
+  // `elapsedNanos` is intended to be, as precisely as the platform can measure it, the exact time taken by the operation in nanoseconds.
+  // Measured from just before sending the operation into the SDK (e.g. after handling any GRPC work and JSON conversion), and just after
+  // the SDK returns.  To stress, this should not include any JSON or GRPC processing.
+  //
+  // `initiated` is a wallclock time, used to place this operation into a one second bucket.  This should be as
+  // accurate as the platform can provide (often realistically this is only accurate to 10 millis or so).  Hopefully
+  // a few operations ending up in the wrong bucket each second will not dramatically impact the results.  It is ok
+  // to set `initiated` before the GRPC work, due to the reduced precision.
+  // For failed operations:
+  // `initiated` needs to be the wallclock time the operation was initiated, not when it failed which can
+  // be potentially X seconds later.
+  // `elapsedNanos` historically was not required by the performer, but some tests do now use it.  The SDK can opt into
+  // these tests by always returning this field and declaring support for performer cap TIMING_ON_FAILED_OPS.
+  int64 elapsedNanos = 1;
+  google.protobuf.Timestamp initiated = 2;
+}
+
+message Request {
+  // Configures how the performer executes this run.
+  optional Config config = 1;
+
+  // What the performer should do in this run.  A `oneof` for future extension.
+  oneof request {
+    Workloads workloads = 2;
+  }
+
+  // Can apply SDK tunables that can't be represented generically in GRPC.
+  //
+  // One example is for performance testing, where we may want to experiment with various approaches in say the Java SDK.
+  // So one run may send "com.couchbase.executorMaxThreadCount"="10", and the next set it to "20".
+  //
+  // Interpretation of the tunables, and how to apply them inside the SDK, is completely SDK-dependent.
+  //
+  // Generally the performer should unset all tunables at the end of the run RPC.
+  //
+  // Generally performers can ignore this field unless they are explicitly planning on using it.
+  map<string, string> tunables = 3;
+}

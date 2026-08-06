@@ -1,0 +1,31 @@
+syntax = "proto3";
+
+package protocol.sdk.circuit_breaker;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.CircuitBreaker";
+option java_package = "com.couchbase.client.protocol.sdk.circuit_breaker";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/circuit_breaker";
+option ruby_package = "FIT::Protocol::Sdk::CircuitBreaker";
+option java_multiple_files = true;
+
+// All settings here copied from the circuit breaker SDK-RFC 33.
+message ServiceConfig {
+    optional bool enabled = 1;
+    optional int32 volume_threshold = 2;
+    optional int32 error_threshold_percentage = 3;
+    optional int32 sleep_window_ms = 4;
+    optional int32 rolling_window_ms = 5;
+    optional int32 canary_timeout_ms = 6;
+}
+
+// SDK-RFC 33 is sparsely specced and the SDK may not support all of these.  As usual the performer should return UNSUPPORTED
+// if faced with any requests it cannot handle.
+message Config {
+    optional ServiceConfig kv = 1;
+    optional ServiceConfig query = 2;
+    optional ServiceConfig view = 3;
+    optional ServiceConfig search = 4;
+    optional ServiceConfig analytics = 5;
+    optional ServiceConfig manager = 6;
+    optional ServiceConfig eventing = 7;
+    optional ServiceConfig backup = 8;
+}

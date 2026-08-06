@@ -1,0 +1,66 @@
+syntax = "proto3";
+
+package protocol.sdk.query.index_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Query.IndexManager";
+option java_package = "com.couchbase.client.protocol.sdk.query.indexmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/query/index/manager";
+option ruby_package = "FIT::Protocol::SDK::Query::IndexManager";
+option java_multiple_files = true;
+
+message GetAllQueryIndexOptions {
+  optional string scope_name = 1;
+  optional string collection_name = 2;
+  optional int32 timeout_msecs = 3;
+  optional string parent_span_id = 4;
+}
+
+message CreatePrimaryQueryIndexOptions {
+  optional bool ignore_if_exists = 1;
+  optional int32 num_replicas = 2;
+  optional bool deferred = 3;
+  optional string index_name = 4;
+  optional string scope_name = 5;
+  optional string collection_name = 6;
+  optional int32 timeout_msecs = 7;
+  optional string parent_span_id = 8;
+}
+
+message CreateQueryIndexOptions {
+  optional bool ignore_if_exists = 1;
+  optional int32 num_replicas = 2;
+  optional bool deferred = 3;
+  optional string scope_name = 4;
+  optional string collection_name = 5;
+  optional int32 timeout_msecs = 6;
+  optional string parent_span_id = 7;
+}
+
+message DropPrimaryIndexOptions {
+  optional bool ignore_if_not_exists = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  optional int32 timeout_msecs = 4;
+  optional string parent_span_id = 5;
+}
+
+message DropIndexOptions {
+  optional bool ignore_if_not_exists = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  optional int32 timeout_msecs = 4;
+  optional string parent_span_id = 5;
+}
+
+message WatchIndexesOptions {
+  optional bool watch_primary = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  optional string parent_span_id = 4;
+}
+
+message BuildDeferredIndexesOptions {
+  optional string scope_name = 1;
+  optional string collection_name = 2;
+  optional int32 timeout_msecs = 3;
+  optional string parent_span_id = 4;
+}

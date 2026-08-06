@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package protocol.sdk.scope.search.index_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Scope.Search.IndexManager";
+option java_package = "com.couchbase.client.protocol.sdk.scope.search.indexmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/scope/search/indexmanager";
+option java_multiple_files = true;
+
+import "sdk.search.index_manager.proto";
+
+// This file is for ScopeSearchIndexManager: scope.searchIndexes()
+// For global search index manager (cluster.searchIndexes()), see sdk.search.index_manager.proto.
+
+message Command {
+  oneof command {
+    // Currently the SearchIndexManager and ScopeSearchIndexManager APIs are largely identical, and the intersection is
+    // represented by this shared message.
+    sdk.search.index_manager.Command shared = 1;
+
+    // Any APIs added only to SearchIndexManager should go here.
+  }
+}

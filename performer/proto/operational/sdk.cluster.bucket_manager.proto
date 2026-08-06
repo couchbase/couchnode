@@ -1,0 +1,163 @@
+syntax = "proto3";
+import "shared.basic.proto";
+
+package protocol.sdk.cluster.bucket_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Cluster.BucketManager";
+option java_package = "com.couchbase.client.protocol.sdk.cluster.bucketmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/cluster/bucketmanager";
+option ruby_package = "FIT::Protocol::SDK::Cluster::BucketManager";
+option java_multiple_files = true;
+
+message Command {
+
+  oneof command {
+
+    GetBucketRequest get_bucket = 1;
+
+    GetAllBucketsRequest get_all_buckets = 2;
+
+    CreateBucketRequest create_bucket = 3;
+
+    DropBucketRequest drop_bucket = 4;
+
+    FlushBucketRequest flush_bucket = 5;
+
+    UpdateBucketRequest update_bucket = 6;
+
+  }
+
+}
+
+//Returns Result.bucket_settings
+message GetBucketRequest {
+  string bucket_name = 1;
+  optional GetBucketOptions options = 2;
+}
+
+message GetBucketOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns Result.get_all_buckets_result
+message GetAllBucketsRequest {
+  optional GetAllBucketsOptions options = 1;
+}
+
+message GetAllBucketsOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message CreateBucketRequest {
+  CreateBucketSettings settings = 1;
+  optional CreateBucketOptions options = 2;
+}
+
+message CreateBucketOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message DropBucketRequest {
+  string bucket_name = 1;
+  optional DropBucketOptions options = 2;
+}
+
+message DropBucketOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message FlushBucketRequest {
+  string bucket_name = 1;
+  optional FlushBucketOptions options = 2;
+}
+
+message FlushBucketOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message UpdateBucketRequest {
+  BucketSettings settings = 1;
+  optional UpdateBucketOptions options = 2;
+}
+
+message UpdateBucketOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+message Result {
+  oneof result {
+    BucketSettings bucket_settings = 1;
+
+    GetAllBucketsResult get_all_buckets_result = 2;
+  }
+}
+
+message CreateBucketSettings {
+  BucketSettings settings = 1;
+  optional ConflictResolutionType conflict_resolution_type = 2;
+}
+
+message BucketSettings {
+  string name = 1;
+  optional bool flush_enabled = 2;
+  int64 ram_quota_MB = 3;
+  optional int32 num_replicas = 4;
+  optional  bool replica_indexes = 5;
+  optional BucketType bucket_type = 6;
+  optional EvictionPolicyType eviction_policy = 7;
+  optional int32 max_expiry_seconds = 8;
+  optional CompressionMode compression_mode = 9;
+  optional shared.Durability minimum_durability_level = 10;
+  optional StorageBackend storage_backend = 11;
+  optional bool history_retention_collection_default = 12;
+  optional int64 history_retention_seconds = 13;
+  optional uint64 history_retention_bytes = 14;
+  optional uint32 num_vbuckets = 15;
+}
+
+message GetAllBucketsResult {
+  map<string, BucketSettings> result = 1;
+}
+
+enum BucketType {
+  COUCHBASE = 0;
+  EPHEMERAL = 1;
+  MEMCACHED = 2;
+}
+
+message EjectionPolicy {
+  EvictionPolicyType ejection_policy = 1;
+}
+
+enum EvictionPolicyType {
+  FULL = 0;
+  NO_EVICTION = 1;
+  NOT_RECENTLY_USED = 2;
+  VALUE_ONLY = 3;
+}
+
+enum CompressionMode {
+  ACTIVE = 0;
+  OFF = 1;
+  PASSIVE = 2;
+}
+
+enum StorageBackend {
+  COUCHSTORE = 0;
+  MAGMA = 1;
+}
+
+enum ConflictResolutionType {
+  TIMESTAMP = 0;
+  SEQUENCE_NUMBER = 1;
+  CUSTOM = 2;
+}

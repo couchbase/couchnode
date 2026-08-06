@@ -1,0 +1,139 @@
+syntax = "proto3";
+
+package protocol.streams;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Streams";
+option java_package = "com.couchbase.client.protocol.streams";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/streams";
+option ruby_package = "FIT::Protocol::Streams";
+
+import "shared.exceptions.proto";
+
+enum Type {
+  STREAM_KV_RANGE_SCAN = 0;
+  STREAM_FULL_TEXT_SEARCH = 1;
+  STREAM_LOOKUP_IN_ALL_REPLICAS = 2;
+  STREAM_KV_GET_ALL_REPLICAS = 3;
+}
+
+// Streams.
+// Some operations (e.g. KV range scans, SQL++ queries) can stream back results.  The performer needs to track these
+// streams to allow testing their cancellation, backpressure, etc.  This GRPC attempts to abstract over all forms of
+// language-specific streams.
+//
+// Stream lifetimes:
+// The performer must wait for all streams to complete or error, before completing or erroring the grpc that spawned those streams (as
+// otherwise there is nothing to stream back on).
+// There are top-level RPCs that allow cancelling and requesting more items on a stream.
+// The corollary of these two is that the performer needs to track all streams globally, and associate each with a
+// given `run` RPC - for example, by giving each run a unique runId.
+//
+// Stream lifecycles:
+// In general, a golden path stream will return one streams.Created, zero or more run.Results corresponding to the actual
+// rows/items on the stream, and then one streams.Complete.
+//
+// Cancellation: If the driver requests a stream be cancelled, it will raise a streams.Cancelled instead of the streams.Complete,
+// and potentially instead of some of the run.Results.  The driver will only cancel a stream that has returned streams.Created.
+
+// Errors: If the performer hits any error while processing the stream, it should raise a streams.Error instead of the streams.Complete,
+// and potentially instead of some of the run.Results.  It must have sent a streams.Created first.
+//
+// Safe assumptions: To simplify the performer logic, the performer can assume it's a bug if the driver requests anything on a stream that has
+// sent back a Complete, Error or Cancelled signal.
+
+// A request for the performer to cancel a stream.  Exactly what this entails is context and SDK dependent.  If the
+// SDK's stream has the concept of user-cancellation, this should be invoked.  At minimum, the performer should stop
+// streaming responses from that stream to the driver.
+// The performer can assume that if the driver tries to cancel a stream that doesn't exist (e.g. has stopped streaming),
+// this is a driver bug.
+// As a corollary, the driver will only cancel `stream_when.OnDemand` streams.  Otherwise it would be a race as to whether the stream
+// completes or is cancelled first.
+// On cancellation the performer should not proceed to the next stage of streaming.  E.g. it should not return a
+// streams.Complete.  But instead return a streams.Cancelled, after it has finished cancelling.
+message CancelRequest {
+    string stream_id = 1;
+}
+
+// The performer has successfully cancelled the stream.  Due to the asynchronous nature of streaming and cancelling, a
+// few items may still be streamed back to the driver after this is sent.
+message CancelResponse {
+  // Currently empty, but included per GRPC best practices.
+}
+
+// The driver (pretending to be the user) is requesting more items.  For each item requested, the performer should fetch
+// one from the stream, and stream back an appropriate response.
+//
+// Once all items in the stream have been streamed, the performer should automatically proceed to the next stage of
+// streaming (usually to return a streams.Complete).
+//
+// FIT is aware that some implementations (such as Go), don't have any lookahead, and that if the user/driver requests
+// N items on a N item stream, the implementation does not know the stream is complete yet - the user/driver needs
+// to request item N+1 first.
+//
+// To simplify the performer logic, the performer can assume that if the driver does any of these, it is a driver bug.
+// It should raise a standard GRPC UNKNOWN error code:
+// 1. If the driver tries to do this with a stream that doesn't exist (e.g. has stopped streaming),
+// 2. If the driver requests more items before the performer has finished streaming back the previously requested items.
+//
+// If the driver requests more items than are currently in the stream, this is not an error, the performer should
+// stream back as many as it can, and then wait for more items so it can satisfy the request.
+// If the performer knows the stream has finished and the driver has still requested too many items, this is also not
+// a bug.  The performer should continue to the next stage of streaming (usually to return a streams.Complete).
+message RequestItemsRequest {
+    string stream_id = 1;
+    int32 num_items = 2;
+}
+
+message RequestItemsResponse {
+  // Currently empty, but included per GRPC best practices.
+}
+
+// The performer has created a stream and is notifying the driver of it.
+message Created {
+    string stream_id = 1;
+    Type type = 2;
+}
+
+// A stream has finished sending back all results.
+message Complete {
+    string stream_id = 1;
+}
+
+// A stream raised an error.
+message Error {
+    string stream_id = 1;
+    shared.Exception exception = 2;
+}
+
+// A stream has finished being cancelled.
+message Cancelled {
+    string stream_id = 1;
+}
+
+message Signal {
+  oneof signal {
+    Created created = 1;
+    Complete complete = 2;
+    Error error = 3;
+    Cancelled cancelled = 4;
+  }
+}
+
+// The performer should stream back responses as fast as it can.
+message Automatically {}
+
+// The performer must wait for the driver to request rows before streaming them.
+message OnDemand {}
+
+message Config {
+  // The performer must use this as the subsequent stream id.
+  // (Having stream ids generated driver-side will make it much easier for the driver to handle concurrent tests in future.)
+  string stream_id = 1;
+
+  // When the performer should stream back results.
+  oneof stream_when {
+    Automatically automatically = 2;
+    OnDemand on_demand = 3;
+  }
+}
+

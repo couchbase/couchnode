@@ -1,0 +1,153 @@
+syntax = "proto3";
+
+package protocol.sdk.kv.lookup_in;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv.LookupIn";
+option java_package = "com.couchbase.client.protocol.sdk.kv.lookupin";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv/lookupin";
+option ruby_package = "FIT::Protocol::SDK::KV::LookupIn";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+import "shared.content.proto";
+import "shared.doc_location.proto";
+import "streams.top_level.proto";
+import "shared.exceptions.proto";
+
+message LookupIn {
+  // Use for collection and ID - Should be used over the collection level command collection
+  shared.DocLocation location = 1;
+
+  repeated LookupInSpec spec = 2;
+
+  optional LookupInOptions options = 3;
+}
+
+// A Scan will result in the performer sending back a stream of (in the golden path):
+// (1) A stream.Created result with type STREAM_LOOKUP_IN_ALL_REPLICAS, followed by
+// (2) Zero or more LookupInAllReplicasResult results (and/or streams.Error), followed by
+// (3) A stream.Complete result.
+message LookupInAllReplicas {
+  shared.DocLocation location = 1;
+
+  repeated LookupInSpec spec = 2;
+
+  optional LookupInAllReplicasOptions options = 3;
+
+  // Not sent on to the SDK - instead specifies how the performer should handle the streaming.
+  streams.Config stream_config = 4;
+}
+
+message LookupInAnyReplica {
+  shared.DocLocation location = 1;
+
+  repeated LookupInSpec spec = 2;
+
+  optional LookupInAnyReplicaOptions options = 3;
+}
+
+message LookupInResult {
+  // For each LookupInSpec we should return a LookupInSpecResult within the total LookupInResult
+  repeated LookupInSpecResult results = 1;
+
+  int64 cas = 2 [jstype = JS_STRING];
+}
+
+message LookupInSpecResult {
+  // If from an exists lookup:
+  // Either an error propagated from exists_result or the value of exists_result converted to the requested content type
+  // Otherwise:
+  // Returns an exception or the value of the result in the requested content type
+  shared.ContentOrError content_as_result = 1;
+
+  // True if a result was found, false if the path was not found. Otherwise will be an exception
+  BooleanOrError exists_result = 2;
+}
+
+message BooleanOrError {
+  oneof result {
+    bool value = 1;
+    protocol.shared.Exception exception = 2;
+  }
+}
+
+message LookupInAllReplicasResult {
+  LookupInReplicaResult lookup_in_replica_result = 1;
+
+  // Not part of the SDK response - identifies what stream this is from.
+  string stream_id = 2;
+}
+
+message LookupInReplicaResult {
+  // For each LookupInSpec we should return a LookupInSpecResult within the total LookupInAnyReplicasResult
+  repeated LookupInSpecResult results = 1;
+  // Returns true if the read was from a replica node
+  bool is_replica = 2;
+
+  int64 cas = 3 [jstype = JS_STRING];
+}
+
+message LookupInOptions {
+  optional uint32 timeout_millis = 1;
+
+  // Serializer - Needs to think on implementation and follow up
+
+  optional bool access_deleted = 3;
+
+  optional string parent_span_id = 4;
+}
+
+message LookupInAllReplicasOptions {
+  optional uint32 timeout_millis = 1;
+
+  // Serializer - Needs to think on implementation and follow up
+
+  optional string parent_span_id = 3;
+
+  // optional shared.RetryStrategy retry_strategy = 4; - Need to think on FIT wide retry strategy implementation
+
+  // Will only be sent if support is declared for SDK_ZONE_AWARE_READ_FROM_REPLICA
+  optional shared.ReadPreference read_preference = 5;
+}
+
+message LookupInAnyReplicaOptions {
+  optional uint32 timeout_millis = 1;
+
+  // Serializer - Needs to think on implementation and follow up
+
+  optional string parent_span_id = 3;
+
+  // optional shared.RetryStrategy retry_strategy = 4; - Need to think on FIT wide retry strategy implementation
+
+  // Will only be sent if support is declared for SDK_ZONE_AWARE_READ_FROM_REPLICA
+  optional shared.ReadPreference read_preference = 5;
+}
+
+message LookupInSpec {
+  oneof operation {
+    ExistsOperation exists = 1;
+
+    GetOperation get = 2;
+
+    CountOperation count = 3;
+  }
+
+  shared.ContentAs content_as = 4;
+}
+
+message ExistsOperation {
+  string path = 1;
+
+  optional bool xattr = 2;
+}
+
+message GetOperation {
+  string path = 1;
+
+  optional bool xattr = 2;
+}
+
+message CountOperation {
+  string path = 1;
+
+  optional bool xattr = 2;
+}

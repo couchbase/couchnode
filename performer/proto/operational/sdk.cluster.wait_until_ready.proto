@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package protocol.sdk.cluster.wait_until_ready;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Cluster.WaitUntilReady";
+option java_package = "com.couchbase.client.protocol.sdk.cluster.waituntilready";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/cluster/waituntilready";
+option ruby_package = "FIT::Protocol::SDK::Cluster::WaitUntilReady";
+option java_multiple_files = true;
+
+message WaitUntilReadyRequest {
+  int32 timeoutMillis = 2;
+  optional WaitUntilReadyOptions options = 3;
+}
+
+message WaitUntilReadyOptions {
+  optional ClusterState desiredState = 1;
+  repeated ServiceType serviceTypes = 2;
+}
+
+enum ClusterState {
+  DEGRADED = 0;
+  OFFLINE = 1;
+  ONLINE = 2;
+}
+
+enum ServiceType {
+  ANALYTICS = 0;
+  BACKUP = 1;
+  EVENTING = 2;
+  KV = 3;
+  MANAGER = 4;
+  QUERY = 5;
+  SEARCH = 6;
+  VIEWS = 7;
+}

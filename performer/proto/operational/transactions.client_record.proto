@@ -1,0 +1,40 @@
+// Everything to do with testing of _txn:client-record
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "hooks.transactions.proto";
+
+message ClientRecordProcessRequest {
+    string client_uuid = 1;
+
+    // The collection where the client record should exist (this message was created before Collection existed)
+    string bucket_name = 2;
+    string scope_name = 3;
+    string collection_name = 4;
+
+    // Any hooks can only use HookPoints in the CLIENT_RECORD_* range
+    repeated hooks.transactions.Hook hook = 5;
+
+    // This is only needed for KV operations, so the driver will usually send the default cluster connection.
+    string cluster_connection_id = 6;
+}
+
+message ClientRecordProcessResponse {
+    int32 num_active_clients = 1;
+    int32 index_of_this_client = 2;
+    repeated string expired_client_ids = 4;
+    int32 num_existing_clients = 5;
+    int32 num_expired_clients = 6;
+    bool override_enabled = 7;
+    bool override_active = 8;
+    int64 override_expires = 9;
+    int64 cas_now_nanos = 10;
+    string client_uuid = 11;
+    bool success = 12;
+}

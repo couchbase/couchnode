@@ -1,0 +1,131 @@
+syntax = "proto3";
+
+package protocol.sdk.bucket.collection_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Bucket.CollectionManager";
+option java_package = "com.couchbase.client.protocol.sdk.bucket.collectionmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/bucket/collectionmanager";
+option ruby_package = "FIT::Protocol::SDK::Bucket::CollectionManager";
+option java_multiple_files = true;
+
+message Command {
+
+  oneof command {
+
+    GetAllScopesRequest get_all_scopes = 1;
+
+    CreateScopeRequest create_scope = 2;
+
+    DropScopeRequest drop_scope = 3;
+
+    CreateCollectionRequest create_collection = 4;
+
+    UpdateCollectionRequest update_collection = 5;
+
+    DropCollectionRequest drop_collection = 6;
+
+  }
+
+}
+
+message Result {
+  oneof result {
+    GetAllScopesResult get_all_scopes_result = 1;
+  }
+}
+
+message CollectionSpec {
+  string name = 1;
+  string scope_name = 2;
+  optional int32 expiry_secs = 3;
+  optional bool history = 4;
+}
+
+message CreateCollectionSettings {
+  optional int32 expiry_secs = 1;
+  optional bool history = 2;
+}
+
+message UpdateCollectionSettings {
+  optional int32 expiry_secs = 1;
+  optional bool history = 2;
+}
+
+message ScopeSpec {
+  string name = 1;
+  repeated CollectionSpec collections = 2;
+}
+
+//Returns Result.get_all_scopes_result
+message GetAllScopesRequest {
+  optional GetAllScopesOptions options = 2;
+}
+
+message GetAllScopesOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+message GetAllScopesResult {
+  repeated ScopeSpec result = 1;
+}
+
+//Returns void (Result.success)
+message CreateScopeRequest {
+  string name = 1;
+  optional CreateScopeOptions options = 2;
+}
+
+message CreateScopeOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message DropScopeRequest {
+  string name = 1;
+  optional DropScopeOptions options = 2;
+}
+
+message DropScopeOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+
+//Returns void (Result.success)
+message CreateCollectionRequest {
+  string name = 1;
+  string scope_name = 2;
+  optional CreateCollectionSettings settings = 3;
+  optional CreateCollectionOptions options = 4;
+}
+
+message CreateCollectionOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message UpdateCollectionRequest {
+  string name = 1;
+  string scope_name = 2;
+  UpdateCollectionSettings settings = 3;
+  optional UpdateCollectionOptions options = 4;
+}
+
+message UpdateCollectionOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message DropCollectionRequest {
+  string name = 1;
+  string scope_name = 2;
+  optional DropCollectionOptions options = 3;
+}
+
+message DropCollectionOptions {
+  optional int32 timeout_msecs = 1;
+  optional string parent_span_id = 2;
+}

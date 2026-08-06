@@ -1,0 +1,526 @@
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "transactions.basic.proto";
+import "transactions.options.proto";
+import "transactions.legacy.proto";
+import "shared.collection.proto";
+import "shared.doc_location.proto";
+import "shared.content.proto";
+import "shared.transcoders.proto";
+
+enum EventType {
+    EventCleanupFailedEvent = 0;
+    EventIllegalDocumentState = 1;
+    EventLostCleanupThreadEndedPrematurely = 2;
+    EventTransactionCleanupAttempt = 3;
+    EventTransactionCleanupEndRunEvent = 4;
+    EventTransactionCleanupStartRunEvent = 5;
+    EventTransactionsStarted = 6;
+    EventUnknown = 7;
+}
+
+message Event {
+    EventType type=1;
+}
+
+// The exception received by the application, if any
+enum TransactionException {
+    NO_EXCEPTION_THROWN = 0;
+    EXCEPTION_FAILED = 1;
+    EXCEPTION_EXPIRED = 2;
+    EXCEPTION_UNKNOWN = 3;
+    EXCEPTION_COMMIT_AMBIGUOUS = 4;
+    EXCEPTION_FAILED_POST_COMMIT = 5;
+}
+
+message ExpectedCause {
+    oneof cause {
+        // Tests should specify the expected cause wherever possible
+        bool do_not_check = 1;
+        ExternalException exception = 2;
+    }
+}
+
+// This maps to the TransactionOperationFailed defined in the design doc
+message ErrorWrapper {
+    // This is now deprecated and the performer can feel free to disable validation of this.  Once all performers
+    // have removed validation, it will be removed.
+    ErrorClass error_class = 1 [ deprecated = true ];
+    bool auto_rollback_attempt = 2;
+    bool retry_transaction = 3;
+    TransactionException to_raise = 4;
+    ExpectedCause cause = 5;
+}
+
+// The root cause of the TransactionException.  Will only be checked if TransactionException != NO_EXCEPTION_THROWN
+enum ExternalException {
+    Unknown = 0;
+    ActiveTransactionRecordEntryNotFound = 1;
+    ActiveTransactionRecordFull = 2;
+    ActiveTransactionRecordNotFound = 3;
+    DocumentAlreadyInTransaction = 4;
+    DocumentExistsException = 5;
+    DocumentNotFoundException = 6;
+    NotSet = 7;
+    FeatureNotAvailableException = 8;
+    TransactionAbortedExternally = 9;
+    PreviousOperationFailed = 10;
+    ForwardCompatibilityFailure = 11;
+    ParsingFailure = 12;
+    IllegalStateException = 13;
+    CouchbaseException = 14;
+    ServiceNotAvailableException = 15;
+    RequestCanceledException = 16;
+    ConcurrentOperationsDetectedOnSameDocument = 17;
+    CommitNotPermitted = 18;
+    RollbackNotPermitted = 19;
+    TransactionAlreadyAborted = 20;
+    TransactionAlreadyCommitted = 21;
+    UnambiguousTimeoutException = 22;
+    AmbiguousTimeoutException = 23;
+    AuthenticationFailureException = 24;
+    // Added with EXT_REPLICA_FROM_PREFERRED_GROUP
+    DocumentUnretrievableException = 25;
+}
+
+enum ErrorClass {
+    EC_FAIL_HARD = 0;
+    EC_FAIL_OTHER = 1;
+    EC_FAIL_TRANSIENT = 2;
+    EC_FAIL_AMBIGUOUS = 3;
+    EC_FAIL_DOC_ALREADY_EXISTS = 4;
+    EC_FAIL_DOC_NOT_FOUND = 5;
+    EC_FAIL_PATH_ALREADY_EXISTS = 10;
+    EC_FAIL_PATH_NOT_FOUND = 6;
+    EC_FAIL_CAS_MISMATCH = 7;
+    EC_FAIL_WRITE_WRITE_CONFLICT = 8;
+    EC_FAIL_ATR_FULL = 9;
+    EC_FAIL_EXPIRY = 11;
+    // Any ErrorClass is permitted - including the TransactionOperationFailed not having one
+    // Note that ErrorClass validation is now deprecated and performers should remove their
+    // validation logic.
+    EC_ANYTHING = 12;
+}
+
+message ExpectedResult {
+    oneof result {
+        // If the command should succeed
+        bool success = 1;
+
+        // If the command is permitted to do anything, e.g. succeed or throw errors.  Required for some complex tests
+        // where it's tricky to calculate what a given op will do.
+        bool anything_allowed = 2;
+
+        // The operation throws an ErrorWrapper/TransactionOperationFailed, the only exception an operation may throw.
+        // Update: as of EXT_QUERY, EXT_SDK_INTEGRATION and EXT_INSERTS_EXISTING, that is no longer the case, some operations can throw some other exceptions.
+        ErrorWrapper error = 3;
+
+        // Require a non-TransactionOperationFailed exception.
+        ExternalException exception = 4;
+    }
+}
+
+// This was only exposed in the Java API and is deprecated as of 1.1.3
+// Other implementations are not required to check this.
+enum DocStatus {
+    NORMAL = 0;
+    IN_TXN_COMMITTED = 1;
+    IN_TXN_OTHER = 2;
+    OWN_WRITE = 3;
+    AMBIGUOUS = 4;
+    DO_NOT_CHECK = 5;
+
+    option deprecated = true;
+}
+
+message CommandGet {
+    DocId doc_id = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    // Tests can generally just set one expected result.  Multiple results are allowed to support tricky situations,
+    // such as an op generally failing with FAIL_TRANSIENT until it fails with FAIL_EXPIRY
+    repeated ExpectedResult expected_result = 2;
+
+    // If not-null, the performer will check the fetched data equals this.  Useful for read-your-own-write tests.
+    // This is superceded by content_as_validation, but that is only available with CONTENT_AS_PERFORMER_VALIDATION, so tests will
+    // continue to use this until that extension is fully rolled out.
+    string expected_content_json = 3;
+
+    // Added with cap CONTENT_AS_PERFORMER_VALIDATION and will only be sent if performer declares support for that.
+    optional shared.ContentAsPerformerValidation content_as_validation = 6;
+
+    // If not DO_NOT_CHECK, the performer will check the fetched document status equals this.
+    // Fully deprecated as of ExtSDKIntegration.  The driver will only specify DO_NOT_CHECK now.
+    DocStatus expected_status = 4 [ deprecated = true ];
+
+    // Since day one the performer must have supported stashing a single document.  Whenever a CommandGet or
+    // CommandGetOptional is executed (but not a transactions.Get), the result is automatically stashed.
+    // ExtMobileInterop adds the concept of stashing multiple documents.  This allows some more sophisticated tests
+    // particularly around CAS mismatches.
+    // If this `stashInSlot` is set, the performer
+    // needs to update or create a map of StashSlot (Int) -> TransactionGetResult.  This is stored per-transaction and
+    // should be deleted at the end of the transaction.  Subsequent CommandReplace and CommandReplace operations may
+    // may reference to one of these stashed results.
+    optional int32 stash_in_slot = 5;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionGetOptions options = 7;
+}
+
+// There are two ways the implementation can implement getOptional:
+// 1. An explicit ctx.getOptional() API.
+// 2. ctx.get() throwing a catchable DocumentNotFoundException.
+// Either is allowed.
+message CommandGetOptional {
+    CommandGet get = 1;
+
+    // Use this instead of passing EXPECT_FAIL_DOC_NOT_FOUND or EXPECT_FAIL_DOC_ALREADY_EXISTS
+    bool expect_doc_present = 2;
+
+    // Added with cap CONTENT_AS_PERFORMER_VALIDATION and will only be sent if performer declares support for that.
+    optional shared.ContentAsPerformerValidation content_as_validation = 6;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionGetOptions options = 4;
+}
+
+message CommandGetReplicaFromPreferredServerGroup {
+    DocId doc_id = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 2;
+
+    // Added with cap CONTENT_AS_PERFORMER_VALIDATION and will only be sent if performer declares support for that.
+    optional shared.ContentAsPerformerValidation content_as_validation = 6;
+
+    // Refer to `stashInSlot` in CommandGet for details.
+    // `useStashedResult` and `useStashedSlot` will not be sent together.
+    optional int32 stash_in_slot = 5;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionGetOptions options = 7;
+}
+
+// The SDK needs to implement TransactionGetMultiReplicasFromPreferredServerGroupOptions and TransactionGetMultiReplicaFromPreferredServerGroupSpec.
+// But to save testing effort, and because the APIs are currently identical except for naming, FIT will use the
+// same CommandGetMulti for both.  If they diverge in future we will copy the messages then.
+message CommandGetMulti {
+    message TransactionGetMultiSpec {
+        shared.DocLocation location = 1;
+        optional shared.Transcoder transcoder = 2;
+
+        // The performer always needs to check if the doc is returned as Optional.None or present, against this.
+        bool expect_present = 3;
+
+        // Determines if and how the performer should execute transactionGetResult.contentAs() on this individual spec result.
+        optional shared.ContentAsPerformerValidation content_as_validation = 6;
+
+        // Each spec will result in a result in the output array.  This contains the required position of the result
+        // in that array, which the SDK must validate.
+        int32 expected_result_position = 5;
+    }
+
+    repeated TransactionGetMultiSpec specs = 1;
+
+    optional TransactionGetMultiOptions options = 2;
+
+    // What result(s) this individual spec is allowed to return.  Anything outside this will fail the test.
+    // The performer must perform this validation.  If this is empty, the performer skips validation.
+    repeated ExpectedResult expected_result = 3;
+
+    // Iff true, performer should use ctx.getMultiReplicasFromPreferredServerGroup() instead of ctx.getMulti()
+    bool get_multi_replicas_from_preferred_server_group = 4;
+}
+
+message CommandInsert {
+    DocId doc_id = 1;
+
+    oneof content_option {
+        // This is superceded by `content`, but that is only available with EXT_BINARY_SUPPORT, so tests will
+        // continue to use this until that extension is fully rolled out.
+        string content_json = 2;
+
+        // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+        shared.Content content = 5;
+    }
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 3;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionInsertOptions options = 4;
+}
+
+message CommandReplace {
+    DocId doc_id = 1;
+
+    oneof content_option {
+        string content_json = 2;
+
+        // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+        shared.Content content = 7;
+    }
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 3;
+
+    // Whether to use the result of the last get operation.
+    // This will not be set inside a CommandBatch, due to the 'last' operation not being
+    // a valid concept during parallel ops.
+    bool use_stashed_result = 4;
+
+    // Refer to `stashInSlot` in CommandGet for details.
+    // `useStashedResult` and `useStashedSlot` will not be sent together.
+    optional int32 use_stashed_slot = 5;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionReplaceOptions options = 6;
+}
+
+message CommandRemove {
+    DocId doc_id = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 2;
+
+    // Whether to use the result of the last get operation
+    // This will not be set inside a CommandBatch, due to the 'last' operation not being
+    // a valid concept during parallel ops.
+    bool use_stashed_result = 3;
+
+    // Refer to `stashInSlot` in CommandGet for details.
+    // `useStashedResult` and `useStashedSlot` will not be sent together.
+    optional int32 use_stashed_slot = 4;
+}
+
+// ExtSDKIntegration performers should ignore.
+// Otherwise, perform an explicit ctx.commit()
+message CommandCommit {
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 1;
+}
+
+// ExtSDKIntegration performers: throw an exception (or raise an error) to cause an auto-rollback.
+// Otherwise, perform an explicit ctx.rollback()
+message CommandRollback {
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 1;
+}
+
+message CommandWaitOnLatch {
+    string latch_name = 1;
+}
+
+message CommandSetLatch {
+    string latch_name = 1;
+}
+
+// A batch of commands, often to be performed in parallel.
+// But not always, sometimes it's used so multiple threads can each run a series of commands in serial.
+// (E.g. nested CommandBatches).  So it's crucial that the performer respect the `parallelism` setting.
+// Created long before HorizontalScaling.
+//
+// Note the semantics of this command aren't as defined as they could be - see some discussion on
+// https://couchbase.slack.com/archives/C014WB8U2MQ/p1665062945395139
+//
+// The requirements are:
+// 1. The operations should be started in parallel (assuming `parallelism` > 1 of course)
+// 2. The ~first error should be propagated out of the lambda.  ("~first" as it's fine for this to be best-effort, e.g.
+//    it doesn't have to require atomic variables or locking.  Because the first concurrent failure is anyway non-deterministic).
+//
+// What is not defined is what happens to the other operations if one of them fails.  Are they left to run to completion,
+// are they cancelled, is that cancellation waited on?  These semantics probably need to be selectable.  Currently it
+// is acceptable to do whatever is easiest - e.g. Java reactor will automatically cancel the other operations, while in Go
+// it's easiest to wait for them all to complete.
+message CommandBatch {
+    // A limited subset of commands are supported here:
+    // CommandInsert, CommandReplace, CommandRemove and CommandGet.
+    // And replace/remove cannot use useStashedResult, as that is not a well-defined
+    // concept in parallel operations.
+    repeated TransactionCommand commands = 1;
+
+    // If the commands are being performed in parallel, how many to do concurrently.
+    // The performer is required to have this many operations in flight at once.  E.g. say this value
+    // is 3, and 10 operations are specified in `commands`.  The performer should start the first 3
+    // operations in `commands` in parallel.  Once an operation finishes successfully the performer should
+    // immediately start the next operation in `commands`, in parallel with the still-running other 2.
+    // It should not 'batch' the operations and wait for them all to succeed before progressing with
+    // the next batch.
+    int32 parallelism = 2;
+}
+
+// Replace a document using a regular KV operation.  The command is expected to succeed.
+// Created long before SdkCommandReplace.
+message CommandReplaceRegularKV {
+    DocId doc_id = 1;
+    string content_json = 2;
+}
+
+// Remove a document using a regular KV operation.  The command is expected to succeed.
+// Created long before SdkCommandRemove.
+message CommandRemoveRegularKV {
+    DocId doc_id = 1;
+}
+
+// Insert a document using a regular KV operation.  The command is expected to succeed.
+// Created long before SdkCommandInsert.
+message CommandInsertRegularKV {
+    DocId doc_id = 1;
+    string content_json = 2;
+}
+
+// Run a query command.
+message CommandQuery {
+    string statement = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    repeated ExpectedResult expected_result = 2;
+
+    // Whether to check the returned rows against expectedRows
+    bool check_row_content = 3;
+
+    // What rows the query should return, as JSON
+    repeated string expected_rows = 4;
+
+    // Whether to check the number of returned rows against expectedRowCount
+    bool check_row_count = 6;
+
+    // How many rows the query should return
+    int32 expected_row_count = 7;
+
+    // Whether to check the returned mutations
+    bool check_mutations = 8;
+
+    // How many mutations the query should create
+    int32 expected_mutations = 9;
+
+    // Deprecated as of ExtSDKIntegration, replaced by queryOptions, which allows optional.
+    // FIT will send both for now, performers should remove support for queryParameters.
+    CommandQueryParameters query_parameters = 10 [ deprecated = true ];
+
+    optional TransactionQueryOptions query_options = 12;
+
+    shared.Scope scope = 11;
+}
+
+// If the performer executes this command, it should report a failure.  This is usually used to check an earlier
+// operation definitely failed the transaction.
+message CommandTestFail {
+}
+
+// Simulates the application throwing an exception inside the lambda.  Could be used to simulate an application bug,
+// or the application choosing to rollback this way (as opposed to ctx.rollback(), e.g. app-rollback).
+// Application exceptions will be classified as FAIL_OTHER.
+message CommandThrowException {
+}
+
+message Insert {
+    shared.DocLocation location = 1;
+    shared.Content content = 2;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    // The performer must perform this validation.  If this is empty, the performer skips validation.
+    repeated ExpectedResult expected_result = 3;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionInsertOptions options = 4;
+}
+
+message Get {
+    shared.DocLocation location = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    // The performer must perform this validation.  If this is empty, the performer skips validation.
+    repeated ExpectedResult expected_result = 2;
+
+    // If this `stashInSlot` is set, the performer
+    // needs to update or create a map of StashSlot (Int) -> TransactionGetResult.  This is stored per-transaction and
+    // should be deleted at the end of the transaction.  Subsequent operations may
+    // may reference to one of these stashed results.
+    // transactions.CommandGet and transactions.Get share the same map.
+    optional int32 stash_in_slot = 3;
+
+    // Determines if and how the performer should execute transactionGetResult.contentAs().
+    // Added with CONTENT_AS_PERFORMER_VALIDATION and will only be sent if performer declares support for that.
+    optional shared.ContentAs content_as = 4;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionGetOptions options = 5;
+}
+
+message Remove {
+    shared.DocLocation location = 1;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    // The performer must perform this validation.  If this is empty, the performer skips validation.
+    repeated ExpectedResult expected_result = 2;
+
+    // Refer to `stashInSlot` in CommandGet for details.
+    optional int32 use_stashed_slot = 3;
+}
+
+message Replace {
+    shared.DocLocation location = 1;
+    shared.Content content = 2;
+
+    // What result(s) the command is allowed to return.  Anything outside this will fail the test.
+    // The performer must perform this validation.  If this is empty, the performer skips validation.
+    repeated ExpectedResult expected_result = 3;
+
+    // Refer to `stashInSlot` in CommandGet for details.
+    optional int32 use_stashed_slot = 4;
+
+    // Added with EXT_BINARY_SUPPORT and will only be sent if performer declares support for that.
+    optional TransactionReplaceOptions options = 5;
+}
+
+message TransactionCommand {
+    oneof command {
+        CommandInsert insert = 1;
+        CommandReplace replace = 2;
+        CommandRemove remove = 3;
+        CommandCommit commit = 4;
+        CommandRollback rollback = 5;
+        CommandGet get = 6;
+        CommandGetOptional get_optional = 7;
+        CommandWaitOnLatch wait_on_latch = 8;
+        CommandSetLatch set_latch = 9;
+
+        // All operations in the batch will be performed in parallel
+        CommandBatch parallelize = 10;
+
+        CommandReplaceRegularKV replace_regular_kv = 11;
+        CommandRemoveRegularKV remove_regular_kv = 12;
+        CommandInsertRegularKV insert_regular_kv = 13;
+
+        CommandThrowException throw_exception = 14;
+
+        CommandQuery query = 15;
+        CommandTestFail test_fail = 16;
+
+        // Why do we have transactions.CommandInsert and transactions.Insert?  The former stems from the original days of FIT
+        // that just did integration testing of transactions.  The latter is for modern FIT and supports the abstractions we
+        // need now, including for performance testing.
+        // These will only be sent if the performer declares support for TRANSACTIONS_WORKLOAD_1.
+        Insert insert_v2 = 17;
+        Get get_v2 = 18;
+        Remove remove_v2 = 19;
+        Replace replace_v2 = 20;
+        CommandGetMulti get_multi = 22;
+
+        CommandGetReplicaFromPreferredServerGroup get_from_preferred_server_group = 21;
+    }
+
+    // Added for TXNJ-249: make the application (erroneously) catch and not propagate the error.
+    bool do_not_propagate_error = 100;
+
+    // If given, the performer will pause (blocking) for `wait_msecs` before executing the TransactionCommand
+    int32 wait_msecs = 101;
+}

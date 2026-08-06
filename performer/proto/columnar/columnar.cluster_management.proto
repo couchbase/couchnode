@@ -1,0 +1,107 @@
+syntax = "proto3";
+
+import "columnar.execution_context.proto";
+import "columnar.serialization.proto";
+import "google/protobuf/duration.proto";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/clustermanagement";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+
+// Requests the performer use the SDK to create a connection to a Columnar cluster.
+message ClusterNewInstanceRequest {
+  message Options {
+    message SecurityOptions {
+      optional bool trust_only_capella = 1;
+      // trustOnlyPemFile is not exposed, as it will not work well with Docker-based FIT
+      optional string trust_only_pem_string = 3;
+      optional bool trust_only_platform = 4;
+      optional bool disable_server_certificate_verification = 5;
+      repeated string cipher_suites = 6;
+    }
+
+    message TimeoutOptions {
+      google.protobuf.Duration connect_timeout = 1;
+      google.protobuf.Duration dispatch_timeout = 2;
+      google.protobuf.Duration query_timeout = 3;
+      google.protobuf.Duration handle_timeout = 4;
+    }
+
+    optional Deserializer deserializer = 1;
+    optional SecurityOptions security = 2;
+    optional TimeoutOptions timeout = 3;
+    optional int32 max_retries = 4;
+  }
+
+  message Credential {
+    message UsernameAndPassword {
+      string username = 1;
+      string password = 2;
+    }
+
+    // Authenticates using a JSON Web Token (JWT).
+    // The SDK sets an "Authorization: Bearer <jwt>" header on every HTTP request.
+    message JwtAuth {
+      string jwt = 1;
+    }
+
+    // Authenticates using a client certificate (mTLS).
+    // The SDK authenticates the client during the TLS handshake.
+    message CertificateAuth {
+      // PEM-encoded X509 client certificate
+      string cert = 1;
+      // PEM-encoded private key
+      string key = 2;
+    }
+
+    oneof type {
+      UsernameAndPassword username_and_password = 1;
+      JwtAuth jwt_auth = 2;
+      CertificateAuth certificate_auth = 3;
+    }
+  }
+
+  // The id to use for this connection.
+  string cluster_connection_id = 1;
+
+  // Details of the cluster connection.
+  // As with all fields (see rule 1 in README.md), the performer should
+  // pass all fields directly to the SDK without manipulation.  E.g. it should not prepend couchbase:// to
+  // cluster_connection_string or similar.
+  string connection_string = 2;
+  Credential credential = 3;
+  optional Options options = 4;
+
+  // Can apply SDK tunables that can't be represented generically in GRPC.
+  //
+  // One example is for performance testing, where we may want to experiment with various approaches in say the Java SDK.
+  // So one run may send "com.couchbase.executorMaxThreadCount"="10", and the next set it to "20".
+  //
+  // Interpretation of the tunables, and how to apply them inside the SDK, is completely SDK-dependent.
+  //
+  // The intent is that the tunables be associated with the cluster connection.
+  //
+  // Generally performers can ignore this field unless they are explicitly planning on using it.
+  map<string, string> tunables = 5;
+  ExecutionContext execution_context = 6;
+}
+
+// The performer should close a previously-opened Columnar Cluster instance.  In the RFC this is `cluster.close()`.
+// It can safely assume that if that instance does not exist, then this is a driver bug - it does not have to handle this.
+message ClusterCloseRequest {
+  ExecutionContextClusterLevel execution_context = 1;
+}
+
+// The performer should close all Columnar Cluster objects it has open.  In the RFC this is `cluster.close()`.
+message CloseAllColumnarClustersRequest {
+  ExecutionContext execution_context = 1;
+}
+
+// Requests the performer to update the credential on an existing cluster connection.
+message SetCredentialRequest {
+  ExecutionContextClusterLevel execution_context = 1;
+  ClusterNewInstanceRequest.Credential credential = 2;
+}

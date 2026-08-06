@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+// Defined https://hackmd.io/foGjnSSIQmqfks2lXwNp8w#Protocol-Extensions
+enum Caps {
+    // This is mandatory if PROTOCOL_VERSION_2_0 or higher is sent.
+    EXT_TRANSACTION_ID = 0;
+
+    EXT_DEFERRED_COMMIT = 1;
+
+    // At least one of EXT_MEMORY_OPT_UNSTAGING and EXT_TIME_OPT_UNSTAGING must be supported
+    EXT_MEMORY_OPT_UNSTAGING = 2;
+    EXT_TIME_OPT_UNSTAGING = 3;
+
+    EXT_CUSTOM_METADATA_COLLECTION = 4;
+    EXT_BINARY_METADATA = 5;
+    EXT_QUERY = 6;
+    EXT_STORE_DURABILITY = 7;
+    BF_CBD_3787 = 8;
+    BF_CBD_3794 = 9;
+    BF_CBD_3705 = 10;
+    BF_CBD_3838 = 11;
+    EXT_REMOVE_COMPLETED = 12;
+    EXT_ALL_KV_COMBINATIONS = 13;
+    EXT_UNKNOWN_ATR_STATES = 14;
+    BF_CBD_3791 = 15;
+    EXT_SINGLE_QUERY = 16;
+    EXT_REPLACE_BODY_WITH_XATTR = 17;
+    EXT_THREAD_SAFE = 18;
+    EXT_SERIALIZATION = 19;
+    EXT_SDK_INTEGRATION = 20;
+    EXT_MOBILE_INTEROP = 21;
+    EXT_INSERT_EXISTING = 22;
+    EXT_OBSERVABILITY = 23;
+    EXT_QUERY_CONTEXT = 24;
+    EXT_PARALLEL_UNSTAGING = 25;
+
+    // Support for Caps.CONTENT_AS_PERFORMER_VALIDATION is a pre-requisite for all following extensions.
+    EXT_BINARY_SUPPORT = 26;
+    EXT_REPLICA_FROM_PREFERRED_GROUP = 27;
+    EXT_GET_MULTI = 28;
+    EXT_REPLICA_FROM_PREFERRED_GROUP_PATCH1 = 29;
+    EXT_TTL = 30;
+
+    // Remember to add a test to ForwardCompatibilityTest for each extension
+}

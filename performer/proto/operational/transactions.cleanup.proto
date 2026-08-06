@@ -1,0 +1,85 @@
+// Everything to do with transactions cleanup testing
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "transactions.basic.proto";
+import "hooks.transactions.proto";
+import "shared.collection.proto";
+
+message TransactionCleanupRequest {
+    DocId atr = 5;
+    // For backwards-compatibility with performers that don't support `atr` yet - will be removed eventually
+    string atr_id = 1 [ deprecated = true ]; // Field `atr` should be used instead.
+    string attempt_id = 2;
+    string transaction_id = 3;
+    // Any hooks can only use HookPoints in the CLEANUP_* range
+    repeated hooks.transactions.Hook hook = 4;
+
+    // This is only needed for KV operations, so the driver will usually send the default cluster connection.
+    string cluster_connection_id = 6;
+}
+
+message TransactionCleanupATRRequest {
+    // For backwards-compatibility with performers that don't support `atr` yet - will be removed eventually
+    string atr_id = 1 [ deprecated = true ]; // Field `atr` should be used instead.
+    DocId atr = 3;
+    // Any hooks can only use HookPoints in the CLEANUP_* range
+    repeated hooks.transactions.Hook hook = 2;
+
+    string cluster_connection_id = 4;
+}
+
+// The result of attempting to cleanup a single attempt entry in an ATR
+message TransactionCleanupAttempt {
+    // Whether the attempt succeeded
+    bool success = 1;
+
+    // All logs related to the attempt
+    repeated string logs = 2;
+
+    // The state of the ATR entry, before cleanup.
+    // This field is optional.  It will allow additional verification in some tests if it is provided.
+    AttemptStates state = 3;
+
+    // The ATR's location
+    DocId atr = 7;
+
+    // The key of the ATR document
+    // For backwards-compatibility with performers that don't support `atr` yet - aiming to remove eventually.
+    string atr_id = 4 [ deprecated = true ]; // Field `atr` should be used instead.
+
+    // The name of the bucket the ATR is on
+    string atr_bucket_name = 5 [ deprecated = true ]; // Field `atr` should be used instead.
+
+    // The ID of the transaction attempt that was being cleaned up
+    string attempt_id = 6;
+}
+
+message TransactionCleanupATRResult {
+    repeated TransactionCleanupAttempt result = 1;
+
+    // Total number of entries found in the ATR
+    int32 num_entries = 2;
+
+    // Total number of expired entries found in the ATR
+    int32 num_expired_entries = 3;
+}
+
+// The set of collections currently being cleaned up.
+message CleanupSet {
+    repeated shared.Collection cleanup_set = 1;
+}
+
+message CleanupSetFetchRequest {
+    string cluster_connection_id = 1;
+}
+
+message CleanupSetFetchResponse {
+    CleanupSet cleanup_set = 1;
+}

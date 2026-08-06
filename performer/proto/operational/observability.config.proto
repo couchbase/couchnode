@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package protocol.observability;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Observability";
+option java_package = "com.couchbase.client.protocol.observability";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/observability";
+option ruby_package = "FIT::Protocol::Observability";
+option java_multiple_files = true;
+
+import "observability.top.proto";
+
+// Configures the performer to output OpenTelemetry tracing data.
+message TracingConfig {
+    // Where to send the OTLP traffic.
+    string endpoint_hostname = 1;
+
+    // [0-1]: what percentage of the traces emitted should be sent to the endpoint.
+    // The performer should use an epsilon based check, and if this value ~= 0, set it to never output, and if ~= 1, always output.
+    float sampling_percentage = 2;
+
+    // Whether the performer should enable batching of the traces.
+    bool batching = 3;
+
+    // How frequently to export data, as a best effort.  This lets us tune for quick observability during integration
+    // tests, and reducing traffic and overhead in performance tests.
+    int32 export_every_millis = 4;
+
+    // Attributes to provide to the TracerProvider.  While this is under-documented in OpenTelemetry, the intent here is
+    // to provide fields such as "service.name".
+    map<string, Attribute> resources = 5;
+}
+
+// Configures the performer to output OpenTelemetry metrics data.
+message MetricsConfig {
+    // Where to send the OTLP metrics traffic.
+    string endpoint_hostname = 1;
+
+    // How frequently to export data, as a best effort.  This lets us tune for quick observability during integration
+    // tests, and reducing traffic and overhead in performance tests.
+    int32 export_every_millis = 2;
+
+    // N.b. there is no sampling and batching in the MetricsConfig, unlike the TracingConfig, as at least the Java OTel
+    // SDK does not support them.
+
+    // Attributes to provide to the MeterProvider.  While this is under-documented in OpenTelemetry, the intent here is
+    // to provide fields such as "service.name".
+    map<string, Attribute> resources = 3;
+}
+
+message ThresholdLoggingTracerConfig {
+    optional int32 emit_interval_millis = 1;
+    optional int32 kv_threshold_millis = 2;
+    optional int32 query_threshold_millis = 3;
+    optional int32 views_threshold_millis = 4;
+    optional int32 search_threshold_millis = 5;
+    optional int32 analytics_threshold_millis = 6;
+    optional int32 transactions_threshold_millis = 7;
+    optional int32 sample_size = 8;
+    optional bool enabled = 9;
+}
+
+message LoggingMeterConfig {
+    optional int32 emit_interval_millis = 1;
+    optional bool enabled = 2;
+}
+
+message OrphanResponseConfig {
+    optional int32 emit_interval_millis = 1;
+    optional int32 sample_size = 2;
+    optional bool enabled = 3;
+}
+
+enum SemanticConvention {
+    DATABASE = 0;
+    DATABASE_DUP = 1;
+}
+
+message Config {
+    // If not sent, the performer should not enable tracing output.
+    optional TracingConfig tracing = 1;
+
+    // If set, the performer should set a NoopTracer as the requestTracer.
+    // The driver will not send `tracing` config if this is set.
+    bool use_noop_tracer = 2;
+
+    // If not sent, the performer should not enable metrics output.
+    optional MetricsConfig metrics = 3;
+
+    optional ThresholdLoggingTracerConfig threshold_logging_tracer = 4;
+
+    optional LoggingMeterConfig logging_meter = 5;
+
+    optional OrphanResponseConfig orphan_response = 6;
+
+    // If sent, the performer should set the corresponding ClusterOptions field.
+    // Will only be sent iff the performer declares support for SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS,
+    // but not SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS_EMITTED_BY_DEFAULT
+    repeated SemanticConvention observability_semantic_convention_opt_in = 7;
+}
+
+

@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package protocol.sdk.kv;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv";
+option java_package = "com.couchbase.client.protocol.sdk.kv";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv";
+option ruby_package = "FIT::Protocol::SDK::KV";
+option java_multiple_files = true;
+
+import "sdk.kv.options.proto";
+import "shared.doc_location.proto";
+import "shared.content.proto";
+import "shared.basic.proto";
+import "google/protobuf/duration.proto";
+import "streams.top_level.proto";
+
+
+// Performer will return a MutationResult
+message Insert {
+  shared.DocLocation location = 1;
+  shared.Content content = 2;
+  optional InsertOptions options = 3;
+}
+
+// Performer will return a GetResult
+message Get {
+  shared.DocLocation location = 1;
+  optional GetOptions options = 2;
+
+  shared.ContentAs content_as = 3;
+}
+
+// Performer will return a GetResult or a Result.null_result=true
+message GetOrNull {
+  shared.DocLocation location = 1;
+  // This must be a GetOrNullOptions block in the SDK in case they ever diverge, but in FIT where future breakage is
+  // more easily patched, we can be lazy and DRY.
+  optional GetOptions options = 2;
+
+  shared.ContentAs content_as = 3;
+}
+
+// Performer will return a GetResult
+message GetAndLock {
+  shared.DocLocation location = 1;
+  google.protobuf.Duration duration = 2;
+  optional GetAndLockOptions options = 3;
+
+  shared.ContentAs content_as = 4;
+}
+
+// Performer will return a GetReplicaResult
+message GetAllReplicas {
+  shared.DocLocation location = 1;
+  optional GetAllReplicasOptions options = 2;
+
+  // Not sent on to the SDK - instead specifies how the performer should handle the streaming.
+  streams.Config stream_config = 3;
+
+  shared.ContentAs content_as = 4;
+}
+
+// Performer will return a GetReplicaResult
+message GetAnyReplica {
+  shared.DocLocation location = 1;
+  optional GetAnyReplicaOptions options = 2;
+
+  shared.ContentAs content_as = 3;
+}
+
+// Performer will return an empty result with success set
+message Unlock {
+  shared.DocLocation location = 1;
+  int64 cas = 2 [jstype = JS_STRING];
+  optional UnlockOptions options = 3;
+}
+
+// Performer will return a GetResult
+message GetAndTouch {
+  shared.DocLocation location = 1;
+  shared.Expiry expiry = 2;
+  optional GetAndTouchOptions options = 3;
+
+  shared.ContentAs content_as = 4;
+}
+
+// Performer will return a MutationResult
+message Touch {
+  shared.DocLocation location = 1;
+  shared.Expiry expiry = 2;
+  optional TouchOptions options = 3;
+}
+
+// Performer will return a MutationResult
+message Remove {
+  shared.DocLocation location = 1;
+  optional RemoveOptions options = 2;
+}
+
+// Performer will return a MutationResult
+message Replace {
+  shared.DocLocation location = 1;
+  shared.Content content = 2;
+  optional ReplaceOptions options = 3;
+}
+
+// Performer will return a MutationResult
+message Upsert {
+  shared.DocLocation location = 1;
+  shared.Content content = 2;
+  optional UpsertOptions options = 3;
+}
+
+// Performer will return an ExistsResult
+message Exists {
+  shared.DocLocation location = 1;
+  ExistsOptions options = 2;
+}
+
+message MutationResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  optional shared.MutationToken mutation_token = 2;
+}
+
+message GetResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  shared.ContentTypes content = 2;
+  // Represented as the number of seconds since January 1, 1970 (e.g. what the server returns)
+  optional int64 expiry_time = 3;
+}
+
+message ExistsResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  bool exists = 2;
+}
+
+message GetReplicaResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  shared.ContentTypes content = 2;
+  bool is_replica = 3;
+
+  // Represented as the number of seconds since January 1, 1970 (e.g. what the server returns)
+  optional int64 expiry_time = 4;
+
+  // Not part of the SDK response - identifies what stream this is from.
+  // This is only needed when returning the result of collection.getAllReplicas()
+  optional string stream_id = 5;
+}

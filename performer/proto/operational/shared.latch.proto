@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+// Note these latches don't work like real CountdownLatches (or equivalent).
+// Each concurrent transaction gets its own version of the latch, and they are synchronized by the driver.
+//
+// Latches are bound to the rpc they are created in.  E.g. it should be possible to have two concurrent `transactionStream`
+// rpcs going on, each using the same latch name, but referring to two separate underlying CountdownLatches (or equivalents).
+message Latch {
+    int32 initial_count = 1;
+    string name = 2;
+}
+

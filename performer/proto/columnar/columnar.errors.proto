@@ -1,0 +1,79 @@
+syntax = "proto3";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/errors";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+// An exception derived from ColumnarError
+message ColumnarError {
+  optional Error cause = 1;
+
+  // If the ColumnarError is a specific subclass exception, include the specific error.
+  // If not provided then this is to be a generic ColumnarError
+  optional SubColumnarError sub_exception = 2;
+
+  // Broadly this is the result of outputting the exception - what the user would see if they wrote it into their logs.
+  // E.g. for Java `ex.toString()`, for C++ `std::cout << err`.
+  // It is expected to contain the error context, per the RFC.
+  string as_string = 3;
+}
+
+enum PlatformErrorType {
+  // Should never be sent and performers do not need to handle it.  Included as a standard protobuf best practice.
+  PLATFORM_ERROR_UNSPECIFIED = 0;
+
+  // If it does not fall into one of the other, better categories below.
+  PLATFORM_ERROR_OTHER = 1;
+  PLATFORM_ERROR_INVALID_ARGUMENT = 2;
+  PLATFORM_ERROR_FEATURE_NOT_AVAILABLE = 3;
+}
+
+// Used to represent any error that does not derive from ColumnarException/ColumnarError
+message PlatformError {
+  PlatformErrorType type = 1;
+
+  // Broadly this is the result of outputting the exception - what the user would see if they wrote it into their logs.
+  // E.g. for Java `ex.toString()`.
+  string as_string = 2;
+}
+
+// Used to represent the detailed QueryException sub-ColumnarError type
+message QueryException {
+  int32 error_code = 1;
+  string server_message = 2;
+}
+
+// Used to represent the detailed TimeoutException sub-ColumnarError type
+message TimeoutException {
+// No additional info here yet
+}
+
+// Used to represent the detailed InvalidCredentialException sub-ColumnarError type
+message InvalidCredentialException {
+  // No additional info here yet
+}
+
+// Used to represent the detailed QueryNotFoundException sub-ColumnarError type
+message QueryNotFoundException {
+  // No additional info here yet
+}
+
+// Represents the ColumnarError's sub types
+message SubColumnarError {
+  oneof sub_error {
+    QueryException query_exception = 1;
+    TimeoutException timeout_exception = 2;
+    InvalidCredentialException invalid_credential_exception = 3;
+    QueryNotFoundException query_not_found_exception = 4;
+  }
+}
+
+message Error {
+  oneof error {
+    ColumnarError columnar = 1;
+    PlatformError platform = 2;
+  }
+}
+

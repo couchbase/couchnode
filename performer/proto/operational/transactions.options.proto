@@ -1,0 +1,85 @@
+// All options and config blocks
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "hooks.transactions.proto";
+import "shared.collection.proto";
+import "shared.basic.proto";
+import "shared.transcoders.proto";
+
+enum UnstagingMode {
+  TIME_OPTIMIZED = 0;
+  MEMORY_OPTIMIZED = 1;
+}
+
+message TransactionQueryOptions {
+    optional shared.ScanConsistency scan_consistency = 1;
+    map< string, string > raw = 2;
+    optional bool adhoc = 3;
+    // "off", "phases", or "timings"
+    optional string profile = 4;
+    optional bool readonly = 5;
+    repeated string parameters_positional = 6;
+    map< string, string > parameters_named = 7;
+    optional bool flex_index = 8;
+    optional int32 pipeline_cap = 9;
+    optional int32 pipeline_batch = 10;
+    optional int32 scan_cap = 11;
+    optional int32 scan_wait_millis = 12;
+    optional string client_context_id = 13;
+}
+
+// Options that can be overridden at the individual transaction level.
+// Note that pre-ExtSDKIntegration, this struct was empty.  Not in the implementation, where PerTransactionConfig existed,
+// but here at the FIT level.  So, it will only be populated for ExtSDKIntegration performers.
+message TransactionOptions {
+  // Durability to use for all mutating KV operations in this transaction.
+  optional shared.Durability durability = 1;
+
+  // Timeout (nee expirationTime) for this transaction.
+  optional int64 timeout_millis = 2;
+
+  // Any hooks can only use HookPoints before the CLEANUP_* range.
+  repeated hooks.transactions.Hook hook = 3;
+
+  // Will only be sent to ExtSDKIntegration-enabled performers.
+  optional shared.Collection metadata_collection = 4;
+
+  // Note that PerTransactionQueryConfig is not sent, as it is removed in ExtSDKIntegration.
+
+  // Identifies a tracing span to use as the parent for this transaction.
+  // Only sent to performers that declare support for Caps.OBSERVABILITY_1.
+  optional string parent_span_id = 5;
+}
+
+message TransactionGetOptions {
+  optional shared.Transcoder transcoder = 1;
+}
+
+message TransactionGetMultiOptions {
+  enum TransactionGetMultiMode {
+      PRIORITISE_LATENCY = 0;
+      DISABLE_READ_SKEW_DETECTION = 1;
+      PRIORITISE_READ_SKEW_DETECTION = 2;
+  }
+
+  optional TransactionGetMultiMode mode = 1;
+}
+
+message TransactionInsertOptions {
+  optional shared.Transcoder transcoder = 1;
+  // Added with EXT_TTL and will only be sent if performer declares support for that
+  optional shared.Expiry expiry = 2;
+}
+
+message TransactionReplaceOptions {
+  optional shared.Transcoder transcoder = 1;
+  // Added with EXT_TTL and will only be sent if performer declares support for that
+  optional shared.Expiry expiry = 2;
+}

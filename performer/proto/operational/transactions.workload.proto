@@ -1,0 +1,40 @@
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "transactions.performer.proto";
+import "shared.bounds.proto";
+
+message Workload {
+  // The commands to run.  Each command should send back one TransactionResult.  The commands should be executed in a loop
+  // following `bounds`.  E.g. the performer may go through all the commands multiple times.
+  //
+  // If the command fails, the performer should not propagate the failure (but should still send back an TransactionResult).
+  // E.g. it should continue until bounds is exhausted (or it has run all commands, if bounds is not specified).
+  repeated TransactionCreateRequest command = 1;
+
+  // Controls how the commands should be run.
+  // If it's not present, just run the commands through once.
+  optional shared.Bounds bounds = 2;
+
+  // Performance mode indicates that this is a performance test, where the performer should disable various functionality.
+  // This includes:
+  //
+  // 1. Minimise the returned result
+  // A TransactionResult is heavy-weight, including things like a full log of the transaction.
+  // This requests that a minimal TransactionResult be returned, to reduce the performance impact.
+  // Specifically, on success the performer should only set exception=NO_EXCEPTION_THROWN, and populate no other fields.
+  // On failure, the performer should populate a full TransactionResult as normal - as it's expected that normal
+  // performance tests should not include failed transactions).
+  //
+  // 2. Reduce all performer logging to minimise impact.  The transactions/SDK logging though should not be affected - this
+  // should be configured through the standard configuration paths.  Because we will want to measure the impact of
+  // having it enabled.
+  bool performance_mode = 3;
+}
+

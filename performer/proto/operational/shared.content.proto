@@ -1,0 +1,130 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+import "shared.exceptions.proto";
+
+message Content {
+  oneof content {
+    // This should be passed directly into the SDK, as string type - no initial conversion into a JsonObject or similar.
+    // How this is treated by the SDK will depend on the transcoder set (if any), which is sent separately in the options.
+    // (Usually it will be sent with RawJsonTranscoder).
+    string passthrough_string = 1;
+
+    // The contents of this are JSON.
+    // The performer should convert to a platform-dependent representation of JSON, and then pass into the SDK.
+    // For Java, that would be the SDK's JsonObject.  For Node, the result of JSON.parse().
+    // Whatever is the most appropriate way to take a JSON blob and send it to the SDK without having to provide a
+    // transcoder, is the intent here.
+    bytes convert_to_json = 2;
+
+    // Treat this content as a byte array and pass it directly through the SDK.
+    bytes byte_array = 3;
+
+    // If this is sent then the performer should pass null/nil/none (depending on language) as the content.
+    bool null = 4;
+  }
+}
+
+// The user is doing someResult.contentAs[Something]() - this allows specifying the Something.  The protocol generally then
+// requires that content to be converted into bytes to be streamed back.
+message ContentAs {
+  oneof as {
+    // Intended to get the result as a String, then convert it into bytes from UTF-8.  Something like this:
+    // var result = someResult.contentAs[String]()
+    // var returnOverGRPC = result.getBytes(StandardCharsets.UTF_8)
+    bool as_string = 1;
+
+    // Intended to get the result as a byte array, then convert it into bytes.  Something like this:
+    // var returnOverGRPC = someResult.contentAs[Array[Byte]]()
+    // var returnOverGRPC = someResult.contentAsBytes()
+    bool as_byte_array = 2;
+
+    // JSON handling is very platform-dependent.  The intent is to get the result in your platform's most standard/natural
+    // representation of JSON Objects, and then convert it into bytes, again using the most standard way of doing that.
+    // E.g. this is intended to represent how most users will use the SDK.
+    // var result = someResult.contentAs[JsonObject]
+    // var returnOverGRPC = result.toBytes()
+    bool as_json_object = 3;
+
+    // JSON handling is very platform-dependent.  The intent is to get the result in your platform's most standard/natural
+    // representation of JSON Arrays, and then convert it into bytes, again using the most standard way of doing that.
+    // E.g. this is intended to represent how most users will use the SDK.
+    // var result = someResult.contentAs[JsonArray]
+    // var returnOverGRPC = result.toBytes()
+    bool as_json_array = 4;
+
+    // This is a way to represent an SDK deserializing content as a Boolean.
+    // Results where this is used should include a boolean in the oneof selection for content
+    bool as_boolean = 5;
+
+    // The driver is requesting someResult.contentAs[Integer].  The performer is free
+    // to interpret `Integer` in a platform-specific way.  Tests will only be
+    // expecting values well below the limits of a 32 bit signed integer, and the
+    // performer can safely use the platform-specific version of such a type to hold
+    // the value: for example, an `int` or `long` are both fine.
+    bool as_integer = 6;
+
+    // The driver is requesting someResult.contentAs[Float].  The performer is free
+    // to interpret `Float` in a platform-specific way.  Tests will only be
+    // expecting values well below the limits of a 32 bit signed floating point, and the
+    // performer can safely use the platform-specific version of such a type to hold
+    // the value: for example, a `float` or `double` are both fine.
+    bool as_floating_point = 7;
+  }
+}
+
+message ContentOrError {
+  oneof result {
+    ContentTypes content = 1;
+    protocol.shared.Exception exception = 2;
+  }
+}
+
+message ContentTypes {
+  message NullValue {}
+
+  oneof content {
+    // Used for content as bytes and JSON
+    bytes content_as_bytes = 1;
+
+    string content_as_string = 2;
+
+    int64 content_as_int64 = 3;
+
+    double content_as_double = 4;
+
+    bool content_as_bool = 5;
+
+    // content returned by sdk is supposed to be null
+    NullValue content_as_null = 6;
+  }
+}
+
+// For subsystems (such as transactions) that rely on performer-side validation.
+// Many result types have a `SomeResult.contentAs[SomeType]()` call, and this message controls how the performer
+// executes those, and what validation it performs.
+message ContentAsPerformerValidation {
+  // How the performer should perform SomeResult.contentAs[SomeType]().
+  shared.ContentAs content_as = 1;
+
+  // If true, the contentAs operation is expected to succeed and the performer needs to validate this, raising a
+  // GRPC FAILED_PRECONDITION error if not.
+  // If false, the contentAs operation is expected to fail and similarly the performer needs to validate this and
+  // raise a GRPC INVALID_ARGUMENT error if validation fails.
+  // Specifically the operation would be expected to fail with an SDK3 DecodingFailureException.  However, it is
+  // known that some SDKs do not follow the model, and so it is not a required part of the validation.  The performer
+  // can choose to optionally validate it is a DecodingFailureException, for an extra level of regression safety.
+  bool expect_success = 2;
+
+  // If specified, the performer will check the results of contentAs operation against this.
+  // The results of the contentAs operation should be converted to a byte[] first.
+  // Iff the expected content does not equal the actual content, the performer should raise a GRPC FAILED_PRECONDITION
+  // error.
+  optional bytes expected_content_bytes = 3;
+}

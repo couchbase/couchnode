@@ -1,0 +1,95 @@
+syntax = "proto3";
+
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+enum PersistTo {
+  PERSIST_TO_NONE = 0;
+  PERSIST_TO_ACTIVE = 1;
+  PERSIST_TO_ONE = 2;
+  PERSIST_TO_TWO = 3;
+  PERSIST_TO_THREE = 4;
+  PERSIST_TO_FOUR = 5;
+}
+
+enum ReplicateTo {
+  REPLICATE_TO_NONE = 0;
+  REPLICATE_TO_ONE = 1;
+  REPLICATE_TO_TWO = 2;
+  REPLICATE_TO_THREE = 3;
+}
+
+message Expiry {
+  oneof expiryType {
+    // The document will expire after the given duration.
+    int64 relativeSecs = 1;
+    // The document will expire at a specific time.  Given in epoch time.
+    int64 absoluteEpochSecs = 2;
+  }
+}
+
+message ObserveBased {
+  PersistTo persistTo = 1;
+  ReplicateTo replicateTo = 2;
+}
+
+
+enum Durability {
+  NONE = 0;
+  MAJORITY = 1;
+  MAJORITY_AND_PERSIST_TO_ACTIVE = 2;
+  PERSIST_TO_MAJORITY = 3;
+}
+
+// Awkward name as Durability already taken
+message DurabilityType {
+  oneof durability {
+    Durability durabilityLevel = 1;
+    ObserveBased observe = 2;
+  }
+}
+
+enum ScanConsistency {
+  REQUEST_PLUS = 0;
+  NOT_BOUNDED = 1;
+}
+
+message MutationToken {
+  // This is a short really, but GRPC doesn't have int16
+  int32 partition_id = 1;
+  int64 partition_uuid = 2;
+  int64 sequence_number = 3;
+  string bucket_name = 4;
+}
+
+message MutationState {
+  repeated MutationToken tokens = 1;
+}
+
+
+// When an implementation supports multiple APIs, this enum allows sending which is preferred to be used for a given test.
+// This is an abstraction that allows us to test e.g. Java's blocking vs reactive APIs.
+//
+// Declaration in supportedApis:
+//  For implementations with just one API: Only declare DEFAULT.
+//  For implementations with separate blocking & async APIs: declare both.
+//
+// When the performer receives a preferred API:
+//  For implementations with just one API: ignore it.
+//  For implementations with separate blocking & async APIs: use the appropriate one.
+enum API {
+  DEFAULT = 0;
+  ASYNC = 1;
+}
+
+// Zone Aware Read from Replica options
+enum ReadPreference {
+  NO_PREFERENCE = 0;
+  SELECTED_SERVER_GROUP = 1;
+  SELECTED_SERVER_GROUP_OR_ALL_AVAILABLE = 2;
+}

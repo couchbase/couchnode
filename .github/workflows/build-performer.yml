@@ -1,0 +1,45 @@
+name: Build FIT performer
+
+run-name: ${{ inputs.ref || github.ref_name }}
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}-${{ inputs.ref }}
+  cancel-in-progress: true
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'v*' # release branches, e.g. v4.7
+    tags:
+      - '*'
+    paths:
+      - 'performer/**'
+      - 'lib/**'
+      - 'src/**'
+      - 'deps/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - 'CMakeLists.txt'
+      - '.github/workflows/build-performer.yml'
+
+  workflow_dispatch:
+    inputs:
+      ref:
+        type: string
+        description: "Performer version. Specify a branch, tag, full commit hash, GitHub PR like 'refs/pull/37/merge', or Gerrit PR like 'refs/changes/58/240858/6'"
+        required: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - uses: couchbaselabs/sdk-docker-build-action@v1
+        with:
+          sdk: node
+          ref: ${{ inputs.ref }}
+          dockerfile: performer/Dockerfile

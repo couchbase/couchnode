@@ -1,0 +1,164 @@
+syntax = "proto3";
+
+package protocol;
+option csharp_namespace = "Couchbase.Grpc.Protocol";
+option java_package = "com.couchbase.client.protocol";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol";
+option ruby_package = "FIT::Protocol";
+option java_multiple_files = true;
+
+import "transactions.client_record.proto";
+import "transactions.cleanup.proto";
+import "performer.caps.proto";
+import "transactions.legacy.proto";
+import "transactions.performer.proto";
+import "run.top_level.proto";
+import "shared.cluster.proto";
+import "streams.top_level.proto";
+import "shared.echo.proto";
+import "observability.top.proto";
+import "shared.bounds.proto";
+
+// All rpcs related to transactions and SDK performance and integration testing.
+service PerformerService {
+  // Requests the performer's capabilities.
+  // Added in ExtSDKIntegration.
+  // If the performer has not implemented this, the driver will gracefully degrade to using the now-legacy
+  // CreateConnectionRequest instead.
+  // Required for performers that implement RealPerformerCaps.KV_SUPPORT_1.
+  // If any of performerCapsFetch, clusterConnectionCreate and clusterConnectionClose is implemented, they must all
+  // be implemented.
+  rpc performerCapsFetch (performer.PerformerCapsFetchRequest) returns (performer.PerformerCapsFetchResponse);
+
+  // Creates a Cluster connection, and optionally configures it.
+  // Added in ExtSDKIntegration, and will only be sent if the performer declares support for that extension or RealPerformerCaps.KV_SUPPORT_1.
+  // Otherwise CreateConnectionRequest will be used.
+  // Required for performers that implement RealPerformerCaps.KV_SUPPORT_1.
+  // If any of performerCapsFetch, clusterConnectionCreate and clusterConnectionClose is implemented, they must all
+  // be implemented.
+  // The performer should not call waitUntilReady as part of the cluster connection. Tests that require a reliable
+  // cluster connection should use the WaitUntilReady ClusterLevelCommand.
+  rpc clusterConnectionCreate (shared.ClusterConnectionCreateRequest) returns (shared.ClusterConnectionCreateResponse);
+
+  // Close a particular cluster connection.
+  // Added in ExtSDKIntegration, and will only be sent if the performer declares support for that extension or RealPerformerCaps.KV_SUPPORT_1.
+  // There is no real analogue pre-ExtSDKIntegration, so all cluster connections will remain open.
+  // Required for performers that implement RealPerformerCaps.KV_SUPPORT_1.
+  // If any of performerCapsFetch, clusterConnectionCreate and clusterConnectionClose is implemented, they must all
+  // be implemented.
+  rpc clusterConnectionClose (shared.ClusterConnectionCloseRequest) returns (shared.ClusterConnectionCloseResponse);
+
+  // Closes all cluster connections.
+  // Since ExtSDKIntegrated, the driver should be cleaning up all resources it creates.  But this method remains useful
+  // to send upfront before all tests, in case the previous run did not finish cleanly.
+  // It can only be sent before or after all tests, to avoid destroying the default cluster connection.
+  // Required for performers that implement RealPerformerCaps.KV_SUPPORT_1.
+  rpc disconnectConnections (shared.DisconnectConnectionsRequest) returns (shared.DisconnectConnectionsResponse);
+
+  // Creates and runs a transaction and returns the result.
+  // Abstracts over ExtSDKIntegration by passing both a clusterConnectionId and a transactionsFactoryRef so the
+  // performer can use a Cluster or Transactions object as appropriate.  In ExtSDKIntegration, the transactionsFactoryRef
+  // should be ignored.
+  rpc transactionCreate (transactions.TransactionCreateRequest) returns (transactions.TransactionResult);
+
+  // Closes all unclosed transaction factories.
+  // ExtSDKIntegration performers should not implement this, and the driver will gracefully handle that.
+  // The same comments for `disconnectConnections` apply.
+  rpc closeTransactions (transactions.CloseTransactionsRequest) returns (transactions.CloseTransactionsResponse);
+
+  // Transactions that can communicate bi-directionally with the tests
+  // This is for more complex tests that require e.g. concurrent transactions, gating each other's progress.
+  rpc transactionStream (stream transactions.TransactionStreamDriverToPerformer) returns (stream transactions.TransactionStreamPerformerToDriver);
+
+  // Performs cleanup of a single transaction.  It will fetch the ATR entry first.
+  // This tests the internals of the cleanup algo, the part shared by the two cleanup systems.
+  rpc transactionCleanup (transactions.TransactionCleanupRequest) returns (transactions.TransactionCleanupAttempt);
+
+  // Performs cleanup of a full ATR.  Useful for testing multiple performers concurrently cleaning up same ATR.
+  // Note it will only cleanup expired entries.
+  rpc transactionCleanupATR (transactions.TransactionCleanupATRRequest) returns (transactions.TransactionCleanupATRResult);
+
+  // Fetches the set of collections currently being cleaned up.
+  // Added in ExtSDKIntegration, and will only be sent if the performer declares support for that extension.
+  rpc cleanupSetFetch (transactions.CleanupSetFetchRequest) returns (transactions.CleanupSetFetchResponse);
+
+  // Request that the implementation do its normal client record processing logic (creating CR if needed).
+  rpc clientRecordProcess (transactions.ClientRecordProcessRequest) returns (transactions.ClientRecordProcessResponse);
+
+  // Perform a single query transaction.
+  // Added in ExtSingleQuery, and will only be sent if the performer declares support for that extension.
+  // Abstracts over ExtSDKIntegration by passing both a clusterConnectionId and a transactionsFactoryRef so the
+  // performer can use a Cluster or Transactions object as appropriate.  In ExtSDKIntegration, the transactionsFactoryRef
+  // should be ignored.
+  rpc transactionSingleQuery (transactions.TransactionSingleQueryRequest) returns (transactions.TransactionSingleQueryResponse);
+
+  // Request that the performer Echo a string to the performer logs.
+  // Required for performers that implement RealPerformerCaps.KV_SUPPORT_1.
+  rpc echo (shared.EchoRequest) returns (shared.EchoResponse);
+
+
+  // The performer will execute all run.Request items, and stream back all expected responses.
+  //
+  // It's intentionally a very generic interface and concept, as it's designed to be used for many purposes.
+  // Initially it's for performance and integration testing, for both transactions and SDK workloads (plus some other
+  // bits, such as meta-testing performance of various GRPC streaming approaches).
+  //
+  // Error handling:
+  // If the performer encounters anything in the requests that it does not understand, then it should close the stream with
+  // an error with a standard GRPC Status.UNIMPLEMENTED code (https://grpc.github.io/grpc/core/md_doc_statuscodes.html)
+  // so the driver can cleanly handle this.
+  // If the performer hits any kind of error that does not already have an appropriate error response in the GRPC (e.g.
+  // something truly unexpected has happened), then it should raise an error with a standard GRPC Status.UNKNOWN code.
+  rpc run (run.Request) returns (stream run.Result);
+
+  // Stream-related requests.  The stream itself will have been established by another rpc, e.g. `run`.
+  // These rpcs are at this top-level (rather than say run.Request) because, while a stream's lifespan is bound to
+  // a grpc return `stream`, streams are a generic concept and we don't want to duplicate these rpcs inside future other
+  // rpcs.
+  rpc streamCancel (streams.CancelRequest) returns (streams.CancelResponse);
+  rpc streamRequestItems (streams.RequestItemsRequest) returns (streams.RequestItemsResponse);
+
+  // Set the counter with the given id to a new value
+  rpc setCounter (shared.Counter) returns (shared.SetCounterResponse);
+
+  // Clear all counters for a given performer
+  rpc clearAllCounters (shared.ClearAllCountersRequest) returns (shared.ClearAllCountersResponse);
+
+  // Observability-related requests.
+  rpc spanCreate(observability.SpanCreateRequest) returns (observability.SpanCreateResponse);
+  rpc spanFinish(observability.SpanFinishRequest) returns (observability.SpanFinishResponse);
+
+  // ExtSDKIntegration: the following methods will not be sent to ExtSDKIntegration-enabled performers.
+  // Once we eventually end support for non-ExtSDKIntegration implementations, they will be removed.
+
+  // Create or close a Transactions (e.g. a transactions factory), returning a transactionsFactoryRef.
+  // Will be removed eventually as Transactions objects no longer really apply in ExtSDKIntegration - the Cluster is the 'lifecycle object'.
+  // Performers that need to support non-ExtSDKIntegration will need to keep this, otherwise they can remove it.
+  rpc transactionsFactoryCreate (transactions.TransactionsFactoryCreateRequest) returns (transactions.TransactionsFactoryCreateResponse);
+  rpc transactionsFactoryClose (transactions.TransactionsFactoryCloseRequest) returns (transactions.TransactionGenericResponse);
+
+  // The following can all be removed earlier, as soon as performers no longer use them.
+
+  // Creates a clusterConnection between performer and Couchbase Server, and returns the performer caps.
+  // Deprecated as ClusterConnectionCreateRequest does the job better, and has a proper close method.
+  // Performers can (and are recommended to) implement clusterConnectionCreate and remove support for this, including
+  // if they don't support ExtSDKIntegration yet.
+  rpc createConnection (transactions.CreateConnectionRequest) returns (transactions.CreateConnectionResponse) {
+    option deprecated = true;
+  };
+
+  // Request a Transactions object forces cleanup of all requests on its queue.
+  // This was removed as it's quite niche, used by very few tests, almost redundant since ExtRemoveComplete, and requires
+  // backdoor access into cleanup.  It will no longer be sent and performers should remove it.
+  rpc transactionProcessCleanupQueue (transactions.TransactionProcessCleanupQueueRequest) returns (transactions.TransactionCleanupQueueResult) {
+    option deprecated = true;
+  };
+
+  // Request that the implementation remove this client from the client record, from all buckets.
+  // This was removed as it's quite niche, used by very few tests, and requires backdoor access into cleanup.  And its
+  // behaviour can be easily replicated with clusterConnectionClose/transactionsFactoryClose, which will remove the
+  // client record everywhere too.  Performers can remove this, the driver will no longer send it.
+  rpc clientRecordRemove (transactions.ClientRecordRemoveRequest) returns (transactions.ClientRecordRemoveResponse) {
+    option deprecated = true;
+  };
+}

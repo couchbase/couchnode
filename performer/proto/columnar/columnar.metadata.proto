@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+import "google/protobuf/timestamp.proto";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/metadata";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+// Metadata that all responses will need.
+message ResponseMetadata {
+  // Allows the performer to report how long an operation took.
+
+  // Clocks are hard.  Many OS/platform combinations cannot guarantee nanosecond level precision of a wallclock time,
+  // but can provide such precision for elapsed time.
+  //
+  // `elapsedNanos` is intended to be, as precisely as the platform can measure it, the exact time taken by the operation in nanoseconds.
+  //
+  // There is rarely JSON processing in Columnar, and performance requirements in general are looser, so unlike Classic
+  // performers do not need to start this time just before the operation is sent into the SDK (e.g. after any JSON
+  // processing and/or options handling).  They are free to start it at any reasonable point between the RPC beginning
+  // and the SDK call being made, and end is soon after the SDk call ends.  This should ease performer implementation.
+  //
+  // `initiated` is a wallclock time, used to place this operation into a one second bucket.  This should be as
+  // accurate as the platform can provide (often realistically this is only accurate to 10 millis or so).
+  //
+  // For failed operations:
+  //
+  // `initiated` needs to be the wallclock time the operation was initiated, not when it failed which can
+  // be potentially X seconds later.
+  // `elapsed_nanos` should be the time elapsed between `initiated` and the exception being raised.
+  int64 elapsed_nanos = 1;
+  google.protobuf.Timestamp initiated = 2;
+}

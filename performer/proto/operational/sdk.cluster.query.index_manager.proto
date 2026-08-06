@@ -1,0 +1,32 @@
+syntax = "proto3";
+
+package protocol.sdk.cluster.query.index_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Cluster.Query.IndexManager";
+option java_package = "com.couchbase.client.protocol.sdk.cluster.query.indexmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/cluster/query/indexmanager";
+option ruby_package = "FIT::Protocol::SDK::Cluster::Query::IndexManager";
+option java_multiple_files = true;
+
+import "sdk.query.index_manager.proto";
+import "sdk.query.index_manager.options.proto";
+
+
+// This file is for QueryIndexManager: cluster.queryIndexes()
+// For Collection-level query index manager (collection.queryIndexes()), see sdk.collection.query.index_manager.proto.
+
+message Command {
+  // Rather than have two copies of CreatePrimaryIndex etc., we factor out the bucket_name parameter that's taken by
+  // all QueryIndexManager calls.
+  // (QueryIndexManager should really be bucket.queryIndexes()) which would allow it to be more cleanly DRYed into
+  // BucketLevelCommand).
+  string bucket_name = 1;
+
+  oneof command {
+    // Currently the QueryIndexManager and CollectionQueryIndexManager APIs are largely identical, and the intersection is
+    // represented by this shared message.
+    sdk.query.index_manager.Command shared = 2;
+
+    // Any APIs added only to QueryIndexManager should go here.
+  }
+}
+

@@ -1,0 +1,25 @@
+syntax = "proto3";
+
+package protocol.sdk.collection.query.index_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Collection.Query.IndexManager";
+option java_package = "com.couchbase.client.protocol.sdk.collection.query.indexmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/collection/query/indexmanager";
+option ruby_package = "FIT::Protocol::SDK::Collection::Query::IndexManager";
+option java_multiple_files = true;
+
+import "sdk.query.index_manager.proto";
+
+
+// This file is for CollectionQueryIndexManager: collection.queryIndexes()
+// For Cluster-level query index manager (cluster.queryIndexes()), see sdk.cluster.query.index_manager.proto.
+
+message Command {
+  oneof command {
+    // Currently the QueryIndexManager and CollectionQueryIndexManager APIs are largely identical, and the intersection is
+    // represented by this shared message.
+    sdk.query.index_manager.Command shared = 1;
+
+    // Any APIs added only to CollectionQueryIndexManager should go here.
+  }
+}
+

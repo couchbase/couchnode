@@ -1,0 +1,9 @@
+.git/
+node_modules/
+build/
+dist/
+prebuilds/
+deps/couchbase-cxx-cache/
+performer/node_modules/
+performer/src/build/
+performer/src/proto/

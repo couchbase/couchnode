@@ -1,0 +1,82 @@
+syntax = "proto3";
+
+package protocol.sdk.query.index_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Query.IndexManager";
+option java_package = "com.couchbase.client.protocol.sdk.query.indexmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/query/index/manager";
+option ruby_package = "FIT::Protocol::SDK::Query::IndexManager";
+option java_multiple_files = true;
+
+import "sdk.query.index_manager.options.proto";
+
+
+message GetAllIndexes {
+  optional GetAllQueryIndexOptions options = 2;
+}
+
+message CreatePrimaryIndex {
+  optional CreatePrimaryQueryIndexOptions options = 2;
+}
+
+message CreateIndex {
+  string index_name = 2;
+  repeated string fields = 3;
+  optional CreateQueryIndexOptions options = 4;
+}
+
+message DropPrimaryIndex {
+  optional DropPrimaryIndexOptions options = 2;
+}
+
+message DropIndex {
+  string index_name = 2;
+  optional DropIndexOptions options = 3;
+}
+
+message WatchIndexes {
+  repeated string index_names = 2;
+  int32 timeout_msecs = 3;
+  optional WatchIndexesOptions options = 4;
+}
+
+message BuildDeferredIndexes {
+  optional BuildDeferredIndexesOptions options = 2;
+}
+
+message QueryIndexes {
+  repeated QueryIndex indexes = 1;
+}
+
+message QueryIndex {
+  string name = 1;
+  bool is_primary = 2;
+  QueryIndexType type = 3;
+  string state = 4;
+  string keyspace = 5;
+  repeated string index_key = 6;
+  optional string condition = 7;
+  optional string partition = 8;
+  string bucket_name = 9;
+  optional string scope_name = 10;
+  optional string collection_name = 11;
+}
+
+enum QueryIndexType {
+  VIEW = 0;
+  GSI = 1;
+}
+
+// These commands are shared between CollectionQueryIndexManager and QueryIndexManager.
+// If API calls are added to just one of those, they should not go here.  Add them in
+// collection.query.index_manager.Command or cluster.query.index_manager.Command instead.
+message Command {
+  oneof command {
+    CreatePrimaryIndex create_primary_index = 1;
+    CreateIndex create_index = 2;
+    GetAllIndexes get_all_indexes = 3;
+    DropPrimaryIndex drop_primary_index = 4;
+    DropIndex drop_index = 5;
+    WatchIndexes watch_indexes = 6;
+    BuildDeferredIndexes build_deferred_indexes = 7;
+  }
+}

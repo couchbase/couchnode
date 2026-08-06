@@ -1,0 +1,39 @@
+syntax = "proto3";
+
+// Can't use protocol.grpc as it causes ambiguity issues for C++ (a number of GRPC library headers use a grpc namespace),
+// so meta instead.
+package protocol.meta;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Meta";
+option java_package = "com.couchbase.client.protocol.meta";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/meta";
+option ruby_package = "FIT::Protocol::Meta";
+option java_multiple_files = true;
+
+import "shared.bounds.proto";
+
+message Ping {
+}
+
+message Command {
+  oneof command {
+    Ping ping = 1;
+  }
+}
+
+// Used for meta purposes such as testing GRPC workflow.  Only sent if performer declares support for PerformerCaps.GRPC_TESTING.
+message Workload {
+  // The command to run.  The performer should execute this in a loop until `bounds` is completed.
+  Command command = 1;
+
+  // Controls how the commands should be run.
+  shared.Bounds bounds = 2;
+}
+
+message PingResult {
+}
+
+message Result {
+  oneof result {
+      PingResult ping_result = 1;
+  }
+}

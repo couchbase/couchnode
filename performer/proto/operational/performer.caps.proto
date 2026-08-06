@@ -1,0 +1,121 @@
+syntax = "proto3";
+
+package protocol.performer;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Performer";
+option java_package = "com.couchbase.client.protocol.performer";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/performer";
+option ruby_package = "FIT::Protocol::Performer";
+option java_multiple_files = true;
+
+import "transactions.extensions.proto";
+import "shared.basic.proto";
+import "sdk.caps.proto";
+
+// Capabilities of the performer itself (not what it's testing).
+enum Caps {
+    // The performer supports GRPC workloads.  It's optional, but allows various GRPC streaming approaches to be tested
+    // with the performer, which can help find one that reliably lets results be streamed back.
+    GRPC_TESTING = 0;
+
+    // Level 1 KV support: the initial KV commands (get, insert, replace, remove, upsert) together with options.
+    KV_SUPPORT_1 = 1;
+
+    // Whether this performer has level 1 transactions support, e.g. it has implemented protocol 1.0+.
+    // It includes the top-level transactions rpcs: transactionCreate, closeTransactions, transactionStream, transactionCleanup
+    // transactionCleanupATR, cleanupSetFetch, clientRecordProcess.
+    // It does not include transactions.Workload - that is covered by TRANSACTIONS_WORKLOAD_1.
+    TRANSACTIONS_SUPPORT_1 = 2;
+
+    // The performer supports all parameters in ClusterConfig up to idleHttpConnectionTimeoutSecs, 23.
+    CLUSTER_CONFIG_1 = 3;
+
+    // Support `ClusterConfig.cert`.
+    CLUSTER_CONFIG_CERT = 7;
+
+    // Support `ClusterConfig.insecure`.
+    CLUSTER_CONFIG_INSECURE = 8;
+
+    // Whether this performer supports transactions.Workload, allowing it to do performance testing of transactions.
+    // All GRPC messages transitively required by this workload must also be supported.
+    // The exception here is TransactionOptions.hooks: these can be significant work for an implementation, and are
+    // not (initially at least) required for transactions performance testing.
+    // The performer also needs to support the new commands: transactions.Insert,Replace,Remove,Get.
+    // CLUSTER_CONFIG_1 must be supported.
+    TRANSACTIONS_WORKLOAD_1 = 4;
+
+    // Support for requesting the performer output observability (OpenTelemetry) data.
+    // The performer must support:
+    // * ClusterConfig.observabilityConfig and everything under it.
+    // * SpanCreateRequest and SpanFinishRequest, and everywhere they are used.
+    // * parentSpanId on all messages the performer also supports.  This is a UUID corresponding to a previous SpanCreateRequest.
+    //   The performer can assume it is a bug if it does not know about this span or it has been previously finished, and
+    //   throw an error.
+    // * spanCreate and spanFinish RPCs.
+    // The SDK must support everything in the observability SDK-RFC revision #24, including:
+    // * RequestSpan.recordException
+    // * Counter support
+    OBSERVABILITY_1 = 6;
+
+    // The performer will set `elapsedNanos` for failed operations as well as successful ones.
+    TIMING_ON_FAILED_OPS = 9;
+
+    // The performer supports sending and receiving values of up to 25MiB.
+    LARGE_VALUES = 10;
+
+    // If the performer supports ContentAsPerformerValidation.
+    CONTENT_AS_PERFORMER_VALIDATION = 11;
+
+    /**
+       * The performer supports custom serialization logic for search options ie .serialize(CustomSerializer).
+       * This capability includes the ability to parse results custom serializer implemented in respective performers.
+       * The custom serializer should adhere to the following logic:
+           1. During serialization:
+              - Convert the input object to a JSON string.
+              - Add a "Serialized": true field to the JSON object.
+              - Return the JSON object as a byte array.
+          2. During deserialization:
+              - Parse the byte array into a JSON object.
+              - Upsert a "Serialized": false field to the JSON object.
+              - Return the updated JSON object as the deserialized result.
+     */
+    CUSTOM_SERIALIZATION_SUPPORT_FOR_SEARCH = 12;
+
+    // The performer supports content types as null value.
+    AS_NULL_CONTENT_TYPE_SUPPORT = 13;
+
+    // The performer supports client_context_id as Transaction Query Option.
+    TXN_CLIENT_CONTEXT_ID_SUPPORT = 14;
+}
+
+message PerformerCapsFetchRequest {
+}
+
+message PerformerCapsFetchResponse {
+    // The transactions capabilities of the implementation-under-test.
+    repeated transactions.Caps transaction_implementations_caps = 1;
+
+    // The SDK (non-transaction) capabilities of the implementation-under-test.
+    repeated sdk.Caps sdk_implementation_caps = 8;
+
+    // The capabilities of this performer.
+    repeated Caps performer_caps = 7;
+
+    // Human-readable string identifying the performer.  For example, "java".
+    // ExtSDKIntegration: performers should use a new user agent to disambiguate, such as "java" and "java-sdk".
+    string performer_user_agent = 2;
+
+    // Identifies the version of the library (SDK or transactions library, as appropriate) under test.  For example, "1.1.2".
+    string library_version = 4;
+
+    // Defined https://hackmd.io/foGjnSSIQmqfks2lXwNp8w#Protocol-Versions
+    // For transactions workloads, must be "1.0", "2.0" or "2.1" any other values will cause the driver to abort.
+    // For non-transactions workloads, return nothing.
+    optional string transactions_protocol_version = 3;
+
+    // The APIs this implementation supports.  This is primarily used to run tests on multiple APIs, so if an implementation
+    // only supports one, it should just return one - see comments for `API` for details.
+    // If the performer does not return anything, it will be assumed to support just API.DEFAULT.
+    repeated shared.API supported_apis = 6;
+}
+
+

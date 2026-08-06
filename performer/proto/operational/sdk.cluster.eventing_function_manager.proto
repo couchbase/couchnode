@@ -1,0 +1,318 @@
+syntax = "proto3";
+import "shared.basic.proto";
+import "google/protobuf/duration.proto";
+
+package protocol.sdk.cluster.eventing_function_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Cluster.EventingFunctionManager";
+option java_package = "com.couchbase.client.protocol.sdk.cluster.eventingfunctionmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/cluster/eventingfunctionmanager";
+option ruby_package = "FIT::Protocol::SDK::Cluster::EventingFunctionManager";
+option java_multiple_files = true;
+
+message Command {
+
+  oneof command {
+
+    GetFunctionRequest get_function = 1;
+
+    GetAllFunctionsRequest get_all_functions = 2;
+
+    DeployFunctionRequest deploy_function = 3;
+
+    DropFunctionRequest drop_function = 4;
+
+    FunctionsStatusRequest functions_status = 5;
+
+    PauseFunctionRequest pause_function = 6;
+
+    ResumeFunctionRequest resume_function = 7;
+
+    UndeployFunctionRequest undeploy_function = 8;
+
+    UpsertFunctionRequest upsert_function = 9;
+
+  }
+
+}
+
+//Returns Result.eventing_function
+message GetFunctionRequest {
+  string name = 1;
+  optional GetFunctionOptions options = 2;
+}
+
+message GetFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns Result.eventing_function_list
+message GetAllFunctionsRequest {
+  optional GetAllFunctionsOptions options = 1;
+}
+
+message GetAllFunctionsOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message DeployFunctionRequest {
+  string name = 1;
+  optional DeployFunctionOptions options = 2;
+}
+
+message DeployFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message DropFunctionRequest {
+  string name = 1;
+  optional DropFunctionOptions options = 2;
+}
+
+message DropFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns Result.eventing_status
+message FunctionsStatusRequest {
+  optional FunctionsStatusOptions options = 1;
+}
+
+message FunctionsStatusOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message PauseFunctionRequest {
+  string name = 1;
+  optional PauseFunctionOptions options = 2;
+}
+
+message PauseFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message ResumeFunctionRequest {
+  string name = 1;
+  optional ResumeFunctionOptions options = 2;
+}
+
+message ResumeFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message UndeployFunctionRequest {
+  string name = 1;
+  optional UndeployFunctionOptions options = 2;
+}
+
+message UndeployFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+//Returns void (Result.success)
+message UpsertFunctionRequest {
+  EventingFunction function = 1;
+  optional UpsertFunctionOptions options = 2;
+}
+
+message UpsertFunctionOptions {
+  optional google.protobuf.Duration timeout = 1;
+  optional string parent_span_id = 2;
+}
+
+
+
+message Result {
+  oneof result {
+    EventingFunction eventing_function = 1;
+
+    EventingFunctionList eventing_function_list = 2;
+
+    EventingStatus eventing_status = 3;
+  }
+
+}
+
+message EventingFunctionList {
+  repeated EventingFunction functions = 1;
+}
+
+
+message EventingFunction {
+  repeated EventingFunctionBucketBinding bucket_bindings = 1;
+  string code = 2;
+  repeated EventingFunctionConstantBinding constant_bindings = 3;
+  optional bool enforce_schema = 4;
+  optional string function_instance_id = 5;
+  optional int64 handler_uuid = 6;
+  EventingFunctionKeyspace metadata_keyspace = 7;
+  string name = 8;
+  EventingFunctionSettings settings = 9;
+  EventingFunctionKeyspace source_keyspace = 10;
+  repeated EventingFunctionUrlBinding url_bindings = 11;
+  optional string version = 12;
+
+}
+
+message EventingStatus {
+  repeated EventingFunctionState functions = 1;
+  int32 num_eventing_nodes = 2;
+}
+
+message EventingFunctionState {
+  EventingFunctionDeploymentStatus deployment_status = 1;
+  string name = 2;
+  int32 num_bootstrapping_nodes = 3;
+  int32 num_deployed_nodes = 4;
+  EventingFunctionProcessingStatus processing_status = 5;
+  EventingFunctionStatus status = 6;
+}
+
+
+enum EventingFunctionDeploymentStatus {
+  // Using DEPLOYMENT_STATUS_ prefix to avoid clashing with EventingFunctionStatus
+  DEPLOYMENT_STATUS_DEPLOYED = 0;
+  DEPLOYMENT_STATUS_UNDEPLOYED = 1;
+}
+
+enum EventingFunctionProcessingStatus {
+  // Using PROCESSING_STATUS_ prefix to avoid clashing with EventingFunctionStatus
+  PROCESSING_STATUS_PAUSED = 0;
+  PROCESSING_STATUS_RUNNING = 1;
+}
+
+enum EventingFunctionStatus {
+  DEPLOYED = 0;
+  DEPLOYING = 1;
+  PAUSED = 2;
+  PAUSING = 3;
+  UNDEPLOYED = 4;
+  UNDEPLOYING = 5;
+  RESUMING = 6;
+  UNKNOWN = 10;
+}
+
+message EventingFunctionBucketBinding {
+  EventingFunctionBucketAccess access = 1;
+  string alias = 2;
+  EventingFunctionKeyspace name = 3;
+}
+
+enum EventingFunctionBucketAccess {
+  READ_ONLY = 0;
+  READ_WRITE = 1;
+}
+
+message EventingFunctionConstantBinding {
+  string alias = 1;
+  string literal = 2;
+}
+
+message EventingFunctionKeyspace {
+  string bucket = 1;
+  optional string scope = 2;
+  optional string collection = 3;
+}
+
+
+message EventingFunctionUrlBinding {
+  string alias = 1;
+  bool allow_cookies = 2;
+  EventingFunctionUrlAuth auth = 3;
+  string hostname = 4;
+  bool validate_ssl_certificate = 5;
+}
+
+message EventingFunctionUrlAuth {
+  oneof auth {
+    EventingFunctionUrlAuthBasic basic_auth = 1;
+
+    EventingFunctionUrlAuthBearer bearer_auth = 2;
+
+    EventingFunctionUrlAuthDigest digest_auth = 3;
+
+    EventingFunctionUrlNoAuth no_auth = 4;
+  }
+}
+
+message EventingFunctionUrlAuthBasic {
+  string username = 1;
+  string password = 2;
+}
+
+message EventingFunctionUrlAuthBearer {
+  string key = 1;
+}
+
+message EventingFunctionUrlAuthDigest {
+  string username = 1;
+  string password = 2;
+}
+
+message EventingFunctionUrlNoAuth {
+}
+
+
+message EventingFunctionSettings {
+  optional string app_log_dir = 1;
+  optional int64 app_log_max_files = 2;
+  optional int64 app_log_max_size = 3;
+  optional int64 bucket_cache_age = 4;
+  optional int64 bucket_cache_size = 5;
+  optional google.protobuf.Duration checkpoint_interval = 6;
+  optional int64 cpp_worker_thread_count = 7;
+  optional int64 curl_max_allowed_resp_size = 8;
+  optional EventingFunctionDcpBoundary dcp_stream_boundary = 9;
+  optional EventingFunctionDeploymentStatus deployment_status = 10;
+  optional string description = 11;
+  optional bool enable_app_log_rotation = 12;
+  optional google.protobuf.Duration execution_timeout = 13;
+  repeated string handler_footers = 14;
+  repeated string handler_headers = 15;
+  optional EventingFunctionLanguageCompatibility language_compatibility = 16;
+  optional int64 lcb_inst_capacity = 17;
+  optional int64 lcb_retry_count = 18;
+  optional google.protobuf.Duration lcb_timeout = 19;
+  optional EventingFunctionLogLevel log_level = 20;
+  optional int64 num_timer_partitions = 21;
+  optional EventingFunctionProcessingStatus processing_status = 22;
+  optional shared.ScanConsistency query_consistency = 23;
+  optional bool query_prepare_all = 24;
+  optional int64 sock_batch_size = 25;
+  optional google.protobuf.Duration tick_duration = 26;
+  optional int64 timer_context_size = 27;
+  optional string user_prefix = 28;
+  optional int64 worker_count = 29;
+}
+
+enum EventingFunctionDcpBoundary {
+  EVERYTHING = 0;
+  FROM_NOW = 1;
+}
+
+enum EventingFunctionLanguageCompatibility {
+  VERSION_6_0_0 = 0;
+  VERSION_6_5_0 = 1;
+  VERSION_6_6_2 = 2;
+  VERSION_7_2_0 = 3;
+}
+
+enum EventingFunctionLogLevel {
+  DEBUG = 0;
+  ERROR = 1;
+  INFO = 2;
+  TRACE = 3;
+  WARNING = 4;
+}

@@ -1,0 +1,158 @@
+syntax = "proto3";
+
+package protocol.sdk;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk";
+option java_package = "com.couchbase.client.protocol.sdk";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk";
+option ruby_package = "FIT::Protocol::SDK";
+option java_multiple_files = true;
+
+enum Caps {
+  SDK_PRESERVE_EXPIRY = 0;
+
+  // KV range scan support.  See CBD-5161 for requirements.
+  SDK_KV_RANGE_SCAN = 1;
+
+  // Query index management support - All APIs available to the Cluster level QueryIndexManager: cluster.queryIndexes()
+  SDK_QUERY_INDEX_MANAGEMENT = 2;
+
+  // All APIs available to the Collection level CollectionQueryIndexManager: collection.queryIndexes()
+  SDK_COLLECTION_QUERY_INDEX_MANAGEMENT = 3;
+
+  // Can execute cluster.search() with all SearchOptions.
+  // This is everything under sdk.search.proto, except VectorQuery.
+  SDK_SEARCH = 4;
+
+  // Supports sdk.search.VectorQuery.
+  // Support for SDK_SEARCH is a prerequisite.
+  SDK_VECTOR_SEARCH = 22;
+
+  // Support for SDK_VECTOR_SEARCH is a prerequisite.
+  SDK_VECTOR_SEARCH_BASE64 = 23;
+
+  // Can execute scope.search() with all SearchOptions.
+  // Support for SDK_SEARCH is a prerequisite.
+  SDK_SCOPE_SEARCH = 6;
+
+  // The SDK implements support for search SDK-RFC 52 revision 11.
+  // (Improved FeatureNotAvailable handling against older clusters for scoped and vector indexes)
+  SDK_SEARCH_RFC_REVISION_11 = 24;
+
+  // Can execute all APIs under cluster.searchIndexes(), with all options.
+  // This is everything under sdk.management.search.proto.
+  SDK_SEARCH_INDEX_MANAGEMENT = 5;
+
+  // Can execute all APIs under scope.searchIndexes(), with all options.
+  // This is everything under sdk.management.scope.search.proto.
+  SDK_SCOPE_SEARCH_INDEX_MANAGEMENT = 7;
+
+  //The performer supports WaitUntilReady with options, at cluster and bucket level
+  WAIT_UNTIL_READY = 8;
+
+  //The SDK supports couchbase2:// connection strings
+  PROTOSTELLAR = 9;
+
+  //The performer supports the BucketManager API.
+  //This is everything under sdk.cluster.bucket_manager
+  SDK_BUCKET_MANAGEMENT = 10;
+
+  //The performer supports the EventingFunctionManager API.
+  //This is everything under sdk.cluster.eventing_function_manager
+  SDK_EVENTING_FUNCTION_MANAGER = 11;
+
+  //The performer supports ClusterLevelCommand.query, ScopeLevelCommand.query,
+  //and everything needed by sdk.query.Command
+  //it supports sending results back with sdk.query.QueryResult
+  //Does not include the use_replica Query option
+  SDK_QUERY = 12;
+
+  // Implements base LookupIn functionality from sdk.collection.lookup_in.proto
+  SDK_LOOKUP_IN = 13;
+
+  // Implements LookupInAllReplicas and LookupInAnyReplica messages from sdk.collection.lookup_in.proto
+  SDK_LOOKUP_IN_REPLICAS = 14;
+
+  // Implements use_replica Query option
+
+  SDK_QUERY_READ_FROM_REPLICA = 15;
+
+  // The performer implements everything under sdk.kv.commands and sdk.kv.mutate_in,
+  // and is able to support all forms of shared.Content for Get and MutateIn commands
+  // The performer cap KV_SUPPORT_1 is a prerequisite
+  SDK_KV = 17;
+
+  // Supports Extended SDK Observability SDK-RFC 67 revision 24.  E.g. the SDK is sending additional metric tags.
+  // Support for performer cap OBSERVABILITY_1 is a pre-requisite.
+  SDK_OBSERVABILITY_RFC_REV_24 = 16;
+
+  // Implements history retention settings for bucket and collection management.
+  SDK_MANAGEMENT_HISTORY_RETENTION = 18;
+
+  //The performer supports the CollectionManager API.
+  //This is everything under sdk.bucket.collection_manager
+  SDK_COLLECTION_MANAGEMENT = 19;
+
+  // SDK can report the SDK_DOCUMENT_NOT_LOCKED_EXCEPTION error.
+  // The SDK_KV cap is a pre-requisite.
+  SDK_DOCUMENT_NOT_LOCKED = 20;
+
+  SDK_CIRCUIT_BREAKERS = 21;
+
+  // The SDK implements support for index management SDK-RFC 54 revision 25.
+  // (Improved FeatureNotAvailable handling against older clusters for scoped and vector indexes)
+  SDK_INDEX_MANAGEMENT_RFC_REVISION_25 = 25;
+
+  // The SDK implements support for observability with couchbase2, as specified in SDK-RFC 77.
+  SDK_COUCHBASE2_OBSERVABILITY = 26;
+
+  // The SDK implements support for Zone aware read from replica in Lookupin and Get operations
+  // The options requiring support are SELECTED_SERVER_GROUP
+  // Add SDK_ZONE_AWARE_READ_FROM_REPLICA_SELECTED_SERVER_GROUP_OR_ALL_AVAILABLE if your performer also supports the optional
+  // SELECTED_SERVER_GROUP_OR_ALL_AVAILABLE mode.
+  SDK_ZONE_AWARE_READ_FROM_REPLICA = 27;
+  SDK_ZONE_AWARE_READ_FROM_REPLICA_SELECTED_SERVER_GROUP_OR_ALL_AVAILABLE = 29;
+
+  // The SDK will send cluster name and uuid labels in spans and metrics.
+  // OBSERVABILITY_1 is a prerequisite.  (But not SDK_OBSERVABILITY_RFC_REV_24)
+  SDK_OBSERVABILITY_CLUSTER_LABELS = 28;
+
+  // The SDK implements support for the Application Telemetry feature, as detailed in SDK-RFC 84.
+  SDK_APP_TELEMETRY = 30;
+
+  // The SDK implements the num_vbuckets attribute of BucketSettings
+  SDK_BUCKET_SETTINGS_NUM_VBUCKETS = 31;
+
+  // The SDK implements support for Vector Search prefiltering.
+  SDK_PREFILTER_VECTOR_SEARCH = 32;
+
+  // The SDK supports setting both positional and named parameters for query and analytics_query.
+  //  * SDK3 Query RFC Revision #9
+  //  * SDK3 Analytics RFC Revision #3
+  SDK_QUERY_BOTH_POSITIONAL_AND_NAMED_PARAMETERS = 33;
+
+  // The SDK supports the Authenticator type.
+  SUPPORTS_AUTHENTICATOR = 34;
+
+  // The SDK supports setting a new Authenticator.
+  SDK_SET_AUTHENTICATOR = 35;
+
+  // The SDK supports JwtAuthenticator.
+  SDK_JWT = 36;
+
+  // The SDK supports the stable OpenTelemetry semantic conventions (ExtendedObservability RFC Rev 26)
+  SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS = 37;
+
+  // The SDK emits the stable OpenTelemetry semantic conventions by default.
+  // SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS is a pre-requisite. This should only be declared by SDKs that do not
+  // support the legacy semantic conventions (C++ & wrappers, Rust).
+  SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS_EMITTED_BY_DEFAULT = 38;
+
+  // The SDK supports the collection.getOrNull() API.
+  SDK_GET_OR_NULL = 39;
+
+  // The SDK supports the RESUMING status in the result of functions_status() of the eventing management API.
+  SDK_EVENTING_RESUMING_FUNCTION_STATUS = 40;
+
+  // SDK handles query code 2120.
+  SDK_QUERY_2120 = 42;
+}

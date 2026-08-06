@@ -1,0 +1,45 @@
+syntax = "proto3";
+
+package protocol.sdk.kv;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv";
+option java_package = "com.couchbase.client.protocol.sdk.kv";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv";
+option ruby_package = "FIT::Protocol::SDK::KV";
+option java_multiple_files = true;
+
+import "sdk.kv.binary.options.proto";
+import "shared.doc_location.proto";
+import "shared.basic.proto";
+
+
+// Performer will return a MutationResult
+message Append {
+  shared.DocLocation location = 1;
+  bytes content = 2;
+  optional AppendOptions options = 3;
+}
+
+// Performer will return a MutationResult
+message Prepend {
+  shared.DocLocation location = 1;
+  bytes content = 2;
+  optional PrependOptions options = 3;
+}
+
+// Performer will return a CounterResult
+message Decrement {
+  shared.DocLocation location = 1;
+  optional DecrementOptions options = 3;
+}
+
+// Performer will return a CounterResult
+message Increment {
+  shared.DocLocation location = 1;
+  optional IncrementOptions options = 3;
+}
+
+message CounterResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  optional shared.MutationToken mutation_token = 2;
+  int64 content = 3;
+}

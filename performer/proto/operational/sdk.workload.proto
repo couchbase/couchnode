@@ -1,0 +1,237 @@
+syntax = "proto3";
+
+package protocol.sdk;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk";
+option java_package = "com.couchbase.client.protocol.sdk";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk";
+option ruby_package = "FIT::Protocol::SDK";
+option java_multiple_files = true;
+
+import "shared.bounds.proto";
+import "shared.cluster.proto";
+import "shared.exceptions.proto";
+import "sdk.kv.rangescan.top_level.proto";
+import "sdk.kv.commands.proto";
+import "sdk.kv.binary.commands.proto";
+import "shared.basic.proto";
+import "sdk.query.index_manager.proto";
+import "sdk.cluster.query.index_manager.proto";
+import "sdk.collection.query.index_manager.proto";
+import "shared.collection.proto";
+import "sdk.search.index_manager.proto";
+import "sdk.scope.search.index_manager.proto";
+import "sdk.cluster.search.index_manager.proto";
+import "sdk.search.proto";
+import "sdk.cluster.wait_until_ready.proto";
+import "sdk.cluster.bucket_manager.proto";
+import "sdk.cluster.eventing_function_manager.proto";
+import "sdk.query.proto";
+import "sdk.kv.lookup_in.proto";
+import "sdk.kv.mutate_in.proto";
+import "sdk.bucket.collection_manager.proto";
+
+message ClusterLevelCommand {
+  oneof command {
+    // QueryIndexManager: cluster.queryIndexes()
+    cluster.query.index_manager.Command query_index_manager = 1;
+
+    // cluster.searchQuery() - original FTS API
+    search.Search search = 2;
+
+    // cluster.search() - updated FTS API
+    search.SearchWrapper search_v2 = 8;
+
+    // SearchIndexManager: cluster.searchIndexes()
+    cluster.search.index_manager.Command search_index_manager = 3;
+
+    cluster.wait_until_ready.WaitUntilReadyRequest wait_until_ready = 4;
+
+    cluster.bucket_manager.Command bucket_manager = 5;
+
+    cluster.eventing_function_manager.Command eventing_function_manager = 6;
+
+    sdk.query.Command query = 7;
+
+    // cluster.authenticator()
+    shared.Authenticator authenticator = 9;
+  }
+}
+
+message BucketLevelCommand {
+  string bucket_name = 1;
+
+  oneof command {
+    cluster.wait_until_ready.WaitUntilReadyRequest wait_until_ready = 2;
+
+    bucket.collection_manager.Command collection_manager = 3;
+  }
+}
+
+message ScopeLevelCommand {
+  protocol.shared.Scope scope = 1;
+
+  oneof command {
+    // scope.search() - updated FTS API
+    search.SearchWrapper search_v2 = 5;
+
+    // ScopeSearchIndexManager: scope.searchIndexes()
+    scope.search.index_manager.Command search_index_manager = 3;
+
+    sdk.query.Command query = 4;
+
+    // scope.searchQuery() - original FTS API
+    // Now deprecated as revision 10 of the RFC removes this (it was only implemented by one SDK).
+    // The SDK should implement only scope.search(), not scope.searchQuery().
+    // FIT will not use this field.
+    search.Search search = 2 [deprecated = true];
+  }
+}
+
+// If the command specifies a docLocation use the collection within it, otherwise fall back on
+// CollectionLevelCommand.collection.
+message CollectionLevelCommand {
+
+  // Should be passed in any collection level command that does not have a Location in the message for the command
+  optional protocol.shared.Collection collection = 1;
+
+  oneof command {
+    // CollectionQueryIndexManager: collection.queryIndexes()
+    collection.query.index_manager.Command query_index_manager = 16;
+
+    kv.lookup_in.LookupIn lookup_in = 17;
+
+    kv.lookup_in.LookupInAllReplicas lookup_in_all_replicas = 18;
+
+    kv.mutate_in.MutateIn mutate_in = 20;
+
+    kv.GetAndLock get_and_lock = 21;
+
+    kv.Unlock unlock = 25;
+
+    kv.GetAndTouch get_and_touch = 22;
+
+    kv.Exists exists = 23;
+
+    kv.Touch touch = 24;
+
+    kv.GetAnyReplica get_any_replica = 30;
+
+    kv.GetAllReplicas get_all_replicas = 31;
+
+    kv.lookup_in.LookupInAnyReplica lookup_in_any_replica = 19;
+
+    BinaryCollectionLevelCommand binary = 32;
+  }
+}
+
+// If the command specifies a docLocation use the collection within it, otherwise fall back on
+// CollectionLevelCommand.collection.
+message BinaryCollectionLevelCommand {
+  oneof command {
+    kv.Append append = 1;
+
+    kv.Prepend prepend = 2;
+
+    kv.Increment increment = 3;
+
+    kv.Decrement decrement = 4;
+  }
+}
+
+message Command {
+  oneof command {
+    // KV commands.  These would be added to CollectionLevelCommand if added now.
+    kv.Insert insert = 1;
+    kv.Get get = 2;
+    kv.GetOrNull getOrNull = 9;
+    kv.Remove remove = 3;
+    kv.Replace replace = 4;
+    kv.Upsert upsert = 5;
+    kv.rangescan.Scan range_scan = 7;
+
+    // With Serverless making it increasingly common that we have similar APIs at Cluster, Scope and/or Collection levels,
+    // it's becoming more important to separate them.  GRPC added from now on should go into one of these four.
+    ClusterLevelCommand cluster_command = 17;
+    BucketLevelCommand bucket_command = 18;
+    ScopeLevelCommand scope_command = 19;
+    CollectionLevelCommand collection_command = 20;
+  }
+
+  // Whether the returned CommandResult should contain a full result or just `success`.  Used for performance tests
+  // when the result doesn't matter so the small cost of creating it can be eliminated.
+  // It only affects successful results.  Failure should report the full exception, as that continues to be useful in
+  // performance tests.
+  bool return_result = 6;
+
+  // The API to use to execute this command.
+  protocol.shared.API api = 8;
+}
+
+// The result of executing a single sdk.Command.
+message Result {
+  oneof result {
+    // If the small overhead of creating a full *Result is not required (e.g. for performance testing), can
+    // return this generic success instead.  Controlled by SdkCommand.returnResult.
+    bool success = 1;
+
+    // If the operation failed.
+    protocol.shared.Exception exception = 2;
+
+    // If the SDK return null/none/undefined.
+    // Nb the SDK should very rarely do this!  It is reserved for cases like getOrNull.
+    bool null_result = 21;
+
+    // If the operation succeeded and sdk.Command.returnResult==true, return one of these.
+    kv.GetResult get_result = 3;
+    kv.MutationResult mutation_result = 4;
+    kv.rangescan.ScanResult range_scan_result = 5;
+    kv.ExistsResult exists_result = 16;
+    kv.CounterResult counter_result = 17;
+    kv.GetReplicaResult get_replica_result = 18;
+    kv.mutate_in.MutateInResult mutate_in_result = 19;
+
+    // List of indexes returned by a GetAllIndexes request
+    query.index_manager.QueryIndexes query_indexes = 6;
+
+    // Search results.
+    search.BlockingSearchResult search_blocking_result = 7;
+    search.StreamingSearchResult search_streaming_result = 8;
+    search.index_manager.Result search_index_manager_result = 9;
+
+    //Bucket manager results
+    cluster.bucket_manager.Result bucket_manager_result = 10;
+
+    //Eventing function manager results
+    cluster.eventing_function_manager.Result eventing_function_manager_result = 11;
+
+    //Query results
+    query.QueryResult query_result = 12;
+
+    // LookupIn results
+    kv.lookup_in.LookupInResult lookup_in_result = 13;
+    kv.lookup_in.LookupInAllReplicasResult lookup_in_all_replicas_result = 14;
+    kv.lookup_in.LookupInReplicaResult lookup_in_any_replica_result = 15;
+
+    //Collection manager results
+    bucket.collection_manager.Result collection_manager_result = 20;
+  }
+}
+
+message Workload {
+  // The commands to run.  The performer should execute these in a loop until `bounds` is completed.
+  //
+  // If there are multiple commands, each should register as separate command for the purposes of bounding, and each
+  // should send back one CommandResult.
+  //
+  // For example, if the bounds specifies
+  // to run 10 commands total, and there are 3 Command specified here, the performer should execute the 3 commands
+  // 3 times, and then the first command once more.  And 10 sdk.Results will be sent back.
+  //
+  // If the command fails, the performer should not propagate the failure (but should still send back an sdk.Result).
+  repeated Command command = 1;
+
+  // Controls how the commands should be run.
+  // If it's not present, just run the commands through once.
+  optional protocol.shared.Bounds bounds = 2;
+}
+

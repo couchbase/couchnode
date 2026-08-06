@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+message Scope {
+    string bucket_name = 1;
+    string scope_name = 2;
+}
+
+message Collection {
+    string bucket_name = 1;
+    string scope_name = 2;
+    string collection_name = 3;
+}

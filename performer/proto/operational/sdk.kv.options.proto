@@ -1,0 +1,101 @@
+syntax = "proto3";
+
+package protocol.sdk.kv;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv";
+option java_package = "com.couchbase.client.protocol.sdk.kv";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv";
+option ruby_package = "FIT::Protocol::SDK::KV";
+option java_multiple_files = true;
+
+import "shared.transcoders.proto";
+import "shared.basic.proto";
+
+message InsertOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.DurabilityType durability = 2;
+    optional shared.Expiry expiry = 3;
+    optional shared.Transcoder transcoder = 4;
+    optional string parent_span_id = 5;
+}
+
+message ReplaceOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.DurabilityType durability = 2;
+    optional shared.Expiry expiry = 3;
+    optional bool preserve_expiry = 4;
+    optional int64 cas = 5 [jstype = JS_STRING];
+    optional shared.Transcoder transcoder = 6;
+    optional string parent_span_id = 7;
+}
+
+message UpsertOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.DurabilityType durability = 2;
+    optional shared.Expiry expiry = 3;
+    optional bool preserve_expiry = 4;
+    optional shared.Transcoder transcoder = 5;
+    optional string parent_span_id = 6;
+}
+
+message RemoveOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.DurabilityType durability = 2;
+    optional int64 cas = 3 [jstype = JS_STRING];
+    optional string parent_span_id = 4;
+}
+
+message GetOptions {
+    optional int32 timeout_msecs = 1;
+    optional bool with_expiry = 2;
+    // It's not possible to have 'optional repeated' in GRPC.  If this is empty, don't set the projected option.
+    repeated string projection = 3;
+    optional shared.Transcoder transcoder = 4;
+    optional string parent_span_id = 5;
+}
+
+message GetAndTouchOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Transcoder transcoder = 2;
+    optional string parent_span_id = 3;
+}
+
+message GetAndLockOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Transcoder transcoder = 2;
+    optional string parent_span_id = 3;
+}
+
+message UnlockOptions {
+    optional int32 timeout_msecs = 1;
+    optional string parent_span_id = 3;
+}
+
+message ExistsOptions {
+    optional int32 timeout_msecs = 1;
+    optional string parent_span_id = 2;
+}
+
+message TouchOptions {
+    optional int32 timeout_msecs = 1;
+    optional string parent_span_id = 2;
+}
+
+message GetAllReplicasOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Transcoder transcoder = 2;
+
+    // Will only be sent if support is declared for SDK_ZONE_AWARE_READ_FROM_REPLICA
+    optional shared.ReadPreference read_preference = 3;
+
+    optional string parent_span_id = 4;
+}
+
+message GetAnyReplicaOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Transcoder transcoder = 2;
+
+    // Will only be sent if support is declared for SDK_ZONE_AWARE_READ_FROM_REPLICA
+    optional shared.ReadPreference read_preference = 3;
+
+    optional string parent_span_id = 4;
+}

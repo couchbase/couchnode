@@ -1,0 +1,204 @@
+syntax = "proto3";
+
+// hooks.transactions rather than transactions.hooks, to avoid Go circular imports on SingleQueryTransactionOptions
+package protocol.hooks.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Hooks.Transactions";
+option java_package = "com.couchbase.client.protocol.hooks.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/hooks/transactions";
+option ruby_package = "FIT::Protocol::Hooks::Transactions";
+option java_multiple_files = true;
+
+// Generally the BEFORE_ hook is used to inject an error, e.g. as if the server had returned a failure
+// The AFTER_ hook is used for ambiguity testing.  E.g. the op succeeded but FAIL_AMBIGUOUS was returned.
+enum HookPoint {
+    BEFORE_ATR_COMMIT = 0;
+    AFTER_ATR_COMMIT = 1;
+    BEFORE_DOC_COMMITTED = 2;
+    BEFORE_DOC_ROLLED_BACK = 3;
+    AFTER_DOC_COMMITTED_BEFORE_SAVING_CAS = 4;
+    AFTER_DOC_COMMITTED = 5;
+    BEFORE_DOC_REMOVED = 6;
+    AFTER_DOC_REMOVED_PRE_RETRY = 7;
+    AFTER_DOC_REMOVED_POST_RETRY = 8;
+    AFTER_DOCS_REMOVED = 9;
+    BEFORE_ATR_PENDING = 10;
+    AFTER_ATR_COMPLETE = 11;
+    BEFORE_ATR_ROLLED_BACK = 12;
+    AFTER_GET_COMPLETE = 13;
+    BEFORE_ROLLBACK_DELETE_INSERTED = 15;
+    AFTER_STAGED_REPLACE_COMPLETE = 16;
+    AFTER_STAGED_REMOVE_COMPLETE = 17;
+    BEFORE_STAGED_INSERT = 18;
+    BEFORE_STAGED_REMOVE = 19;
+    BEFORE_STAGED_REPLACE = 20;
+    AFTER_STAGED_INSERT_COMPLETE = 21;
+    BEFORE_GET_ATR_FOR_ABORT = 22;
+    BEFORE_ATR_ABORTED = 23;
+    AFTER_ATR_ABORTED = 24;
+    AFTER_ATR_ROLLED_BACK = 25;
+    AFTER_ROLLBACK_REPLACE_OR_REMOVE = 26;
+    AFTER_ROLLBACK_DELETE_INSERTED = 27;
+    BEFORE_REMOVING_DOC_DURING_STAGING_INSERT = 28;
+    BEFORE_CHECK_ATR_ENTRY_FOR_BLOCKING_DOC = 29;
+    BEFORE_DOC_GET = 30;
+    BEFORE_GET_DOC_IN_EXISTS_DURING_STAGED_INSERT = 31;
+    AFTER_ATR_PENDING = 32;
+    BEFORE_ATR_COMPLETE = 33;
+    BEFORE_ATR_COMMIT_AMBIGUITY_RESOLUTION = 36;
+    BEFORE_QUERY = 37;
+    BEFORE_REMOVE_STAGED_INSERT = 38;
+    AFTER_REMOVE_STAGED_INSERT = 39;
+    AFTER_QUERY = 40;
+    BEFORE_DOC_CHANGED_DURING_COMMIT = 41;
+    // The BEFORE_UNLOCK_ hooks are deprecated, removed from ExtThreadSafety, and FIT will not send them.  Performers
+    // do not need to implement them, and can remove them.
+    BEFORE_UNLOCK_GET = 42;
+    BEFORE_UNLOCK_INSERT = 43;
+    BEFORE_UNLOCK_REPLACE = 44;
+    BEFORE_UNLOCK_REMOVE = 45;
+    BEFORE_UNLOCK_QUERY = 46;
+    BEFORE_DOC_CHANGED_DURING_ROLLBACK = 47;
+    BEFORE_DOC_CHANGED_DURING_STAGING = 48;
+
+    // Injects that the transaction has expired at a certain point
+    // Does not take a HookAction
+    // hookConditionParam2 determines the hook point
+    HAS_EXPIRED = 34;
+
+    // Overrides the ATR id chosen for a given vbucket
+    ATR_ID_FOR_VBUCKET = 35;
+
+    // Cleanup hooks
+    CLEANUP_BEFORE_COMMIT_DOC = 101;
+    CLEANUP_BEFORE_REMOVE_DOC_STAGED_FOR_REMOVAL = 102;
+    CLEANUP_BEFORE_DOC_GET = 103;
+    CLEANUP_BEFORE_REMOVE_DOC = 104;
+    CLEANUP_BEFORE_REMOVE_DOC_LINKS = 105;
+    CLEANUP_BEFORE_ATR_REMOVE = 106;
+
+    CLEANUP_MARKER_LAST = 199;
+
+    // Client record hooks
+    CLIENT_RECORD_BEFORE_UPDATE_CAS = 201;   // No longer exists as of TXNJ-274
+    CLIENT_RECORD_BEFORE_CREATE = 202;
+    CLIENT_RECORD_BEFORE_GET = 203;
+    CLIENT_RECORD_BEFORE_UPDATE = 204;
+    CLIENT_RECORD_BEFORE_REMOVE_CLIENT = 205;
+
+    CLIENT_RECORD_MARKER_LAST = 299;
+}
+
+enum HookCondition {
+    ALWAYS = 0;
+
+    // Tracks each call to the hook, and triggers it on a particular run.
+    // Set which run with hookConditionParam1.
+    // Call count is 1-based indexing.
+    ON_CALL = 1;
+
+    // Use is HookPoint specific, but generally it's whether some variable
+    // equals hookConditionParam1 or hookConditionParam2
+    EQUALS = 2;
+
+    // Use is HookPoint specific, and only used for HookPoint HAS_EXPIRED, which needs to check whether both
+    // docId==hookConditionParam2 and hookStage==hookConditionParam3
+    EQUALS_BOTH = 3;
+
+    // Combines ON_CALL and EQUALS.
+    // Note that this tracks how many calls have been made to this hook _using a given param_.
+    ON_CALL_AND_EQUALS = 4;
+
+    // Similar to ON_CALL but triggers for all attempts less than or equal to hookConditionParam1 (1-indexed)
+    ON_CALL_LE = 5;
+
+    // Similar to ON_CALL but triggers for all attempts greater than or equal to hookConditionParam1 (1-indexed)
+    ON_CALL_GE = 6;
+
+    // Executes the hook as long as the transaction has not expired.
+    WHILE_NOT_EXPIRED = 7;
+
+    // Executes the hook while the transaction is expired.
+    WHILE_EXPIRED = 8;
+}
+
+enum HookAction {
+    // Fail the transaction immediately, make no attempt to roll it back, app gets TransactionFailed exception
+    // Txn will be left in whatever state it reached.  This is not a real-world exception that would ever be
+    // voluntarily raised in the transaction library.  It is designed to simulate an application hard crashing, or
+    // similar.
+    // In the real-world these should be fairly rare cases, so this shouldn't be the first error class reached for
+    // by a test, but it is important to check them.
+    FAIL_HARD = 0;
+
+    // This simulates any exception that doesn't fall into one of the other FAIL_ categories.
+    FAIL_OTHER = 1;
+
+    // Simulates a failure that is likely to be transient, such as a SDK returning an unambiguous TimeoutException as
+    // server repeatedly returning a TEMP_FAIL
+    FAIL_TRANSIENT = 2;
+
+    // Inject an error indicating that operation was ambiguously successful.
+    // Some real-world examples that would cause this:
+    // Server returning ERR_AMBIG durable write error
+    // SDK returning an ambiguous TimeoutException, e.g. the server did not respond on a mutation
+    FAIL_AMBIGUOUS = 3;
+
+    // Inject an error that the doc already existed.
+    FAIL_DOC_ALREADY_EXISTS = 4;
+
+    // Inject an error that the doc was not found.
+    FAIL_DOC_NOT_FOUND = 5;
+
+    // Inject an error that the path already exists.
+    FAIL_PATH_ALREADY_EXISTS = 10;
+
+    // Inject an error that the path was not found.
+    FAIL_PATH_NOT_FOUND = 6;
+
+    // Inject an error that there was a CAS mismatch..
+    FAIL_CAS_MISMATCH = 7;
+
+    FAIL_WRITE_WRITE_CONFLICT = 8;
+
+    FAIL_ATR_FULL = 9;
+
+    // Mutate the doc using a regular KV SET.
+    // hookActionParam1 - the doc's id is sent in hookActionParam1, in format
+    //                    "bucket-name/collection-name/doc-id". e.g.
+    //                    "my-bucket/_default/some-doc-id"
+    // hookActionParam2 - the JSON to write
+    MUTATE_DOC = 20;
+
+    // Remove the doc using a regular KV op.
+    // hookActionParam1 - the doc's id is sent in hookActionParam1, in format
+    //                    "bucket-name/collection-name/doc-id". e.g.
+    //                    "my-bucket/_default/some-doc-id"
+    REMOVE_DOC = 21;
+
+    // Just return value in hookActionParam1
+    RETURN_STRING = 22;
+
+    // Add a blocking wait.  The wait is hookActionParam1, converted to an int, in millis.
+    BLOCK = 23;
+}
+
+// Hooks allow injecting actions at specific points of the code.  Useful for error injection.
+message Hook {
+    // At which point in the code should the hook execute
+    HookPoint hook_point = 1;
+
+    // What conditions activate the hook
+    HookCondition hook_condition = 2;
+    int32 hook_condition_param1 = 3;
+    string hook_condition_param2 = 4;
+    // Only used for EQUALS_BOTH
+    string hook_condition_param3 = 5;
+
+    // What should the hook do
+    HookAction hook_action = 6;
+
+    // Parameterise the hook's action - see HookAction for how these apply
+    string hook_action_param1 = 7;
+    string hook_action_param2 = 8;
+}
+

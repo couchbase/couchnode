@@ -1,0 +1,48 @@
+{
+  "name": "node_performer",
+  "version": "1.0.0",
+  "main": "src/build/performer.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node src/build/performer.js",
+    "lint": "eslint .",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "check-deps": "ncu"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "~1.13.3",
+    "@opentelemetry/api": "^1.9.0",
+    "@opentelemetry/exporter-metrics-otlp-grpc": "^0.219.0",
+    "@opentelemetry/exporter-metrics-otlp-http": "^0.219.0",
+    "@opentelemetry/exporter-trace-otlp-grpc": "^0.219.0",
+    "@opentelemetry/resources": "^2.8.0",
+    "@opentelemetry/sdk-metrics": "^2.8.0",
+    "@opentelemetry/sdk-node": "^0.219.0",
+    "@opentelemetry/sdk-trace-node": "^2.8.0",
+    "couchbase": "file:..",
+    "google-protobuf": "^3.21.4",
+    "uuid": "^11.1.1"
+  },
+  "author": "Matt Wozakowski",
+  "license": "MIT",
+  "description": "FIT performer for the Couchbase Node.js SDK.",
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "@types/google-protobuf": "^3.15.12",
+    "@typescript-eslint/eslint-plugin": "^8.19.1",
+    "@typescript-eslint/parser": "^8.19.1",
+    "eslint": "^9.17.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "grpc_tools_node_protoc_ts": "^5.3.3",
+    "grpc-tools": "~1.13.0",
+    "npm-check-updates": "^18.0.0",
+    "typescript-eslint": "^8.19.1"
+  },
+  "overrides": {
+    "@grpc/grpc-js": "$@grpc/grpc-js",
+    "grpc_tools_node_protoc_ts": {
+      "handlebars": "^4.7.9"
+    }
+  }
+}

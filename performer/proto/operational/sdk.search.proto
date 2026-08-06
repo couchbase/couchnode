@@ -1,0 +1,489 @@
+syntax = "proto3";
+
+package protocol.sdk.search;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Search";
+option java_package = "com.couchbase.client.protocol.sdk.search";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/search";
+option java_multiple_files = true;
+option ruby_package = "FIT::Protocol::SDK::Search";
+
+import "shared.content.proto";
+import "shared.basic.proto";
+import "google/protobuf/timestamp.proto";
+import "streams.top_level.proto";
+import "shared.transcoders.proto";
+
+// Executing either a `cluster.search()` or `scope.search()` FTS query.
+// This is the new API, replacing `cluster.searchQuery()`, that also supports vector search.
+//
+// The performer can return one of these 3:
+//
+// 1. An protocol.sdk.Result.exception, if the `cluster/scope.search()` call immediately fails.
+//
+// 2. A BlockingSearchResult, but only if that's genuinely the most natural representation.  For example, the Java SDK's
+//    blocking API would return this.  The performer should not select this just because it's easier to
+//    implement than the stream!  Supporting streams allows more sophisticated FIT tests to be performed.
+//    Most SDK APIs have streaming responses and should instead use:
+//
+// 3. A stream.  This consists of streaming back:
+//       3.1 A streams.Created, with type STREAM_FULL_TEXT_SEARCH.
+//       3.2 Zero+ StreamingSearchResults, which contain the FTS rows, facets and metadata.
+//       3.3 A streams.Complete.
+//    And as usual the performer should handle requests for more items, stream cancellation requests, and
+//    look at stream_config for details of how to stream.
+//    See streams.top_level.proto for details.
+//    If any error occurs on the stream (as opposed to from the initial cluster/scope.search() call)
+//    as usual return a streams.Error.
+//    Note the same types are used as for `cluster/scope.searchQuery()`, reflecting the API.
+message SearchWrapper {
+  // Represents the SDK search.
+  SearchV2 search = 1;
+
+  // Specifies how the performer should convert SearchRow.fields.  If not present, the performer should not do result.fieldsAs().
+  optional protocol.shared.ContentAs fields_as = 2;
+
+  // Specifies how the performer should handle any streaming.
+  // Can be ignored if the performer is returning a BlockingSearchResult rather than a stream.
+  streams.Config stream_config = 3;
+}
+
+// Note that "V2" naming should not be used anywhere in the SDK itself for this feature.  It's purely to workaround
+// having an existing "Search" wrapper message in the GRPC.
+message SearchV2 {
+  string indexName = 1;
+  SearchRequest request = 2;
+  optional SearchOptions options = 3;
+}
+
+// At least one of these will usually be specified.  If both are not specified, the SDK should simulate the user
+// not providing either - e.g. providing null or similar for both.
+message SearchRequest {
+  optional SearchQuery search_query = 1;
+  optional VectorSearch vector_search = 2;
+}
+
+message VectorQuery {
+  repeated float vector_query = 1;
+  string vector_field_name = 2;
+  optional VectorQueryOptions options = 3;
+  optional string base64_vector_query = 4;
+}
+
+message VectorQueryOptions {
+  optional int32 num_candidates = 1;
+  optional float boost = 2;
+  optional SearchQuery prefilter = 3;
+}
+
+message VectorSearch {
+  repeated VectorQuery vector_query = 1;
+  optional VectorSearchOptions options = 2;
+}
+
+message VectorSearchOptions {
+  optional VectorQueryCombination vector_query_combination = 1;
+}
+
+enum VectorQueryCombination {
+  AND = 0;
+  OR = 1;
+}
+
+
+// Executing a `cluster.searchQuery()` FTS query.
+//
+// The performer can return either:
+//
+// 1. An protocol.sdk.Result.exception, if the `cluster/scope.searchQuery()` call immediately fails.
+//
+// 2. A BlockingSearchResult, iff that's the most natural representation.  For example, the Java SDK's
+//    blocking API would return this.  The performer should not select this just because it's easier to
+//    implement than the stream!
+//    Most SDK APIs have streaming responses and should instead use:
+//
+// 3. A stream.  This consists of streaming back:
+//       3.1 A streams.Created, with type STREAM_FULL_TEXT_SEARCH.
+//       3.2 Zero+ StreamingSearchResults, which contain the FTS rows, facets and metadata.
+//       3.3 A streams.Complete.
+//    And as usual the performer should handle requests for more items, stream cancellation requests, and
+//    look at stream_config for details of how to stream.
+//    See streams.top_level.proto for details.
+//    If any error occurs on the stream (as opposed to from the initial cluster.search() call)
+//    as usual return a streams.Error.
+message Search {
+  string indexName = 1;
+  SearchQuery query = 2;
+  optional SearchOptions options = 3;
+
+  // Controls how SearchRow.fields should be converted.  Only applied if a BlockingSearchResult is being returned.
+  // If not present, the performer should not do result.fieldsAs().
+  optional protocol.shared.ContentAs fields_as = 4;
+
+  // Not sent on to the SDK - instead specifies how the performer should handle any streaming.
+  // Can be ignored if the performer is choosing to return a BlockingSearchResult rather than a stream.
+  streams.Config stream_config = 5;
+}
+
+message SearchFragments {
+  repeated string fragments = 1;
+}
+
+message SearchRowLocation {
+  string field = 1;
+  string term = 2;
+  uint32 position = 3;
+  uint32 start = 4;
+  uint32 end = 5;
+  repeated uint32 array_positions = 6;
+}
+
+message SearchRow {
+  string index = 1;
+  string id = 2;
+  double score = 3;
+  bytes explanation = 4;
+  // The result of calling result.locations.getAll().
+  // If result.locations is missing, return nothing here.
+  repeated SearchRowLocation locations = 5;
+  map<string, SearchFragments> fragments = 6;
+  shared.ContentTypes fields = 7;
+}
+
+message SearchMetrics {
+  int64 took_msec = 1;
+  int64 total_rows = 2;
+  double max_score = 3;
+  int64 total_partition_count = 4;
+  int64 success_partition_count = 5;
+  int64 error_partition_count = 6;
+}
+
+message SearchMetaData {
+  SearchMetrics metrics = 1;
+  map<string, string> errors = 2;
+}
+
+message SearchFacetResult {
+  string name = 1;
+  string field = 2;
+  uint64 total = 3;
+  uint64 missing = 4;
+  uint64 other = 5;
+}
+
+message SearchFacets {
+  map<string, SearchFacetResult> facets = 1;
+}
+
+message BlockingSearchResult {
+  repeated SearchRow rows = 1;
+  SearchFacets facets = 2;
+  SearchMetaData meta_data = 3;
+}
+
+message StreamingSearchResult {
+  // Not part of the SDK response - identifies what stream this is from.
+  string stream_id = 1;
+
+  oneof result {
+    // Driver expects to see 0+ of these of stream.
+    SearchRow row = 2;
+    // Driver expects to see 0 or 1 of these, after all rows.
+    SearchFacets facets = 3;
+    // Driver expects to see exactly 1 of these, after all rows and facets.  (Unless the stream errors.)
+    SearchMetaData meta_data = 4;
+  }
+}
+
+enum HighlightStyle {
+  HIGHLIGHT_STYLE_HTML = 0;
+  HIGHLIGHT_STYLE_ANSI = 2;
+}
+
+message Highlight {
+  optional HighlightStyle style = 1;
+  // There is no `optional repeated`, so if this field is empty, regard it as not provided.
+  // E.g. we cannot test providing sending an empty list of fields into the SDK.
+  repeated string fields = 2;
+}
+
+enum SearchScanConsistency {
+  SEARCH_SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+}
+
+message SearchSortScore {
+  optional bool desc = 1;
+}
+
+message SearchSortId {
+  optional bool desc = 1;
+}
+
+message SearchSortField {
+  optional bool desc = 1;
+  string field = 2;
+  // possible values are "auto", "string", "number", "date"
+  optional string type = 3;
+  // possible values are "default", "min", "max"
+  optional string mode = 4;
+  // possible values are "first", "last"
+  optional string missing = 5;
+}
+
+enum SearchGeoDistanceUnits {
+  SEARCH_GEO_DISTANCE_UNITS_METERS = 0;
+  SEARCH_GEO_DISTANCE_UNITS_MILES = 1;
+  SEARCH_GEO_DISTANCE_UNITS_CENTIMETERS = 2;
+  SEARCH_GEO_DISTANCE_UNITS_MILLIMETERS = 3;
+  SEARCH_GEO_DISTANCE_UNITS_NAUTICAL_MILES = 4;
+  SEARCH_GEO_DISTANCE_UNITS_KILOMETERS = 5;
+  SEARCH_GEO_DISTANCE_UNITS_FEET = 6;
+  SEARCH_GEO_DISTANCE_UNITS_YARDS = 7;
+  SEARCH_GEO_DISTANCE_UNITS_INCHES = 8;
+}
+
+message Location {
+  float lon = 3;
+  float lat = 4;
+}
+
+message SearchSortGeoDistance {
+  optional bool desc = 1;
+  string field = 2;
+  Location location = 3;
+  optional SearchGeoDistanceUnits unit = 4;
+}
+
+message SearchSort {
+  oneof sort {
+    SearchSortScore score = 1;
+    SearchSortId id = 2;
+    SearchSortField field = 3;
+    SearchSortGeoDistance geo_distance = 4;
+    string raw = 5;
+  }
+}
+
+message TermFacet {
+  string field = 1;
+  optional uint32 size = 2;
+}
+
+message NumericRange {
+  string name = 1;
+  optional float min = 2;
+  optional float max = 3;
+}
+
+message NumericRangeFacet {
+  string field = 1;
+  optional uint32 size = 2;
+  repeated NumericRange numeric_ranges = 3;
+}
+
+message DateRange {
+  string name = 1;
+  optional google.protobuf.Timestamp start = 2;
+  optional google.protobuf.Timestamp end = 3;
+}
+
+message DateRangeFacet {
+  string field = 1;
+  optional uint32 size = 2;
+  repeated DateRange date_ranges = 3;
+}
+
+message SearchFacet {
+  oneof facet {
+    TermFacet term = 1;
+    NumericRangeFacet numeric_range = 2;
+    DateRangeFacet date_range = 3;
+  }
+}
+
+message SearchOptions {
+  optional uint32 limit = 1;
+  optional uint32 skip = 2;
+  optional bool explain = 3;
+  optional Highlight highlight = 4;
+  // There is no `optional repeated`, so if this field is empty, regard it as not provided.
+  repeated string fields = 5;
+  optional SearchScanConsistency scan_consistency = 6;
+  optional protocol.shared.MutationState consistent_with = 7;
+  // There is no `optional repeated`, so if this field is empty, regard it as not provided.
+  repeated SearchSort sort = 8;
+  // There is no `optional map`, so if this field is empty, regard it as not provided.
+  map<string, SearchFacet> facets = 9;
+  optional int64 timeout_millis = 10;
+  optional string parent_span_id = 11;
+  map<string, string> raw = 12;
+  optional bool include_locations = 13;
+  optional protocol.shared.JsonSerializer serialize = 14;
+}
+
+enum MatchOperator {
+  SEARCH_MATCH_OPERATOR_OR = 0;
+  SEARCH_MATCH_OPERATOR_AND = 1;
+}
+
+message MatchQuery {
+  string match = 1;
+  optional string field = 2;
+  optional string analyzer = 3;
+  optional uint32 prefix_length = 4;
+  optional uint32 fuzziness = 5;
+  optional float boost = 6;
+  optional MatchOperator operator = 7;
+}
+
+message MatchPhraseQuery {
+  string match_phrase = 1;
+  optional string field = 2;
+  optional string analyzer = 3;
+  optional float boost = 4;
+}
+
+message RegexpQuery {
+  string regexp = 1;
+  optional string field = 2;
+  optional float boost = 3;
+}
+
+message QueryStringQuery {
+  string query = 1;
+  optional float boost = 2;
+}
+
+message WildcardQuery {
+  string wildcard = 1;
+  optional string field = 2;
+  optional float boost = 3;
+}
+
+message DocIdQuery {
+  repeated string ids = 1;
+  optional float boost = 2;
+}
+
+message BooleanFieldQuery {
+  bool bool = 1;
+  optional string field = 2;
+  optional float boost = 3;
+}
+
+message DateRangeQuery {
+  optional string start = 1;
+  optional bool inclusive_start = 2;
+  optional string end = 3;
+  optional bool inclusive_end = 4;
+  optional string datetime_parser = 5;
+  optional string field = 6;
+  optional float boost = 7;
+}
+
+message NumericRangeQuery {
+  optional float min = 1;
+  optional bool inclusive_min = 2;
+  optional float max = 3;
+  optional bool inclusive_max = 4;
+  optional string field = 5;
+  optional float boost = 6;
+}
+
+message TermRangeQuery {
+  optional string min = 1;
+  optional bool inclusive_min = 2;
+  optional string max = 3;
+  optional bool inclusive_max = 4;
+  optional string field = 5;
+  optional float boost = 6;
+}
+
+message GeoDistanceQuery {
+  Location location = 1;
+  string distance = 2;
+  optional string field = 3;
+  optional float boost = 4;
+}
+
+message GeoBoundingBoxQuery {
+  Location top_left = 1;
+  Location bottom_right = 2;
+  optional string field = 3;
+  optional float boost = 4;
+}
+
+message ConjunctionQuery {
+  repeated SearchQuery conjuncts = 1;
+  optional float boost = 2;
+}
+
+message DisjunctionQuery {
+  repeated SearchQuery disjuncts = 1;
+  optional uint32 min = 2;
+  optional float boost = 3;
+}
+
+message BooleanQuery {
+  // Note these are all guaranteed to be ConjunctionQuerys.  SearchQuery is sent
+  // instead as it makes it much easier to write recursive handling code in the performer.
+  repeated SearchQuery must = 1;
+  // All guaranteed to be DisjunctionQuerys.
+  repeated SearchQuery should = 2;
+  optional uint32 should_min = 3;
+  // All guaranteed to be DisjunctionQuerys.
+  repeated SearchQuery must_not = 4;
+  optional float boost = 5;
+}
+
+message TermQuery {
+  string term = 1;
+  optional string field = 2;
+  optional uint32 fuzziness = 3;
+  optional uint32 prefix_length = 4;
+  optional float boost = 5;
+}
+
+message PrefixQuery {
+  string prefix = 1;
+  optional string field = 2;
+  optional float boost = 3;
+}
+
+message PhraseQuery {
+  repeated string terms = 1;
+  optional string field = 2;
+  optional float boost = 3;
+}
+
+message MatchAllQuery {
+}
+
+message MatchNoneQuery {
+}
+
+message SearchQuery {
+  oneof query {
+    MatchQuery match = 1;
+    MatchPhraseQuery match_phrase = 2;
+    RegexpQuery regexp = 3;
+    QueryStringQuery query_string = 4;
+    WildcardQuery wildcard = 5;
+    DocIdQuery doc_id = 6;
+    // Cannot be named boolean_field as it causes issues in generated code for at least Java
+    BooleanFieldQuery search_boolean_field = 7;
+    DateRangeQuery date_range = 8;
+    NumericRangeQuery numeric_range = 9;
+    TermRangeQuery term_range = 20;
+    GeoDistanceQuery geo_distance = 10;
+    GeoBoundingBoxQuery geo_bounding_box = 11;
+    ConjunctionQuery conjunction = 12;
+    DisjunctionQuery disjunction = 13;
+    BooleanQuery boolean = 14;
+    TermQuery term = 15;
+    PrefixQuery prefix = 16;
+    PhraseQuery phrase = 17;
+    MatchAllQuery match_all = 18;
+    MatchNoneQuery match_none = 19;
+  }
+}

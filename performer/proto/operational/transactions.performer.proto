@@ -1,0 +1,262 @@
+syntax = "proto3";
+
+package protocol.transactions;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Transactions";
+option java_package = "com.couchbase.client.protocol.transactions";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/transactions";
+option ruby_package = "FIT::Protocol::Transactions";
+option java_multiple_files = true;
+
+import "transactions.commands.proto";
+import "hooks.transactions.proto";
+import "transactions.options.proto";
+import "transactions.legacy.proto";
+import "shared.latch.proto";
+import "shared.basic.proto";
+import "shared.collection.proto";
+import "sdk.query.proto";
+import "shared.transaction_config.proto";
+
+
+message TransactionStartRequest {
+}
+
+message TransactionStreamDriverToPerformer {
+    oneof request {
+        // This will setup a TwoWayTransaction but not start it.
+        // Must only be one of these per stream..
+        TransactionCreateRequest create = 1;
+
+        // Starts a previously setup TwoWayTransaction
+        // Only one of these will be sent per stream, and it will be after the TransactionCreateRequest.
+        TransactionStartRequest start = 2;
+
+        // A request broadcast from another TwoWayTransaction, that is being broadcast to the rest via the driver.
+        BroadcastToOtherConcurrentTransactionsRequest broadcast = 3;
+    }
+}
+
+// This will be propagated to other concurrent transactions, e.g. it can be used for
+//  gating and communicating between concurrent transactions
+message BroadcastToOtherConcurrentTransactionsRequest {
+    oneof request {
+        // Countdown a latch
+        CommandSetLatch latch_set = 2;
+    }
+}
+
+message TransactionCreated {
+}
+
+message TransactionStreamPerformerToDriver {
+    oneof response {
+        // The transaction is completed, and the stream is done
+        TransactionResult final_result = 1;
+
+        // The transaction has been created e.g. as result of a TransactionCreateRequest, and is now ready
+        // to start e.g. a TransactionStartRequest
+        TransactionCreated created = 2;
+
+        BroadcastToOtherConcurrentTransactionsRequest broadcast = 3;
+    }
+}
+
+message TransactionCreateResponse {
+    string transaction_ref = 1;
+}
+
+message TransactionGenericResponse {
+}
+
+// The result of closing a transaction: whether the transaction succeeded, its logs,
+// any exception thrown...
+message TransactionResult {
+    // With CBD-3802 this is now only checked for the Java performer, other implementations should not provide this.
+    // It will eventually be removed.
+    repeated shared.MutationToken mutation_tokens = 1 [ deprecated = true ];
+
+    // Next three fields are all now deprecated.  They are no longer used by FIT and performers do not need to return them.
+    // They will eventually be removed.
+    repeated TransactionAttempt attempts = 2 [ deprecated = true ];
+    string atrCollection = 3 [ deprecated = true ];
+    string atrId = 4 [ deprecated = true ];
+
+    // Any TransactionFailed error raised by the operation.
+    TransactionException exception = 5;
+
+    // The cause field from any TransactionFailed error.
+    ExternalException exception_cause = 10;
+
+    // The implementation's in-memory log.  It's optional but helps greatly with debugging.
+    repeated string log = 6;
+
+    string transaction_id = 7;
+
+    // How many attempts need to be cleaned up, as a direct result of this transaction.
+    // This field is only valid if cleanupClientAttempts was set (transactions will not queue a cleanup attempt if
+    // there is nothing to handle it)
+    int32 cleanup_requests_pending = 8;
+
+    // Whether the cleanupRequestsPending field is valid, e.g. whether it can be checked
+    bool cleanup_requests_valid = 9;
+
+    bool unstaging_complete = 11;
+
+    // Allows the performer to flag implementation/platform-specific validation failures that cannot be handled generically.
+    // E.g. if an erroneous event is detected it can be returned here.
+    // If present, the driver will fail the test, logging this message.
+    optional string performer_specific_validation = 12;
+
+    // As of ExtSDKIntegration, this is deprecated, and the performer no longer needs to return it - it will be ignored.
+    // It's somewhat unclear why it was here in the first place.  Appears to be used for creating a TransactionCleanupRequest,
+    // but that can use any clusterConnectionId, including the default.
+    string cluster_connection_id = 13 [ deprecated = true ];
+}
+
+// Initiates a single transaction.
+message TransactionCreateRequest {
+    // Non-ExtSDKIntegration: A reference to a previously constructed Transactions object (e.g. factory).
+    // ExtSDKIntegration: ignore this (it will not be sent), and just use `clusterConnectionId` to get `cluster.transactions()`.
+    optional string transactions_factory_ref = 1;
+
+    // A transaction can consist of multiple attempts.  Usually we want each attempt to do the same thing,
+    // but there are a handful of tests where we need more complex logic and need to do different things
+    // on different attempts.
+    // If the transaction does more attempts than are in this field, the commands in the last attempt are
+    // what will be repeated.
+    repeated TransactionAttemptRequest attempts = 2;
+
+    optional TransactionOptions options = 3;
+
+    // Any latches that the transaction should create.
+    repeated shared.Latch latches = 4;
+
+    // Just for debugging, name the test
+    string name = 5;
+
+    // Instead of the performer returning any raised events, the driver specifies which are expected, or explicitly
+    // not expected.
+    // Event buses can be asynchronous so this prevents the performer having to wait for an unknown amount of
+    // time on each test.
+    // Also, each implementation handles events differently - some use an event bus, some simply log.  So this allows
+    // the performer to also check as appropriate.
+    // For expectedAbsenceOfEvents, the performer should pick an appropriate amount of time to wait for events before
+    // deciding an event will definitely not arrive.
+    repeated Event expected_events = 6;
+    repeated Event expected_absence_of_events = 9;
+
+    // Instead of the performer returning any raised events, the driver specifies which are explicitly not expected.
+    // Event buses can be asynchronous so this prevents the performer having to wait for an unknown amount of
+    // time on each test.
+
+    // Used for ExtSDKIntegration to create the transaction, and both in that and in non-ExtSDKIntegration to access
+    // collections for KV operations.
+    string cluster_connection_id = 7;
+
+    // The API to use for this transaction.  See the comments for `API`.
+    shared.API api = 8;
+}
+
+message TransactionAttemptRequest {
+    repeated TransactionCommand commands = 1;
+}
+
+// Runs a single query transaction (tximplicit).
+// ExtSDKIntegration:     cluster.query()
+// Non-ExtSDKIntegration: transactions.query()
+message TransactionSingleQueryRequest {
+    // A reference to a previously constructed Transactions object (e.g. factory).
+    // Not sent to ExtSDKIntegration performers.
+    optional string transactions_factory_ref = 1;
+
+    // A reference to a previously constructed cluster connection.
+    // Will always be sent, but is only used by ExtSDKIntegration performers.
+    string cluster_connection_id = 2;
+
+    // The query to run
+    CommandQuery query = 3;
+
+    // Config needs handling differently in the performer based on ExtSDKIntegration or not.  The structure of these
+    // messages is based around how things work in ExtSDKIntegration, and need some finangling for non-ExtSDKIntegration
+    // performers.
+    //
+    // ExtSDKIntegration:
+    // - The user calls `(cluster|scope).query(String, queryOptions().asTransaction([SingleQueryTransactionOptions]))`.
+    // - Everything in GRPC QueryOptions should be passed to an SDK QueryOptions.
+    // - The nested GRPC SingleQueryTransactionOptions should be passed as the SDK SingleQueryTransactionOptions block on
+    //   QueryOptions.asTransaction(), if it is present.  Otherwise call QueryOptions.asTransaction() with no args.
+    //
+    // Non-ExtSDKIntegration:
+    // - The user calls `transactions().query([Scope], String, [SingleQueryTransactionConfig])`
+    // - SDK SingleQueryTransactionConfig contains an SDK TransactionQueryOptions.  This should be populated from GRPC QueryOptions.
+    // -- If no GRPC QueryOptions settings are specified, no SDK TransactionQueryOptions should be created.
+    // -- The GRPC QueryOptions.timeout() field must be applied at the SDK SingleQueryTransactionConfig level instead.
+    // - SDK SingleQueryTransactionConfig is populated from GRPC QueryOptions.SingleQueryTransactionOptions.
+    // - GRPC SingleQueryTransactionOptions.metadataCollection can be ignored.  That was added in ExtSDKIntegration.
+    optional sdk.query.QueryOptions query_options = 4;
+
+    // The API to use for this transaction.  See the comments for `API`.
+    shared.API api = 8;
+}
+
+message TransactionSingleQueryResponse {
+    // Deprecated as this was from the initial version of ExtSingleQuery, pre SDK-integration.
+    // The replacement fields below are compatible with the SDK integration, when only a QueryResult (or
+    // TransactionFailed-derived error) is going to be returned to the user.
+    // If `result` is returned then FIT will validate that, else it will use the replacement fields.
+    TransactionResult result = 1 [ deprecated = true ];
+
+    // The fields below replace the deprecated `result`, which will ultimately be removed.
+
+    // Any TransactionFailed error raised by the operation, at the point of performing the cluster.query()/transactions.query()
+    // If it threw a non-TransactionFailed exception, return EXCEPTION_UNKNOWN
+    TransactionException exception = 2;
+
+    // If `exception` is EXCEPTION_UNKNOWN, then this is the exception raised at the point of performing the cluster.query()/transactions.query().
+    //    e.g. this is how non-TransactionFailed errors are indicated.
+    // Otherwise, it's the cause field of the TransactionFailed.
+    ExternalException exception_cause = 3;
+
+    // Any TransactionFailed error raised by the operation, at the point of streaming the rows.
+    TransactionException exception_during_streaming = 4;
+
+    // If `exceptionDuringStreaming` is NO_EXCEPTION_THROWN, then this is the exception raised while streaming the rows.
+    //    e.g. this is how non-TransactionFailed errors are indicated.
+    // Otherwise, it's the cause field of the TransactionFailed.
+    ExternalException exception_cause_during_streaming = 5;
+
+    // The implementation's in-memory log.  It's optional (and not possible to return when the SDK integrated cluster.query()
+    // succeeds), but helps greatly with debugging on failures.
+    repeated string log = 6;
+
+    // Allows the performer to flag implementation/platform-specific validation failures that cannot be handled generically.
+    // E.g. if an erroneous event is detected it can be returned here.
+    // If present, the driver will fail the test, logging this message.
+    optional string performer_specific_validation = 7;
+}
+
+// Creates a Transactions object, e.g. a transactions factory
+message TransactionsFactoryCreateRequest {
+    // The following fields are deprecated and replaced by the `config` field (which allows optional fields)
+    // They will still be sent by FIT, but performers should remove them while implementing the breaking change for
+    // ExtSDKIntegration
+    shared.Durability durability = 1 [ deprecated = true ];
+    int32 expiration_millis = 2 [ deprecated = true ];
+    bool cleanup_lost_attempts = 4 [ deprecated = true ];
+    bool cleanup_client_attempts = 5 [ deprecated = true ];
+    int64 cleanup_window_millis = 6 [ deprecated = true ];
+    UnstagingMode unstaging_mode = 7 [ deprecated = true ];
+    shared.Collection metadata_collection = 8 [ deprecated = true ];
+    // Any hooks can only use HookPoints before the CLEANUP_* range
+    repeated hooks.transactions.Hook hook = 3 [ deprecated = true ];
+
+    // The Cluster to use for `Transactions.create()`
+    string cluster_connection_id = 9;
+
+    optional shared.TransactionsConfig config = 10;
+}
+
+// Shuts down a previously created Transactions (factory)
+message TransactionsFactoryCloseRequest {
+    string transactions_factory_ref = 1;
+}

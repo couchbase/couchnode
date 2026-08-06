@@ -1,0 +1,97 @@
+syntax = "proto3";
+
+package protocol.sdk.query;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Query";
+option java_package = "com.couchbase.client.protocol.sdk.query";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/query";
+option ruby_package = "FIT::Protocol::SDK::Query";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+import "hooks.transactions.proto";
+import "google/protobuf/duration.proto";
+import "shared.content.proto";
+
+message Command {
+    string statement = 1;
+    optional sdk.query.QueryOptions options = 2;
+    shared.ContentAs content_as = 3;
+}
+
+message QueryResult {
+    repeated shared.ContentTypes content = 1;
+    QueryMetaData meta_data = 2;
+}
+
+message QueryMetaData {
+    string request_id = 1;
+    string client_context_id = 2;
+    QueryStatus status = 3;
+    optional bytes signature = 4;
+    repeated QueryWarning warnings = 5;
+    optional QueryMetrics metrics = 6;
+    optional bytes profile = 7;
+}
+
+enum QueryStatus {
+    RUNNING = 0;
+    SUCCESS = 1;
+    ERRORS = 2;
+    COMPLETED = 3;
+    STOPPED = 4;
+    TIMEOUT = 5;
+    CLOSED = 6;
+    FATAL = 7;
+    ABORTED = 8;
+    UNKNOWN = 9;
+}
+
+message QueryWarning {
+    int32 code = 1;
+    string message = 2;
+}
+
+message QueryMetrics {
+    google.protobuf.Duration elapsed_time = 1;
+    google.protobuf.Duration execution_time = 2;
+    uint64 sort_count = 3;
+    uint64 result_count = 4;
+    uint64 result_size = 5;
+    uint64 mutation_count = 6;
+    uint64 error_count = 7;
+    uint64 warning_count = 8;
+}
+
+message QueryOptions {
+    optional shared.ScanConsistency scan_consistency = 1;
+    map< string, string > raw = 2;
+    optional bool adhoc = 3;
+    // "off", "phases", or "timings"
+    optional string profile = 4;
+    optional bool readonly = 5;
+    repeated string parameters_positional = 6;
+    map< string, string > parameters_named = 7;
+    optional bool flex_index = 8;
+    optional int32 pipeline_cap = 9;
+    optional int32 pipeline_batch = 10;
+    optional int32 scan_cap = 11;
+    optional int32 scan_wait_millis = 12;
+    optional int64 timeout_millis = 13;
+    optional int32 max_parallelism = 14;
+    optional bool metrics = 15;
+    optional SingleQueryTransactionOptions single_query_transaction_options = 16;
+    optional string parent_span_id = 17;
+
+    optional bool use_replica = 18;
+    optional string client_context_id = 19;
+    optional shared.MutationState consistent_with = 20;
+    optional bool preserve_expiry = 21;
+}
+
+// Ideally this would be in the transactions package, but that would introduce a Go package import cycle
+message SingleQueryTransactionOptions {
+  // Override the durability level.
+  optional shared.Durability durability = 1;
+
+  repeated hooks.transactions.Hook hook = 2;
+}

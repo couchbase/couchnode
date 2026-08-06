@@ -1,0 +1,197 @@
+syntax = "proto3";
+
+package protocol.sdk.kv.mutate_in;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Collection.MutateIn";
+option java_package = "com.couchbase.client.protocol.sdk.collection.mutatein";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/collection/mutatein";
+option ruby_package = "FIT::Protocol::SDK::KV::MutateIn";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+import "shared.content.proto";
+import "shared.doc_location.proto";
+
+// Performer will return a MutateInResult
+message MutateIn {
+  // Use for collection and ID
+  shared.DocLocation location = 1;
+
+  repeated MutateInSpec spec = 2;
+
+  optional MutateInOptions options = 3;
+}
+
+message MutateInResult {
+  int64 cas = 1 [jstype = JS_STRING];
+  optional shared.MutationToken mutation_token = 2;
+  repeated MutateInSpecResult results = 3;
+}
+
+message MutateInSpecResult {
+  shared.ContentOrError content_as_result = 1;
+}
+
+message MutateInOptions {
+  optional int32 timeout_millis = 1;
+
+  optional shared.Expiry expiry = 2;
+
+  optional int64 cas = 3 [jstype = JS_STRING];
+
+  optional shared.DurabilityType durability = 4;
+
+  optional StoreSemantics store_semantics = 7;
+
+  optional bool access_deleted = 8;
+
+  optional bool preserve_expiry = 9;
+
+  optional bool create_as_deleted = 10;
+
+  optional string parent_span_id = 11;
+}
+
+enum StoreSemantics {
+  INSERT = 0;
+  REPLACE = 1;
+  UPSERT = 2;
+}
+
+message MutateInSpec {
+  oneof operation {
+
+    UpsertOperation upsert = 1;
+
+    InsertOperation insert = 2;
+
+    ReplaceOperation replace = 3;
+
+    RemoveOperation remove = 4;
+
+    ArrayAppendOperation array_append = 5;
+
+    ArrayPrependOperation array_prepend = 6;
+
+    ArrayInsertOperation array_insert = 7;
+
+    ArrayAddUniqueOperation array_add_unique = 8;
+
+    IncrementOperation increment = 9;
+
+    DecrementOperation decrement = 10;
+
+  }
+
+  // The performer will be expected to return the content in the form specified by the content_as field
+  // This is because mutateInSpec operations can return counter results or mutation results.
+  // If not provided then the performer should return a MutateInResult with an empty value for the index at this point
+  optional shared.ContentAs content_as = 11;
+}
+
+message ContentOrMacro {
+  oneof content_or_macro {
+    shared.Content content = 2;
+    MutateInMacro macro = 5;
+  }
+}
+
+message UpsertOperation {
+  string path = 1;
+
+  ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message InsertOperation {
+  string path = 1;
+
+  ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+
+}
+
+message ReplaceOperation {
+  string path = 1;
+
+  ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+}
+
+message RemoveOperation {
+  string path = 1;
+
+  optional bool xattr = 2;
+}
+
+message ArrayAppendOperation {
+  string path = 1;
+
+  repeated ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message ArrayPrependOperation {
+  string path = 1;
+
+  repeated ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message ArrayInsertOperation {
+  string path = 1;
+
+  repeated ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message ArrayAddUniqueOperation {
+  string path = 1;
+
+  ContentOrMacro content = 2;
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message IncrementOperation {
+  string path = 1;
+
+  int64 delta = 2 [jstype = JS_STRING];
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+message DecrementOperation {
+  string path = 1;
+
+  int64 delta = 2 [jstype = JS_STRING];
+
+  optional bool xattr = 3;
+
+  optional bool create_path = 4;
+}
+
+enum MutateInMacro {
+  CAS = 0;
+  SEQ_NO = 1;
+  VALUE_CRC_32C = 2;
+}

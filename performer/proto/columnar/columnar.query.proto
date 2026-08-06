@@ -1,0 +1,376 @@
+syntax = "proto3";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/query";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+import "columnar.errors.proto";
+import "columnar.execution_context.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/struct.proto";
+import "columnar.metadata.proto";
+import "columnar.serialization.proto";
+
+// ExecuteQueryRequest
+// ==================
+// Tells the performer it should **asynchronously** call [instance|scope].executeQuery(), immediately after it returns the
+// ExecuteQueryResponse.
+//
+// To stress: the performer returns an ExecuteQueryResponse immediately, and *then* starts executing executeQuery(),
+// in the background.
+// So no failures from executeQuery() can be reflected in the ExecuteQueryResponse.
+// The driver may use QueryResultRequest to check the executeQuery() result later.
+//
+// Asynchronicity and query_handle
+// -------------------------------
+// Though not every platform has equally strong support for it, we need queries to be executed asynchronously.
+// This is partly to allow cancelling queries at any time, given that cancellation is a key part of the Columnar PRD.
+//
+// So the performer will execute the query asynchronously.
+// An SDK that is natively SDK-async will have no issue with this.  An SDK-sync SDK on the other hand, will need to
+// execute the blocking executeQuery() call in a background thread/coroutine/fibre etc.
+//
+// Either way, the performer holds on to any failures and results until they are requested by the driver.
+//
+// It associates that call and all such resources tied to it with a "query_handle" that it creates and returns in the
+// ExecuteQueryResponse.  The driver will subsequently use this handle to ask the performer to iterate, cancel, etc.
+//
+// The ONLY time this query_handle and its resources get destroyed, is on a CloseQueryResultRequest.  The performer
+// should not e.g. automatically discard cancellation tokens or other resources just because iteration is complete, as
+// we want to be able to test user errors.
+//
+// Note the performer should never buffer more than 1 row, as we need to test slow consumers and backpressure.  See
+// QueryRowRequest for more details.
+message ExecuteQueryRequest {
+  message Options {
+    enum ScanConsistency {
+      SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+      SCAN_CONSISTENCY_REQUEST_PLUS = 1;
+    }
+
+    // The priority option is NOT in the Analytics SDKs, its only in the Columnar SDKs
+    optional bool priority = 2 [deprecated = true];
+    // A google.protobuf.ListValue is essentially a JSON array
+    optional google.protobuf.ListValue parameters_positional = 3;
+    // A google.protobuf.Struct is essentially a JSON object
+    optional google.protobuf.Struct parameters_named = 4;
+    optional bool readonly = 5;
+    optional ScanConsistency scan_consistency = 6;
+    optional google.protobuf.Struct raw = 7;
+    google.protobuf.Duration timeout = 8;
+    optional Deserializer deserializer = 9;
+    optional int32 max_retries = 10;
+  }
+
+  oneof level {
+    ExecutionContextClusterLevel cluster_level = 1;
+    ExecutionContextScopeLevel scope_level = 2;
+  }
+  string statement = 3;
+  optional Options options = 4;
+
+  // This will be used anytime the performer processes a row.  It should be used for queryResult.rowsAs<T>(), or
+  // row.contentAs<T>(), or whatever is most idiomatic for the SDK.
+  // It will be sent following these rules if performer declares support for:
+  //
+  // ROW_DESERIALIZATION_STATIC_ROW_TYPING - always sent (as row streaming is only possible if a <T> is set).
+  // ROW_DESERIALIZATION_DYNAMIC_ROW_TYPING - not sent (as the Deserializer controls how the content is output).
+  // ROW_DESERIALIZATION_STATIC_ROW_TYPING_INDIVIDUAL - not sent (the equivalent field on the QueryRowRequest will be used instead).
+  optional ContentAs content_as = 5;
+
+  // The driver may cancel this operation, and it could be at any time before or during both the executeQuery call
+  // and the row streaming.
+  // The performer should prepare for this as needed for the SDK.  For instance, if cancellation is done with a
+  // cancellation token, the performer should create it here.
+  bool require_cancellation = 6;
+}
+
+message ExecuteQueryResponse {
+  string query_handle = 1;
+  ResponseMetadata metadata = 2;
+}
+
+// QueryResultRequest
+// ==================
+// The driver is requesting the `QueryResult` returned from the asynchronously-executing executeQuery().
+// The performer should block until this (or failure) has been returned from that call.
+//
+// Some modes of some SDKs will not have a QueryResult, in which case this should be surfaced in the performer caps,
+// and the driver should not be sending it.
+message QueryResultRequest {
+  string query_handle = 1;
+}
+
+
+// QueryCancelRequest
+// ==================
+// The driver is emulating the user cancelling the operation.
+//
+// The performer should make no assumptions on if, when or how often the driver will call this.
+//
+// The intent is that the performer cancels whatever is happening, in the SDK-idiomatic way.  That could be during the initial
+// executeQuery(), or the subsequent row iteration, or potentially while fetching the metadata - or at any point before,
+// between or after those operations.
+// So the performer may end up using a range of cancellation methods depending on what phase in the query this request
+// arrives.  It is intentionally left up to the performer to decide how to interpret cancellation in each phase, as it
+// is idiomatic for each SDK.  But per the RFC - it is mandatory that cancellation be possible, in each phase.
+//
+// Edge cases
+// ----------
+// To clarify some edge cases - if the cancellation arrives:
+//
+// 1. Before the performer has asynchronously started executeQuery(): the performer blocks until it has, and then cancels.
+// 2. After the operation is completed and metadata has been fetched: if there is something to cancel (such as a cancellation
+//    token) then the SDK cancels it.  Otherwise it is a no-op.  (Remember that all resources associated with a given
+//    query_handle should be cleaned up ONLY in a CloseQueryResult).
+//
+// The performer should not discard the query_handle or associated resources after cancellation, to allow testing
+// user error such as double-cancellation.
+//
+// Error handling
+// --------------
+// There is no QueryCancelResponse, as per the RFC, cancellation is a fire-and-forget operation that should not fail.
+// If it does fail (perhaps for some platform-specific reason or when testing an edge case like a user cancellation
+// an operation twice), the error should be reported in the EmptyResultOrFailureResponse.
+//
+// Note this error is that reported by the cancellation itself, e.g. the `cancellationToken.cancel()` or the
+// `queryResult.cancel()` or the `queryPromise.cancel()`, as idiomatic.  It is NOT the result of the `executeQuery` call
+// or any ongoing row iteration - those are fetched by the driver separately.
+message QueryCancelRequest {
+  string query_handle = 1;
+}
+
+
+// QueryRowRequest
+// ===============
+// The driver is emulating the user iterating through one row.
+//
+// It is essential that we have the ability to test slow consumers and their effect on backpressure, so the performer
+// must not introduce any buffering of its own, and must ask for or wait for exactly one row from the SDK on each
+// QueryRowRequest.  Specifically:
+//
+// In a pull-based model
+// ---------------------
+// The performer simulates the user calling `rowIterator.next()`, or similar.
+// If the only way to iterate rows is `for async (row in rows)` or similar, then the performer will need to block inside
+// the for-loop repeatedly, only allowing the next row to be fetched as a QueryRowRequest comes in from the driver.
+//
+// In a push-based model
+// ---------------------
+// The performer should wait for the SDK to send the next row (and only the next row), if one hasn't been sent already.
+// In practice this is likely to be done with a concurrent queue that can contain a maximum of exactly 1 element, and
+// having the row callback (or equivalent) block if this queue is full.
+// Remember - though push-based, we need to simulate the user not keeping up with the rows, e.g. taking too long inside
+// the callback.
+//
+// The performer should make no assumptions on if, when or how often the driver will call this, and it should not discard
+// the query_handle or associated resources after all rows are completed to allow testing user errors.
+message QueryRowRequest {
+  string query_handle = 1;
+
+  // This can be sent iff performer declares support for ROW_DESERIALIZATION_STATIC_ROW_TYPING_INDIVIDUAL.
+  // If sent then the performer needs to deserialize the next row accordingly.
+  optional ContentAs content_as = 2;
+}
+
+message QueryRowResponse {
+  message Row {
+    // Present iff the driver requested deserialization via sending content_as.
+    optional ContentWas row_content = 1;
+  }
+
+  message Result {
+    // A single row.  It will usually be present, but is allowed to be optional to handle some niche cases, such as
+    // the end_of_stream going-beyond-the-last-row case, below.
+    optional Row row = 1;
+
+    // `end_of_stream` is intended to emulate the user idiomatically discovering that there are no more rows.
+    // The "for loop" ends, the it.hasNext() returns false, the push-based ExecuteQuery returns - this sort of concept.
+    // It is allowed to return true either with the final row, or on the next row (in which csae the `row` field will
+    // be left empty).  Use whichever is most idiomatic for the SDK.
+    bool end_of_stream = 2;
+  }
+
+  oneof result {
+    Result success = 1;
+
+    // If row iteration fails, raise it here.
+    Error row_level_failure = 2;
+
+    // The executeQuery() call failed while we were waiting for a row.
+    // Only used by push-based models that don't separate QueryResult from row iteration.  Most performers should
+    // not set this.
+    Error execute_query_failure = 3;
+  }
+
+  ResponseMetadata metadata = 4;
+}
+
+
+// QueryMetadataRequest
+// ====================
+// Equivalent to `queryResult.metadata()`.
+//
+// The performer should make no assumptions on if, when or how often the driver will call this, and it should not discard
+// the query_handle and any associated resources after it is called (instead wait for CloseQueryResult).
+//
+// As always, the performer should model the returned QueryResultMetadataResponse based purely on the SDK's behaviour,
+// and provide no interpretation of its own.  If called by the driver before row iteration is complete then, per RFC,
+// the SDK is expected to fast-fail.  If for some reason it does not, and it blocks until metadata is available - the
+// performer should follow suit, and not try to provide the correct behaviour to satisfy the tests.
+message QueryMetadataRequest {
+  string query_handle = 1;
+}
+
+message QueryResultMetadataResponse {
+  message QueryMetadata {
+    message Metrics {
+      google.protobuf.Duration elapsed_time = 1;
+      google.protobuf.Duration execution_time = 2;
+      uint64 result_count = 3;
+      uint64 result_size = 4;
+      uint64 processed_objects = 5;
+    }
+
+    message Warning {
+      uint32 code = 1;
+      string message = 2;
+    }
+
+    string request_id = 1;
+    repeated Warning warnings = 2;
+    Metrics metrics = 3;
+  }
+
+  oneof result {
+    QueryMetadata success = 1;
+    Error failure = 2;
+  }
+
+  ResponseMetadata metadata = 3;
+}
+
+// CloseQueryResultRequest
+// =======================
+// Executes nothing on the SDK, and is purely for cleanup purposes.  Tells the performer a query_handle is no longer needed.
+// The performer should not cancel anything as a result of this call, or block until row iteration or metadata is complete, or
+// similar.  It may only do memory cleanup, remove the query_handle from internal collections, and do similar "tidyup".
+//
+// This should clean up ALL state associated with the query_handle, regardless of whether it originated from
+// executeQuery() or startQuery().  For startQuery() handles, this includes any stored QueryHandle, QueryStatus,
+// QueryResultHandle, and QueryResult.
+message CloseQueryResultRequest {
+  string query_handle = 1;
+}
+
+// Same as CloseQueryResultRequest except for all query_handles.
+message CloseAllQueryResultsRequest {
+}
+
+// StartQueryRequest
+// ==================
+// Tells the performer it should **synchronously** call [instance|scope].startQuery().
+//
+// Unlike ExecuteQueryRequest, this is a synchronous call that should return only once startQuery() has returned,
+// and it should return a UUID representing the query_handle from that call.
+// All subsequent calls from the driver that reference that query_handle.
+message StartQueryRequest {
+    message Options {
+        enum ScanConsistency {
+            SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+            SCAN_CONSISTENCY_REQUEST_PLUS = 1;
+        }
+
+        optional google.protobuf.ListValue parameters_positional = 2;
+        optional google.protobuf.Struct parameters_named = 3;
+        optional bool readonly = 4;
+        optional ScanConsistency scan_consistency = 5;
+        optional google.protobuf.Struct raw = 6;
+        google.protobuf.Duration timeout = 7;
+        optional int32 max_retries = 8;
+    }
+
+    oneof level {
+        ExecutionContextClusterLevel cluster_level = 1;
+        ExecutionContextScopeLevel scope_level = 2;
+    }
+    string statement = 3;
+    optional Options options = 4;
+}
+
+message StartQueryResponse {
+    oneof result {
+        string query_handle = 1;
+        Error failure = 2;
+    }
+}
+
+// AsyncFetchStatusRequest
+// ==================
+// The driver is requesting the SDK call the FetchStatus request on QueryHandle.
+// The performer should block until this (or failure) has been returned from that call.
+// The performer must hold onto the QueryStatus object keyed by the query_handle, regardless of ResultsReady().
+message AsyncFetchStatusRequest {
+    string query_handle = 1;
+}
+
+message AsyncFetchStatusResponse {
+    message QueryStatusResult {
+        // The result of calling ResultsReady() on the QueryStatus.
+        bool results_ready = 1;
+        // The string representation of the QueryStatus (e.g. via toString()).
+        string to_string = 2;
+    }
+
+    oneof result {
+        QueryStatusResult query_status = 1;
+        Error failure = 2;
+    }
+}
+
+// AsyncQueryStatusResultHandleRequest
+// ==================
+// Calls ResultHandle() on the QueryStatus returned from the latest AsyncFetchStatus call.
+// The driver may call this when ResultsReady() was false, to test error handling.
+// If the driver calls this before an AsyncFetchStatus call, this can be treated as a driver bug.
+//
+// On success, the performer stores the SDK's QueryResultHandle internally, keyed by query_handle.
+message AsyncQueryStatusResultHandleRequest {
+    string query_handle = 1;
+}
+
+// AsyncCancelHandleRequest
+// ==================
+// Calls the cancel function on the QueryHandle returned from startQuery().
+message AsyncCancelHandleRequest {
+    string query_handle = 1;
+}
+
+// AsyncFetchResultsRequest
+// ==================
+// The driver is requesting the performer call FetchResults() on the internally-stored QueryResultHandle.
+// The performer should block until this (or failure) has been returned from that call.
+//
+// On success, the performer should store the resulting QueryResult in the same way it would store one from
+// executeQuery(). I.e. keyed by the query_handle and available for subsequent QueryRow, QueryMetadata,
+// QueryCancel, and CloseQueryResult calls, exactly as if it came from the executeQuery() path.
+
+// Some modes of some SDKs will not have a QueryResult, in which case this should be surfaced in the performer caps,
+// and the driver should not be sending it.
+message AsyncFetchResultsRequest {
+    message Options {
+        optional Deserializer deserializer = 1;
+    }
+
+    string query_handle = 1;
+    optional Options options = 2;
+}
+
+// AsyncDiscardResultsRequest
+// ==================
+// Calls the discard function on the QueryResultHandle.
+message AsyncDiscardResultsRequest {
+    string query_handle = 1;
+}

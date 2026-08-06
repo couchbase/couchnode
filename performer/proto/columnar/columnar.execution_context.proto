@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/executioncontext";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+// Some metadata and config on how the SDK should execute the request and return responses.
+message ExecutionContext {
+  // Which mode the SDK should run in.  See `FetchPerformerCapsResponse` for an explanation.
+  int32 mode_index = 1;
+}
+
+// For operations that exist at a Cluster object level.
+message ExecutionContextClusterLevel {
+  ExecutionContext shared = 1;
+
+  // A previously-created Cluster.  The performer can assume that if this Cluster does not exist
+  // then that is a FIT driver bug, and does not need to handle this case.
+  string cluster_id = 2;
+}
+
+// For operations that exist at a Scope object level.
+message ExecutionContextScopeLevel {
+  ExecutionContext shared = 1;
+
+  // A previously-created Cluster.  The performer can assume that if this Cluster does not exist
+  // then that is a FIT driver bug, and does not need to handle this case.
+  string cluster_id = 2;
+  string database_name = 3;
+  string scope_name = 4;
+}

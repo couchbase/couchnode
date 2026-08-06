@@ -1,0 +1,98 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+message LegacyTranscoder {}
+message JsonTranscoder {}
+message RawJsonTranscoder {}
+message RawStringTranscoder {}
+message RawBinaryTranscoder {}
+
+
+// All the transcoders required by https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0055-serializers-transcoders.md
+message Transcoder {
+  oneof transcoder {
+    LegacyTranscoder legacy = 1;
+    JsonTranscoder json = 2;
+    RawJsonTranscoder raw_json = 3;
+    RawStringTranscoder raw_string = 4;
+    RawBinaryTranscoder raw_binary = 5;
+  }
+}
+
+/**
+ * CustomSerializer defines different serialization strategies using a `oneof`.
+ *
+ * Currently, it includes a boolean option but is designed to be extended with
+ * other serialization methods in the future.
+ */
+message JsonSerializer {
+  oneof serializer {
+    // Explicitly use the SDK's default JsonSerializer
+    // (See https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0055-serializers-transcoders.md#default-jsonserializer)
+    // If the SDK does not have this concept, then it can instead not provide
+    // any serializer for this operation - which is expected to have the same
+    // effect.
+    bool default = 1;
+
+    /**
+     * **Custom Serializer**
+     *
+     * Uses a custom `JsonSerializer` implementation with specific serialization and deserialization logic.
+     *
+     * **Serialization Logic:**
+     * ```java
+     * public byte[] serialize(Object input) {
+     *     // Convert the input object to a JSON string
+     *     String jsonString = convertObjectToJsonString(input);
+     *
+     *     // Create a JSON object from the string
+     *     JsonObject jsonObject = parseStringToJsonObject(jsonString);
+     *
+     *     // Add the "Serialized": true field
+     *     jsonObject.put("Serialized", true);
+     *
+     *     // Convert the JSON object to a byte array and return
+     *     return convertJsonObjectToByteArray(jsonObject);
+     * }
+     * ```
+     *
+     * **Deserialization Logic:**
+     * ```java
+     * public <T> T deserialize(Class<T> target, byte[] input) {
+     *     // Parse the byte array into a JSON object
+     *     JsonObject jsonObject = parseByteArrayToJsonObject(input);
+     *
+     *     // Upsert the "Serialized" field to false, "Serialized" key may or may not present while deserializing.
+     *     jsonObject.put("Serialized", false);
+     *
+     *     // Convert the JSON object back to the target type and return
+     *     return convertJsonObjectToTargetType(jsonObject, target);
+     * }
+     * ```
+     *
+     * **Implementation Details:**
+     * - **`convertObjectToJsonString(Object input)`**:
+     *   - Converts the input object to its JSON string representation.
+     * - **`parseStringToJsonObject(String jsonString)`**:
+     *   - Parses the JSON string into a `JsonObject`.
+     * - **`convertJsonObjectToByteArray(JsonObject jsonObject)`**:
+     *   - Serializes the `JsonObject` into a byte array.
+     * - **`parseByteArrayToJsonObject(byte[] input)`**:
+     *   - Deserializes the byte array back into a `JsonObject`.
+     * - **`convertJsonObjectToTargetType(JsonObject jsonObject, Class<T> target)`**:
+     *   - Converts the `JsonObject` to the specified target type `T`.
+     *
+     * **Notes for Performers:**
+     * - Implementations in other languages should follow the same logical steps using equivalent constructs.
+     * - Ensure that the `"Serialized"` flag is appropriately set during serialization and deserialization to track the state.
+     * - Proper error handling should be included to manage serialization/deserialization exceptions.
+     */
+    bool custom_serializer = 2;
+  }
+}

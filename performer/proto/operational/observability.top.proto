@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package protocol.observability;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Observability";
+option java_package = "com.couchbase.client.protocol.observability";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/observability";
+option ruby_package = "FIT::Protocol::Observability";
+option java_multiple_files = true;
+
+// The performer creates and starts a new RequestSpan, via the RequestTracer associated with a particular
+// previously-created Cluster.
+// The performer needs to hold onto this in a global Map<String, RequestSpan>, with the key being the provided `id`.
+message SpanCreateRequest {
+    // The performer can assume it's a driver bug if this references a non-existent Cluster, and throw an error.
+    string cluster_connection_id = 1;
+
+    // The span is created with this name.
+    string name = 2;
+
+    // This is used to reference the RequestSpan later.
+    string id = 3;
+
+    // References a previously created RequestSpan to supply as a parent.
+    // If it's not present then don't provide a parent.
+    // The performer can assume it's a driver bug if this references a non-existent span, and throw an error.
+    optional string parent_span_id = 4;
+
+    // Attributes to set on the span.
+    map<string, Attribute> attributes = 5;
+}
+
+// Empty but included anyway per GRPC best practices.
+message SpanCreateResponse {
+}
+
+// The performer finishes a span and removes it from its map.
+// The performer can assume it's a driver bug if this references a non-existent span, and throw an error.
+message SpanFinishRequest {
+    string id = 1;
+}
+
+// Empty but included anyway per GRPC best practices.
+message SpanFinishResponse {
+}
+
+message Attribute {
+    oneof value {
+        string value_string = 2;
+        int64 value_long = 3;
+        bool value_boolean = 4;
+    }
+}

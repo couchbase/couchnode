@@ -1,0 +1,148 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+// All errors derived from CouchbaseException.
+// The performer should return the most specific error possible.  E.g. not SDK_COUCHBASE_EXCEPTION, unless a raw CouchbaseException
+// is what the SDK raised.
+// From https://github.com/couchbaselabs/sdk-rfcs/blob/master/rfc/0058-error-handling.md
+//
+//
+// Go specific notes:
+// Go deviates from the error handling RFC in a few ways, and gets some special handling in the performer to map it into
+// the RFC model so it can work with the FIT GRPC:
+//
+// 1. It doesn't really have `ErrorContext` in the same way.  Instead it has `KeyValueError`, `QueryError` et al., which
+//    perform a similar purpose to `ErrorContext`.
+// 2. It doesn't have a base `CouchbaseException` error.  Errors don't derive from `CouchbaseException`, and generic
+//    errors that would be just a `CouchbaseException` in another SDK, become a `KeyValueError`, `QueryError` etc.
+//    (Assuming the error did originate from the SDK.)
+//
+// We accommodate (2)) in the FIT model by having the Go performer check for all specific exceptions first
+// with e.g. `errors.Is(err, ErrTimeout)`.  If these all fail, it then checks if the error is a `QueryError` etc. with
+// `errors.As()`.  If one of those succeeds, it's regarded as a generic CouchbaseException.
+// If all those checks fail, the error is classified as `ExceptionOther`.
+//
+// (1) is accommodated by just converted `QueryError` et al. into a serialized `ErrorContext`-esque string, as they
+// are serving very similar purposes.
+enum CouchbaseExceptionType {
+  SDK_COUCHBASE_EXCEPTION = 0;
+  SDK_TIMEOUT_EXCEPTION = 1;
+  SDK_REQUEST_CANCELLED_EXCEPTION = 2;
+  SDK_INVALID_ARGUMENT_EXCEPTION = 3;
+  SDK_SERVICE_NOT_AVAILABLE_EXCEPTION = 4;
+  SDK_INTERNAL_SERVER_FAILURE_EXCEPTION = 5;
+  SDK_AUTHENTICATION_FAILURE_EXCEPTION = 6;
+  SDK_TEMPORARY_FAILURE_EXCEPTION = 7;
+  SDK_PARSING_FAILURE_EXCEPTION = 8;
+  SDK_CAS_MISMATCH_EXCEPTION = 9;
+  SDK_BUCKET_NOT_FOUND_EXCEPTION = 10;
+  SDK_COLLECTION_NOT_FOUND_EXCEPTION = 11;
+  SDK_UNSUPPORTED_OPERATION_EXCEPTION = 12;
+  SDK_AMBIGUOUS_TIMEOUT_EXCEPTION = 13;
+  SDK_UNAMBIGUOUS_TIMEOUT_EXCEPTION = 14;
+  SDK_FEATURE_NOT_AVAILABLE_EXCEPTION = 15;
+  SDK_SCOPE_NOT_FOUND_EXCEPTION = 16;
+  SDK_INDEX_NOT_FOUND_EXCEPTION = 17;
+  SDK_INDEX_EXISTS_EXCEPTION = 18;
+  SDK_ENCODING_FAILURE_EXCEPTION = 19;
+  SDK_DECODING_FAILURE_EXCEPTION = 20;
+  SDK_RATE_LIMITED_EXCEPTION = 21;
+  SDK_QUOTA_LIMITED_EXCEPTION = 22;
+
+  // Key-value
+  SDK_DOCUMENT_NOT_FOUND_EXCEPTION = 101;
+  SDK_DOCUMENT_UNRETRIEVABLE_EXCEPTION = 102;
+  SDK_DOCUMENT_LOCKED_EXCEPTION = 103;
+  SDK_DOCUMENT_NOT_LOCKED_EXCEPTION = 131;
+  SDK_VALUE_TOO_LARGE_EXCEPTION = 104;
+  SDK_DOCUMENT_EXISTS_EXCEPTION = 105;
+  SDK_DURABILITY_LEVEL_NOT_AVAILABLE_EXCEPTION = 107;
+  SDK_DURABILITY_IMPOSSIBLE_EXCEPTION = 108;
+  SDK_DURABILITY_AMBIGUOUS_EXCEPTION = 109;
+  SDK_DURABLE_WRITE_IN_PROGRESS_EXCEPTION = 110;
+  SDK_DURABLE_WRITE_RECOMMIT_IN_PROGRESS_EXCEPTION = 111;
+  SDK_PATH_NOT_FOUND_EXCEPTION = 113;
+  SDK_PATH_MISMATCH_EXCEPTION = 114;
+  SDK_PATH_INVALID_EXCEPTION = 115;
+  SDK_PATH_TOO_BIG_EXCEPTION = 116;
+  SDK_PATH_TOO_DEEP_EXCEPTION = 117;
+  SDK_VALUE_TOO_DEEP_EXCEPTION = 118;
+  SDK_DOCUMENT_TOO_DEEP_EXCEPTION = 125;
+  SDK_VALUE_INVALID_EXCEPTION = 119;
+  SDK_DOCUMENT_NOT_JSON_EXCEPTION = 120;
+  SDK_NUMBER_TOO_BIG_EXCEPTION = 121;
+  SDK_DELTA_INVALID_EXCEPTION = 122;
+  SDK_PATH_EXISTS_EXCEPTION = 123;
+  SDK_XATTR_UNKNOWN_MACRO_EXCEPTION = 124;
+  SDK_XATTR_INVALID_KEY_COMBO_EXCEPTION = 126;
+  SDK_XATTR_UNKNOWN_VIRTUAL_ATTRIBUTE_EXCEPTION = 127;
+  SDK_XATTR_CANNOT_MODIFY_VIRTUAL_ATTRIBUTE_EXCEPTION = 128;
+  SDK_XATTR_NO_ACCESS_EXCEPTION = 130;
+
+  // Query
+  SDK_PLANNING_FAILURE_EXCEPTION = 201;
+  SDK_INDEX_FAILURE_EXCEPTION = 202;
+  SDK_PREPARED_STATEMENT_FAILURE_EXCEPTION = 203;
+  SDK_DML_FAILURE_EXCEPTION = 204;
+
+  // Analytics
+  SDK_COMPILATION_FAILURE_EXCEPTION = 301;
+  SDK_JOB_QUEUE_FULL_EXCEPTION = 302;
+  SDK_DATASET_NOT_FOUND_EXCEPTION = 303;
+  SDK_DATAVERSE_NOT_FOUND_EXCEPTION = 304;
+  SDK_DATASET_EXISTS_EXCEPTION = 305;
+  SDK_DATAVERSE_EXISTS_EXCEPTION = 306;
+  SDK_LINK_NOT_FOUND_EXCEPTION = 307;
+
+  // View
+  SDK_VIEW_NOT_FOUND_EXCEPTION = 501;
+  SDK_DESIGN_DOCUMENT_NOT_FOUND_EXCEPTION = 502;
+
+  // Management
+  SDK_COLLECTION_EXISTS_EXCEPTION = 601;
+  SDK_SCOPE_EXISTS_EXCEPTION = 602;
+  SDK_USER_NOT_FOUND_EXCEPTION = 603;
+  SDK_GROUP_NOT_FOUND_EXCEPTION = 604;
+  SDK_BUCKET_EXISTS_EXCEPTION = 605;
+  SDK_USER_EXISTS_EXCEPTION = 606;
+  SDK_BUCKET_NOT_FLUSHABLE_EXCEPTION = 607;
+}
+
+// An exception derived from CouchbaseException
+// "Ex" naming as transactions already has CouchbaseException in an enum.
+message CouchbaseExceptionEx {
+  // The simple name e.g. "DocumentNotFoundException"
+  string name = 1;
+
+  CouchbaseExceptionType type = 2;
+  optional Exception cause = 3;
+
+  // Broadly this is the result of outputting the exception.  E.g. for Java `ex.toString()`.
+  // Per the RFC it's expected to contain the serialized error context.
+  string serialized = 4;
+}
+
+
+// If the exception is not represented in SdkException, can return it in raw form here
+message ExceptionOther {
+  // The simple name e.g. "InvalidArgumentException"
+  string name = 1;
+
+  // Broadly this is the result of outputting the exception.  E.g. for Java `ex.toString()`.
+  string serialized = 2;
+}
+
+message Exception {
+  oneof exception {
+    CouchbaseExceptionEx couchbase = 1;
+
+    ExceptionOther other = 2;
+  }
+}
+

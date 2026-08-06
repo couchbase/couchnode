@@ -1,0 +1,114 @@
+syntax = "proto3";
+
+package fit.columnar;
+option java_package = "fit.columnar";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/serialization";
+option csharp_namespace = "Couchbase.Grpc.Protocol.Columnar";
+
+import "google/protobuf/struct.proto";
+
+message Deserializer {
+  message JsonDeserializer {}
+
+  message PassthroughDeserializer {}
+
+  /**
+  * **Custom Deserializer**
+  *
+  * Uses a custom `Deserializer` implementation with specific serialization and deserialization logic.
+  *
+  * **Deserialization Logic:**
+  * ```java
+  * public <T> T deserialize(Class<T> target, byte[] input) {
+  *     // Parse the byte array into a JSON object
+  *     JsonObject jsonObject = parseByteArrayToJsonObject(input);
+  *
+  *     // Upsert the "Serialized" field to false, "Serialized" key may or may not present while deserializing.
+  *     jsonObject.put("Serialized", false);
+  *
+  *     // Convert the JSON object back to the target type and return
+  *     return convertJsonObjectToTargetType(jsonObject, target);
+  * }
+  * ```
+  *
+  * **Implementation Details:**
+  * - **`parseByteArrayToJsonObject(byte[] input)`**:
+  *   - Deserializes the byte array into a `JsonObject`.
+  * - **`convertJsonObjectToTargetType(JsonObject jsonObject, Class<T> target)`**:
+  *   - Converts the `JsonObject` to the specified target type `T`.
+  *
+  * **Notes for Performers:**
+  * - Implementations in other languages should follow the same logical steps using equivalent constructs.
+  * - Proper error handling should be included to manage deserialization exceptions.
+  * - This deserializer assumes that the row is a JSON object. If the byte array cannot be parsed into a JSON object,
+  *   then the deserializer should return/raise an error.
+  */
+  message CustomDeserializer {}
+
+  oneof type {
+    JsonDeserializer json = 1;
+    // Will only be sent if performer declares support for supports_passthrough_deserializer.
+    PassthroughDeserializer passthrough = 2;
+    // Will only be sent if performer declares support for supports_custom_deserializer.
+    CustomDeserializer custom = 3;
+  }
+}
+
+// ContentAs
+// =========
+// Where the SDK supports a rowsAs<T> or row.contentAs<T> or similar - this controls the user setting the `T`.
+// It's only sent to performers that declare support for ROW_DESERIALIZATION_STATIC_ROW_TYPING or
+// ROW_DESERIALIZATION_STATIC_ROW_TYPING_INDIVIDUAL.
+// For ROW_DESERIALIZATION_DYNAMIC_ROW_TYPING performers/SDKs, T doesn't exist, and the output type is decided
+// purely by the Deserializer.
+message ContentAs {
+  oneof as {
+    // T = byte[]
+    // Intended to get the result as a byte array, and return that directly.
+    // The result is returned in ContentTypes.content_was_bytes.
+    // Pseudocode for performer:
+    //     byte[] returnOverGRPC = someResult.contentAs[Array[Byte]]()
+    bool as_byte_array = 1;
+
+    // T = Map
+    // This will usually be used for JSON objects, e.g. the list items can be heterogeneous and can be any of the
+    // JSON types, including further lists or maps.
+    // The result is returned in ContentTypes.content_was_map.
+    // Pseudocode for performer:
+    //     Map result = row.contentAs<Map>()   or    queryResult.rowsAs<Map>()
+    //     byte[] returnOverGRPC = platformDependentMethodToSerializeToJSON(result)
+    bool as_map = 2;
+
+    // T = List
+    // This will usually be used for JSON lists, e.g. the list items can be heterogeneous and can be any of the
+    // JSON types, including further lists or maps.
+    // The result is returned in ContentTypes.content_was_list.
+    // Pseudocode for performer:
+    //     List result = row.contentAs<List>()   or    queryResult.rowsAs<List>()
+    //     byte[] returnOverGRPC = platformDependentMethodToSerializeToJSON(result)
+    bool as_list = 3;
+
+    // T = String
+    // Intended to get the result as string, and return that directly.
+    // The result is returned in ContentTypes.content_was_string.
+    // Pseudocode for performer:
+    //     String result = row.contentAs<String>()   or    queryResult.rowsAs<String>()
+    bool as_string = 4;
+  }
+}
+
+// "ContentWas" because this was the content the performer got from the SDK, before it serialized it up to send
+// back to the driver.
+message ContentWas {
+  oneof content {
+    bytes content_was_bytes = 1;
+    google.protobuf.Struct content_was_map = 2;
+    google.protobuf.ListValue content_was_list = 3;
+    bool content_was_boolean = 4;
+    string content_was_string = 5;
+    double content_was_double = 6;
+    int64 content_was_integer = 7;
+    google.protobuf.NullValue content_was_null = 8;
+  }
+}

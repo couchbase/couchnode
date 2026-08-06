@@ -1,0 +1,132 @@
+syntax = "proto3";
+
+package protocol.sdk.kv.rangescan;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv.RangeScan";
+option java_package = "com.couchbase.client.protocol.sdk.kv.rangescan";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv/rangescan";
+option ruby_package = "FIT::Protocol::SDK::KV::RangeScan";
+option java_multiple_files = true;
+
+import "shared.basic.proto";
+import "shared.collection.proto";
+import "shared.content.proto";
+import "shared.transcoders.proto";
+import "streams.top_level.proto";
+
+message ScanTerm {
+  // This is now stored as a string and the user can only pass a string.
+  // Deprecating the bytes method but not removing for the same reasons as below
+  oneof term {
+    string as_string = 1;
+    bytes as_bytes = 2 [deprecated=true];
+  }
+
+  // If exclusive is set to false then the SDK should explicitly set it to false not leave it as default
+  optional bool exclusive = 3;
+}
+
+message ScanTermChoice {
+  oneof choice {
+    // These options are deprecated as they were removed from the RFC.
+    // I have not removed them as it breaks compilation on existing uses which will slow down this work. Please remove when you can
+    bool minimum = 1 [deprecated=true];
+    bool maximum = 2 [deprecated=true];
+
+    ScanTerm term = 3;
+
+    // Since the behaviour if a term is not supplied is to use min for from and max for to then this option is to represent the user not supplying any term
+    bool default = 4;
+  }
+}
+
+// Moved to new message containing from and to
+message Range {
+  ScanTermChoice from = 1;
+  ScanTermChoice to = 2;
+}
+
+message RangeScan {
+  // Only one of these will be passed. If your SDK isn't planning to support doc_id_prefix we will disable those tests through caps or some other method
+  oneof range {
+    Range from_to = 1;
+
+    // This was created and named before it became "a first class part of the API".
+    // Rather than break existing implementations this will remain the same, but now represents the PrefixScan ScanType
+    string doc_id_prefix = 2;
+  }
+}
+
+message SamplingScan {
+  uint64 limit = 1;
+  optional uint64 seed = 2;
+}
+
+message ScanType {
+  oneof type {
+    RangeScan range = 1;
+    SamplingScan sampling = 2;
+  }
+}
+
+//Sorting is not supported for RangeScans anymore.
+enum ScanSort {
+  KV_RANGE_SCAN_SORT_NONE = 0 [deprecated = true];
+  KV_RANGE_SCAN_SORT_ASCENDING = 1 [deprecated = true];
+}
+
+message ScanOptions {
+  // Renamed in the RFC. Used to be "without_content" and will need changing in performers
+  optional bool ids_only = 1;
+  optional shared.MutationState consistent_with = 2;
+  optional ScanSort sort = 3 [deprecated = true]; //Sorting is not supported for RangeScans anymore.
+  optional shared.Transcoder transcoder = 4;
+  optional int32 timeout_msecs = 5;
+  // As usual, parent_span_id will only be sent if the performer declares support for Caps.OBSERVABILITY_1
+  optional string parent_span_id = 6;
+  optional uint32 batch_byte_limit = 7;
+  optional uint32 batch_item_limit = 8;
+
+  // Since this isn't going to be present in all sdks then the logic to not use it will be on the test-driver side with @ignoreWhen
+  optional uint32 batch_time_limit = 9;
+
+  // Since all SDKs do not support this option the logic to not use it will be on the driver side with @ignoreWhen
+  optional uint32 concurrency = 10;
+}
+
+message ScanResult {
+  string id = 1;
+
+  // Following three fields shouldn't be present if withoutContent was set.
+  optional shared.ContentTypes content = 2; // This field should also be empty if the test did not set ContentAs in the Scan message
+
+  // Represented as the number of seconds since January 1, 1970 (e.g. what the server returns)
+  optional int64 expiry_time = 3;
+  optional int64 cas = 4 [jstype = JS_STRING];
+
+  // Not part of the SDK response - identifies what stream this is from.
+  string stream_id = 5;
+
+  // Returns the value of idsOnly from the scan associated with the result
+  bool id_only = 6;
+}
+
+// A Scan will result in the performer sending back a stream of (in the golden path):
+// (1) A stream.Created result with type STREAM_KV_RANGE_SCAN, followed by
+// (2) Zero or more ScanResult results (and/or streams.Error), followed by
+// (1) A stream.Complete result.
+//
+// A streams.CancelRequest from the driver should be handled per the RFC - with a range scan cancellation sent to KV
+// on each vbucket stream.
+message Scan {
+  shared.Collection collection = 1;
+  ScanType scan_type = 2;
+  optional ScanOptions options = 3;
+
+  // Not sent on to the SDK - instead specifies how the performer should handle the streaming.
+  streams.Config stream_config = 4;
+
+  // Controls how all ScanResult.contentAs() calls are done by the SDK for this scan.
+  // If not specified, the performer should not do contentAs.
+  // If there is any error from result.contentAs(), each error needs to raise a streams.Error, instead of the normal ScanResult.
+  optional shared.ContentAs content_as = 5;
+}

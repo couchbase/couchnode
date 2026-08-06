@@ -1,0 +1,64 @@
+syntax = "proto3";
+
+package protocol.shared;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Shared";
+option java_package = "com.couchbase.client.protocol.shared";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/shared";
+option ruby_package = "FIT::Protocol::Shared";
+option java_multiple_files = true;
+
+import "shared.collection.proto";
+import "shared.bounds.proto";
+
+// The performer will access the document in this exact location
+message DocLocationSpecific {
+  Collection collection = 1;
+  string id = 2;
+}
+
+// The performer will generate a random UUID for the document id
+message DocLocationUuid {
+  Collection collection = 1;
+}
+
+enum RandomDistribution {
+  RANDOM_DISTRIBUTION_UNIFORM = 0;
+}
+
+// Generate a random id in [0-poolSize).
+message PoolSelectionStategyRandom {
+  RandomDistribution distribution = 1;
+}
+
+// Use a counter to select the next document in the pool, starting at 0.
+// The performer should increment the counter each time it uses it.
+// The performer should modulo `poolSize`.  E.g. `realCounterResult = currentCounterValue % poolSize`.
+message PoolSelectionStrategyCounter {
+  Counter counter = 1;
+}
+
+// The performer will pick a document from a pool.
+// The performer should generate an integer in [0-poolSize) following selectionStrategy.  Then append that to `idPreface`
+// e.g. "${idPreface}${selectedInt}" to get the document id.
+message DocLocationPool {
+  Collection collection = 1;
+
+  // All documents in the pool start with this.
+  string id_preface = 2;
+
+  // How many documents are in the pool.
+  int64 pool_size = 3;
+
+  oneof poolSelectionStrategy {
+    PoolSelectionStategyRandom random = 4;
+    PoolSelectionStrategyCounter counter = 5;
+  }
+}
+
+message DocLocation {
+  oneof location {
+    DocLocationSpecific specific = 1;
+    DocLocationUuid uuid = 2;
+    DocLocationPool pool = 3;
+  }
+}

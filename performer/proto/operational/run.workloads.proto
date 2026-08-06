@@ -1,0 +1,47 @@
+syntax = "proto3";
+
+package protocol.run;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Run";
+option java_package = "com.couchbase.client.protocol.run";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/run";
+option ruby_package = "FIT::Protocol::Run";
+
+import "sdk.workload.proto";
+import "meta.workload.proto";
+import "transactions.workload.proto";
+
+// A workload is generally a bunch of commands to run.
+message Workload {
+  oneof workload {
+    sdk.Workload sdk = 1;
+    meta.Workload grpc = 2;
+    transactions.Workload transaction = 3;
+  }
+}
+
+// "HorizontalScaling" is an abstraction over there being many forms of concurrency.  The core idea is that the driver
+// is trying to increase the parallelism, and it's up to the performer to choose a suitable platform-dependent way to
+// do this.
+// For some languages that will be threads.  For some, a larger pool of concurrent Future/Promises.  For some,
+// forking a new process.
+// Whatever is produced (thread, new process), it should run the provided workload(s) in a tight loop.  So essentially
+// HorizontalScaling is the number of concurrent operations taking place.
+message HorizontalScaling {
+  // Performer will run these workloads in this 'thread-like', in the specified order.
+  repeated Workload workloads = 1;
+}
+
+// Allows running multiple Workloads concurrently.
+message Workloads {
+  // The previously established cluster connection to use, for all operations instigated under this task.
+  // Operations below this that have their own clusterConnectionId (like TransactionCreateRequest) do _not_ override
+  // this value - any future exceptions to that rule will be explicitly documented here.
+  string cluster_connection_id = 1;
+
+  // See HorizontalScaling for a discussion of this.  Broadly, it's the number of concurrent operations
+  // required.
+  repeated HorizontalScaling horizontal_scaling = 2;
+}
+
+

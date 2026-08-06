@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package protocol.metrics;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Metrics";
+option java_package = "com.couchbase.client.protocol.metrics";
+option java_multiple_files = true;
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/metrics";
+option ruby_package = "FIT::Protocol::Metrics";
+
+import "google/protobuf/timestamp.proto";
+
+message Result {
+  // A JSON blob that can contain any information the performer likes.  '{"cpu":83}' for example.  It will be written
+  // directly into the database.
+  // The performer can return whatever fields it wants, named whatever it wants (with some consideration given to database
+  // size).  But if it is returning any of the following it should use these standardised field names:
+  // memHeapUsedMB:  how much heap memory has been used by the performer+SDK, in MB
+  // processCpu:     how much CPU (total, across all cores) the performer+SDK is using
+  // systemCpu:      how much CPU (total, across all cores) the whole system is using
+  // threadCount:    how many threads the performer+SDK are using
+  string metrics = 1;
+  google.protobuf.Timestamp initiated = 2;
+}
