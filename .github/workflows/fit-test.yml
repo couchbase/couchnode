@@ -1,0 +1,43 @@
+name: Run FIT Testing
+
+on:
+  schedule:
+    - cron: '40 5 * * *'
+  workflow_dispatch:
+    inputs:
+      fit_cli_preset:
+        description: FIT preset to run.
+        required: false
+        type: string
+        default: op-multi-lite
+      collect_extra_diagnostics:
+        description: Collect additional diagnostics (includes cbcollect, is slower)
+        required: false
+        type: boolean
+        default: true
+      fit_cli_channel:
+        description: fit-cli install channel ("latest" or "ci").
+        required: false
+        type: string
+        default: ci
+      performer_image:
+        description: Performer image to use (e.g. main, 4.7.2, etc.)
+        required: false
+        type: string
+        default: main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.fit_cli_preset || 'op-multi-lite' }}-${{ inputs.performer_image || 'main' }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+
+jobs:
+  run-node-fit:
+    uses: couchbaselabs/fit-cli/.github/workflows/fit-cli.yaml@main
+    with:
+      preset: ${{ vars.FIT_CLI_PRESET || inputs.fit_cli_preset || 'op-multi-lite' }}
+      collect_extra_diagnostics: ${{ inputs.collect_extra_diagnostics != false }}
+      channel: ${{ vars.FIT_CLI_CHANNEL || inputs.fit_cli_channel || 'ci' }}
+      performer: node-fit-performer:${{ inputs.performer_image || 'main' }}
