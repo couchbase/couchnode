@@ -68,3 +68,12 @@ needs access to the full SDK source:
 docker build -f performer/Dockerfile -t couchnode-fit-performer .
 docker run -p 8060:8060 couchnode-fit-performer
 ```
+
+The container's `entrypoint.sh` translates a generic `LOG_LEVEL` environment variable (set by the FIT
+test framework) into `CBPPLOGLEVEL`, unless `CBPPLOGLEVEL` is already set. `CBPPLOGLEVEL` controls the
+native addon's C++ core console logger — see [LOGGING.md](../LOGGING.md) at the repository root — and
+accepts `trace`, `debug`, `info`, `warn`, `err`/`error`, or `critical`:
+
+```shell
+docker run -p 8060:8060 -e LOG_LEVEL=debug couchnode-fit-performer
+```

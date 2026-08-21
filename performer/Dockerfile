@@ -62,7 +62,13 @@ COPY --from=builder /app/performer/package.json ./performer/package.json
 COPY --from=builder /app/performer/node_modules ./performer/node_modules
 COPY --from=builder /app/performer/src/build ./performer/src/build
 COPY --from=builder /app/performer/src/proto ./performer/src/proto
+COPY --from=builder /app/performer/entrypoint.sh ./performer/entrypoint.sh
 
 WORKDIR /app/performer
 
-ENTRYPOINT ["node", "src/build/performer.js"]
+# entrypoint.sh translates LOG_LEVEL (set generically by the FIT test
+# framework) into CBPPLOGLEVEL, the env var the native addon reads at
+# module-init time to configure the C++ core's console logger — see
+# src/binding.cpp and LOGGING.md.
+ENTRYPOINT ["./entrypoint.sh"]
+CMD ["node", "src/build/performer.js"]
