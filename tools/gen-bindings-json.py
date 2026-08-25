@@ -393,6 +393,10 @@ class BindingsGenerator:
             return
 
         if node.kind == clang.cindex.CursorKind.STRUCT_DECL or node.kind == clang.cindex.CursorKind.CLASS_DECL:
+            # Forward declarations carry no fields.  Registering one would shadow the real
+            # definition later in the header via the duplicate guard below.
+            if not node.is_definition():
+                return
             full_struct_name = "::".join([*namespace, node.displayname])
             if full_struct_name.endswith('::') or UNNAMED_STRUCT_DELIM in full_struct_name:
                 if full_struct_name.endswith('::'):
