@@ -101,6 +101,8 @@ if (process.env.CNCVER !== undefined) {
   var minor = semver.minor(ver)
   var patch = semver.patch(ver)
   TEST_CONFIG.version = new ServerVersion(major, minor, patch, false)
+} else {
+  assert(!TEST_CONFIG.connstr, 'must not specify a connstr without a version')
 }
 if (process.env.CNBUCKET !== undefined) {
   TEST_CONFIG.bucket = process.env.CNBUCKET
