@@ -1946,7 +1946,7 @@ export class Collection {
     callback?: NodeCallback<ScanResult[]>
   ): Promise<ScanResult[]> {
     if (options instanceof Function) {
-      callback = arguments[2]
+      callback = arguments[1]
       options = undefined
     }
     if (!options) {
