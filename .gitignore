@@ -50,3 +50,6 @@ config.json
 .claude/
 .ai_discussions/
 .opencode/
+# Python bytecode from the autogen tooling
+__pycache__/
+*.py[cod]

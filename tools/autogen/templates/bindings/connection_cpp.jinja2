@@ -1,0 +1,3 @@
+{% for op in ops %}
+InstanceMethod<&Connection::{{ op.js_name }}>("{{ op.base_name }}"),
+{% endfor %}

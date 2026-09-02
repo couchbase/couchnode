@@ -384,7 +384,13 @@ struct js_to_cbpp_t<std::variant<Types...>> {
 
     static inline std::variant<Types...> from_js(Napi::Value jsVal)
     {
-        throw Napi::Error::New(jsVal.Env(), "invalid variant marshal from js");
+        // A JS value carries no discriminator, so the generic case cannot pick an
+        // alternative.  Register the variant under renderer.cpp_core_variants in
+        // tools/autogen/config/bindings.yaml to get a tagged converter.
+        throw Napi::Error::New(
+            jsVal.Env(),
+            "cannot marshal a JS value to std::variant; the variant needs a "
+            "cpp_core_variants entry in tools/autogen/config/bindings.yaml");
     }
 };
 

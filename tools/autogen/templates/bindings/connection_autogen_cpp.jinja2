@@ -1,0 +1,28 @@
+{% for op in ops %}
+Napi::Value Connection::{{ op.js_name }}(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+{% if op.has_tracing %}
+
+    std::shared_ptr<{{ wrapper_span_type }}> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span = std::make_shared<{{ wrapper_span_type }}>(span_name);
+    }
+{% endif %}
+
+    executeOp("{{ op.base_name }}",
+{% if op.has_tracing %}
+              jsToCbpp<{{ op.request_cpp_name }}>(optsJsObj, wrapper_span),
+              callbackJsFn,
+              wrapper_span);
+{% else %}
+              jsToCbpp<{{ op.request_cpp_name }}>(optsJsObj),
+              callbackJsFn);
+{% endif %}
+
+    return info.Env().Null();
+}
+
+{% endfor %}

@@ -1,0 +1,89 @@
+{% for struct in structs %}
+template <>
+struct js_to_cbpp_t<{{ struct.cpp_name }}> {
+    static inline {{ struct.cpp_name }}
+{% if struct.has_tracing %}
+    from_js(Napi::Value jsVal,
+            std::shared_ptr<{{ wrapper_span_type }}> wrapperSpan)
+{% else %}
+    from_js(Napi::Value jsVal)
+{% endif %}
+    {
+        auto jsObj = jsVal.ToObject();
+{% for variant in struct.from_js_variants %}
+        auto {{ variant.name }}_name = jsToCbpp<std::string>(jsObj.Get("{{ variant.name }}_name"));
+        {{ variant.declared_type }} {{ variant.name }};
+{% for branch in variant.branches %}
+{% if branch.is_else %}
+        else {
+{% else %}
+        {{ branch.keyword }} {{ variant.name }}_name.compare("{{ branch.tag }}") == 0 ) {
+{% endif %}
+            {{ variant.name }} = js_to_cbpp<{{ branch.cpp_name }}>(jsObj.Get("{{ variant.name }}_value"));
+        }
+{% endfor %}
+{% endfor %}
+        {{ struct.cpp_name }} cppObj;
+{% for statement in struct.from_js_statements %}
+{% if statement.kind == 'wrapper_span' %}
+        cppObj.{{ statement.name }} = wrapperSpan;
+{% elif statement.kind == 'comment' %}
+        // {{ statement.name }}
+{% elif statement.kind == 'variant_assign' %}
+        cppObj.{{ statement.name }} = {{ statement.name }};
+{% elif statement.kind == 'u64_optional' %}
+        auto js_{{ statement.name }} = jsObj.Get("{{ statement.name }}");
+        if (!js_{{ statement.name }}.IsUndefined() && !js_{{ statement.name }}.IsNull()) {
+            cppObj.{{ statement.name }} = js_to_cbpp_u64(js_{{ statement.name }});
+        }
+{% elif statement.kind == 'u64' %}
+        cppObj.{{ statement.name }} = js_to_cbpp_u64(jsObj.Get("{{ statement.name }}"));
+{% else %}
+{% if statement.untagged_variant %}
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
+{% endif %}
+        js_to_cbpp<{{ statement.cpp_type }}>(cppObj.{{ statement.name }}, jsObj.Get("{{ statement.name }}"));
+{% endif %}
+{% endfor %}
+        return cppObj;
+    }
+    static inline Napi::Value
+{% if struct.takes_wrapper_span %}
+    to_js(Napi::Env env,
+          const {{ struct.cpp_name }} &cppObj,
+          std::shared_ptr<{{ wrapper_span_type }}> wrapperSpan = nullptr)
+{% else %}
+    to_js(Napi::Env env, const {{ struct.cpp_name }} &cppObj)
+{% endif %}
+    {
+        auto resObj = Napi::Object::New(env);
+{% for variant in struct.to_js_variants %}
+{% for branch in variant.branches %}
+{% if branch.is_else %}
+        else {
+{% else %}
+        {{ branch.keyword }} std::holds_alternative<{{ branch.cpp_name }}>(cppObj.{{ variant.name }})) {
+{% endif %}
+            resObj.Set("{{ variant.name }}_name", cbpp_to_js<std::string>(env, "{{ branch.tag }}"));
+        }
+{% endfor %}
+{% endfor %}
+{% for statement in struct.to_js_statements %}
+{% if statement.kind == 'span' %}
+        resObj.Set("{{ statement.name }}", cbpp_wrapper_span_to_js(env, wrapperSpan));
+{% elif statement.kind == 'comment' %}
+        // {{ statement.name }}
+{% elif statement.kind == 'u64' %}
+        resObj.Set("{{ statement.key }}", cbpp_to_js_u64(env, cppObj.{{ statement.name }}));
+{% else %}
+{% if statement.untagged_variant %}
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
+{% endif %}
+        resObj.Set("{{ statement.key }}", cbpp_to_js<{{ statement.cpp_type }}>(env, cppObj.{{ statement.name }}));
+{% endif %}
+{% endfor %}
+        return resObj;
+    }
+};
+
+{% endfor %}

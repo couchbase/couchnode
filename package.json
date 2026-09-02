@@ -85,6 +85,9 @@
     "cover": "nyc ts-mocha test/*.test.*",
     "cover-fast": "nyc ts-mocha test/*.test.* -ig '(slow)'",
     "lint": "eslint ./lib/ ./test/",
+    "gen:bindings": "python3 -m tools.autogen bindings generate",
+    "gen:bindings:check": "python3 -m tools.autogen bindings generate --check",
+    "gen:bindings:tidy": "python3 -m tools.autogen bindings tidy",
     "check-deps": "ncu"
   },
   "binary": {

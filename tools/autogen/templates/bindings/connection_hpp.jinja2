@@ -1,0 +1,3 @@
+{% for op in ops %}
+ Napi::Value {{ op.js_name }}(const Napi::CallbackInfo &info);
+{% endfor %}

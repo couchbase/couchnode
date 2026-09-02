@@ -4073,8 +4073,10 @@ struct js_to_cbpp_t<couchbase::core::operations::search_response::search_facet::
             numeric_range_facet cppObj;
         js_to_cbpp<std::string>(cppObj.name, jsObj.Get("name"));
         js_to_cbpp<std::uint64_t>(cppObj.count, jsObj.Get("count"));
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
         js_to_cbpp<std::variant<std::monostate, std::uint64_t, double>>(
             cppObj.min, jsObj.Get("min"));
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
         js_to_cbpp<std::variant<std::monostate, std::uint64_t, double>>(
             cppObj.max, jsObj.Get("max"));
         return cppObj;
@@ -4086,10 +4088,12 @@ struct js_to_cbpp_t<couchbase::core::operations::search_response::search_facet::
         auto resObj = Napi::Object::New(env);
         resObj.Set("name", cbpp_to_js<std::string>(env, cppObj.name));
         resObj.Set("count", cbpp_to_js<std::uint64_t>(env, cppObj.count));
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
         resObj.Set(
             "min",
             cbpp_to_js<std::variant<std::monostate, std::uint64_t, double>>(
                 env, cppObj.min));
+        // No alternative is a marshallable type, so this std::variant cannot carry a tag.
         resObj.Set(
             "max",
             cbpp_to_js<std::variant<std::monostate, std::uint64_t, double>>(

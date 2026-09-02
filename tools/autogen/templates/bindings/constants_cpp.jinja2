@@ -1,0 +1,11 @@
+{% for enum in enums %}
+exports.Set(
+  "{{ enum.prop_name }}",
+  cbppEnumToJs<{{ enum.cpp_name }}>(
+    env, {
+{% for value in enum.enum_values %}
+      {"{{ value }}", {{ enum.cpp_name }}::{{ value }}},
+{% endfor %}
+    }));
+
+{% endfor %}

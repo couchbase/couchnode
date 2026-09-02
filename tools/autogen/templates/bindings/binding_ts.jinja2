@@ -1,0 +1,52 @@
+{# The blank line above and the one at the end of this template are deliberate: the
+   generated region opens and closes with one. #}
+
+{% for name in enum_names %}
+export enum {{ name }} {}
+{% endfor %}
+
+{% for iface in interfaces %}
+{% if iface.base %}
+export interface {{ iface.ts_name }} extends {{ iface.base }} {
+{% else %}
+export interface {{ iface.ts_name }} {
+{% endif %}
+{% for field in iface.fields %}
+{% if field.kind == 'comment' %}
+  // {{ field.name }}
+{% elif field.kind == 'variant' %}
+  {{ field.name }}_name: string
+  {{ field.name }}_value: {{ field.ts_type }}
+{% elif field.optional %}
+  {{ field.name }}?: {{ field.ts_type }}
+{% else %}
+  {{ field.name }}: {{ field.ts_type }}
+{% endif %}
+{% endfor %}
+}
+{% endfor %}
+
+export interface CppConnectionAutogen {
+{% for op in connection_ops %}
+  {{ op.js_name }}(
+    options: {{ op.request }},
+    callback: (
+      err: CppError | null,
+      result: {{ op.response }}
+    ) => void
+  ): void
+{% endfor %}
+}
+
+export interface CppBindingAutogen {
+{% for enum in binding_enums %}
+  {{ enum.prop_name }}: {
+{% for value in enum.enum_values %}
+    {{ value }}: {{ enum.ts_name }}
+{% endfor %}
+  }
+{% endfor %}
+}
+
+export type CppObservableRequests = {{ observable_requests | join(' | ') }}
+
