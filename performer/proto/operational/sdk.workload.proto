@@ -118,6 +118,8 @@ message CollectionLevelCommand {
 
     kv.GetAllReplicas get_all_replicas = 31;
 
+    kv.GetReplica get_replica = 33;
+
     kv.lookup_in.LookupInAnyReplica lookup_in_any_replica = 19;
 
     BinaryCollectionLevelCommand binary = 32;

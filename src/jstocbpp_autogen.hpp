@@ -1662,6 +1662,71 @@ struct js_to_cbpp_t<couchbase::core::diag::ping_result> {
 };
 
 template <>
+struct js_to_cbpp_t<couchbase::core::search_scoring_none> {
+    static inline couchbase::core::search_scoring_none
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::search_scoring_none cppObj;
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::search_scoring_none &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::search_scoring_reciprocal_rank_fusion> {
+    static inline couchbase::core::search_scoring_reciprocal_rank_fusion
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::search_scoring_reciprocal_rank_fusion cppObj;
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.rank_constant,
+                                                 jsObj.Get("rank_constant"));
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.window_size,
+                                                 jsObj.Get("window_size"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::search_scoring_reciprocal_rank_fusion &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("rank_constant", cbpp_to_js<std::optional<std::uint32_t>>(
+                                        env, cppObj.rank_constant));
+        resObj.Set("window_size", cbpp_to_js<std::optional<std::uint32_t>>(
+                                      env, cppObj.window_size));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::search_scoring_relative_score_fusion> {
+    static inline couchbase::core::search_scoring_relative_score_fusion
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::search_scoring_relative_score_fusion cppObj;
+        js_to_cbpp<std::optional<std::uint32_t>>(cppObj.window_size,
+                                                 jsObj.Get("window_size"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::search_scoring_relative_score_fusion &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("window_size", cbpp_to_js<std::optional<std::uint32_t>>(
+                                      env, cppObj.window_size));
+        return resObj;
+    }
+};
+
+template <>
 struct js_to_cbpp_t<couchbase::core::operations::prepend_response> {
     static inline couchbase::core::operations::prepend_response
     from_js(Napi::Value jsVal)
@@ -4109,6 +4174,25 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
         std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)
     {
         auto jsObj = jsVal.ToObject();
+        auto scoring_name = jsToCbpp<std::string>(jsObj.Get("scoring_name"));
+        std::variant<std::monostate, couchbase::core::search_scoring_none,
+                     couchbase::core::search_scoring_reciprocal_rank_fusion,
+                     couchbase::core::search_scoring_relative_score_fusion>
+            scoring;
+        if (scoring_name.compare("search_scoring_none") == 0) {
+            scoring = js_to_cbpp<couchbase::core::search_scoring_none>(
+                jsObj.Get("scoring_value"));
+        } else if (scoring_name.compare(
+                       "search_scoring_reciprocal_rank_fusion") == 0) {
+            scoring = js_to_cbpp<
+                couchbase::core::search_scoring_reciprocal_rank_fusion>(
+                jsObj.Get("scoring_value"));
+        } else if (scoring_name.compare(
+                       "search_scoring_relative_score_fusion") == 0) {
+            scoring = js_to_cbpp<
+                couchbase::core::search_scoring_relative_score_fusion>(
+                jsObj.Get("scoring_value"));
+        }
         couchbase::core::operations::search_request cppObj;
         js_to_cbpp<std::string>(cppObj.index_name, jsObj.Get("index_name"));
         js_to_cbpp<couchbase::core::json_string>(cppObj.query,
@@ -4159,6 +4243,7 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                                         jsObj.Get("log_request"));
         js_to_cbpp<std::optional<bool>>(cppObj.log_response,
                                         jsObj.Get("log_response"));
+        cppObj.scoring = scoring;
         js_to_cbpp<std::string>(cppObj.body_str, jsObj.Get("body_str"));
         cppObj.parent_span = wrapperSpan;
         return cppObj;
@@ -4168,6 +4253,23 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
           const couchbase::core::operations::search_request &cppObj)
     {
         auto resObj = Napi::Object::New(env);
+        if (std::holds_alternative<couchbase::core::search_scoring_none>(
+                cppObj.scoring)) {
+            resObj.Set("scoring_name",
+                       cbpp_to_js<std::string>(env, "search_scoring_none"));
+        } else if (std::holds_alternative<
+                       couchbase::core::search_scoring_reciprocal_rank_fusion>(
+                       cppObj.scoring)) {
+            resObj.Set("scoring_name",
+                       cbpp_to_js<std::string>(
+                           env, "search_scoring_reciprocal_rank_fusion"));
+        } else if (std::holds_alternative<
+                       couchbase::core::search_scoring_relative_score_fusion>(
+                       cppObj.scoring)) {
+            resObj.Set("scoring_name",
+                       cbpp_to_js<std::string>(
+                           env, "search_scoring_relative_score_fusion"));
+        }
         resObj.Set("index_name",
                    cbpp_to_js<std::string>(env, cppObj.index_name));
         resObj.Set("query",
@@ -4231,6 +4333,12 @@ struct js_to_cbpp_t<couchbase::core::operations::search_request> {
                    cbpp_to_js<std::optional<bool>>(env, cppObj.log_request));
         resObj.Set("log_response",
                    cbpp_to_js<std::optional<bool>>(env, cppObj.log_response));
+        resObj.Set("scoring_value",
+                   cbpp_to_js<std::variant<
+                       std::monostate, couchbase::core::search_scoring_none,
+                       couchbase::core::search_scoring_reciprocal_rank_fusion,
+                       couchbase::core::search_scoring_relative_score_fusion>>(
+                       env, cppObj.scoring));
         resObj.Set("body_str", cbpp_to_js<std::string>(env, cppObj.body_str));
         // parent_span
         return resObj;

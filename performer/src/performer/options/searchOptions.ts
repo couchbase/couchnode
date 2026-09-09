@@ -18,6 +18,9 @@ import {
   VectorSearchOptions as VectorSearchOptionsPb,
   VectorQueryCombination as VectorQueryCombinationPb,
   // [end]
+  SearchScoring as SearchScoringPb,
+  SearchScoringReciprocalRankFusion as SearchScoringReciprocalRankFusionPb,
+  SearchScoringRelativeScoreFusion as SearchScoringRelativeScoreFusionPb,
 } from "../../proto/sdk.search_pb";
 import { MutationState as MutationStatePb } from "../../proto/shared.basic_pb";
 
@@ -31,6 +34,10 @@ import {
   VectorSearchOptions,
   VectorQueryCombination,
   // [end]
+  SearchScoring,
+  SearchScoringNone,
+  SearchScoringReciprocalRankFusion,
+  SearchScoringRelativeScoreFusion,
 } from "couchbase";
 
 import { SdkUtils } from "../utils";
@@ -273,7 +280,39 @@ export class SdkCommandSearchOptions {
       opts.includeLocations = options.getIncludeLocations();
     }
 
+    if (options.hasDisableScoring()) {
+      opts.disableScoring = options.getDisableScoring();
+    }
+
+    if (options.hasScoring()) {
+      opts.scoring = SdkCommandSearchOptions.toSdkSearchScoring(
+        options.getScoring() as SearchScoringPb,
+      );
+    }
+
     return opts;
+  }
+
+  static toSdkSearchScoring(scoringPb: SearchScoringPb): SearchScoring {
+    if (scoringPb.hasNone()) {
+      return new SearchScoringNone();
+    } else if (scoringPb.hasReciprocalRankFusion()) {
+      const rrfPb =
+        scoringPb.getReciprocalRankFusion() as SearchScoringReciprocalRankFusionPb;
+      return new SearchScoringReciprocalRankFusion({
+        rankConstant: rrfPb.hasRankConstant()
+          ? rrfPb.getRankConstant()
+          : undefined,
+        windowSize: rrfPb.hasWindowSize() ? rrfPb.getWindowSize() : undefined,
+      });
+    } else if (scoringPb.hasRelativeScoreFusion()) {
+      const rsfPb =
+        scoringPb.getRelativeScoreFusion() as SearchScoringRelativeScoreFusionPb;
+      return new SearchScoringRelativeScoreFusion({
+        windowSize: rsfPb.hasWindowSize() ? rsfPb.getWindowSize() : undefined,
+      });
+    }
+    throw new Error("Invalid SearchScoring mode.");
   }
 
   // [if:4.2.10]

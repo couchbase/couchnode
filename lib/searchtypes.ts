@@ -82,6 +82,145 @@ export enum SearchScanConsistency {
 }
 
 /**
+ * The discriminator identifying which {@link SearchScoring} implementation is in use.
+ *
+ * @category Full Text Search
+ */
+export type SearchScoringMode = 'none' | 'rrf' | 'rsf'
+
+/**
+ * Base class for the scoring mode of a search query.
+ *
+ * Score fusion controls how the FTS and vector result sets of a hybrid request are merged into a
+ * single ranked list. It is only meaningful for a hybrid request (both an FTS query and a vector
+ * search); when applied to a single result set the server re-scores the hits but leaves their
+ * ordering unchanged.
+ *
+ * @see SearchScoringNone
+ * @see SearchScoringReciprocalRankFusion
+ * @see SearchScoringRelativeScoreFusion
+ * @experimental Uncommitted: This API is subject to change in the future.
+ * @category Full Text Search
+ */
+export abstract class SearchScoring {
+  /**
+   * @internal
+   */
+  protected abstract readonly _mode: SearchScoringMode
+
+  /**
+   * Returns the {@link SearchScoringMode} of a {@link SearchScoring} instance.
+   *
+   * @internal
+   */
+  static modeOf(scoring: SearchScoring): SearchScoringMode {
+    return scoring._mode
+  }
+
+  /**
+   * Creates a {@link SearchScoringNone}.
+   */
+  static none(): SearchScoringNone {
+    return new SearchScoringNone()
+  }
+
+  /**
+   * Creates a {@link SearchScoringReciprocalRankFusion}.
+   */
+  static reciprocalRankFusion(options?: {
+    rankConstant?: number
+    windowSize?: number
+  }): SearchScoringReciprocalRankFusion {
+    return new SearchScoringReciprocalRankFusion(options)
+  }
+
+  /**
+   * Creates a {@link SearchScoringRelativeScoreFusion}.
+   */
+  static relativeScoreFusion(options?: {
+    windowSize?: number
+  }): SearchScoringRelativeScoreFusion {
+    return new SearchScoringRelativeScoreFusion(options)
+  }
+}
+
+/**
+ * Disables scoring, so that the server does not perform any scoring on the hits.
+ *
+ * This sends the same `"none"` that the deprecated {@link SearchQueryOptions.disableScoring} sends. It
+ * is not a fusion strategy: `"none"` predates score fusion, so it works on older server versions.
+ *
+ * @experimental Uncommitted: This API is subject to change in the future.
+ * @category Full Text Search
+ */
+export class SearchScoringNone extends SearchScoring {
+  /**
+   * @internal
+   */
+  protected readonly _mode: SearchScoringMode = 'none'
+}
+
+/**
+ * Merges the FTS and vector result sets by rank rather than by raw score.
+ *
+ * It works well with the server defaults, and is the recommended strategy.
+ *
+ * Available from Couchbase Server 8.5. Setting it makes the SDK check for the score fusion
+ * cluster capability, and fail the operation if the cluster does not advertise it.
+ *
+ * @experimental Uncommitted: This API is subject to change in the future.
+ * @category Full Text Search
+ */
+export class SearchScoringReciprocalRankFusion extends SearchScoring {
+  /**
+   * @internal
+   */
+  protected readonly _mode: SearchScoringMode = 'rrf'
+
+  /**
+   * The rank constant of the Reciprocal Rank Fusion formula.
+   */
+  rankConstant?: number
+
+  /**
+   * How many results per list are considered for fusion.
+   */
+  windowSize?: number
+
+  constructor(options?: { rankConstant?: number; windowSize?: number }) {
+    super()
+    this.rankConstant = options?.rankConstant
+    this.windowSize = options?.windowSize
+  }
+}
+
+/**
+ * Merges the FTS and vector result sets by normalized score rather than by rank.
+ *
+ * Available from Couchbase Server 8.5. Setting it makes the SDK check for the score fusion
+ * cluster capability, and fail the operation if the cluster does not advertise it.
+ *
+ * @experimental Uncommitted: This API is subject to change in the future.
+ * @category Full Text Search
+ */
+export class SearchScoringRelativeScoreFusion extends SearchScoring {
+  /**
+   * @internal
+   */
+  protected readonly _mode: SearchScoringMode = 'rsf'
+
+  /**
+   * How many results per list are considered for fusion.
+   */
+  windowSize?: number
+
+  constructor(options?: { windowSize?: number }) {
+    super()
+    this.windowSize = options?.windowSize
+  }
+}
+
+/**
  * @category Full Text Search
  */
 export interface SearchQueryOptions {
@@ -133,8 +272,25 @@ export interface SearchQueryOptions {
   /**
    * Specifies that scoring should be disabled.  This improves performance but makes it
    * impossible to sort based on how well a particular result scored.
+   *
+   * Deprecated in favor of {@link SearchQueryOptions.scoring} with a {@link SearchScoringNone},
+   * which sends the same thing. Cannot be used together with `scoring`.
+   *
+   * @deprecated Use {@link SearchQueryOptions.scoring} instead.
    */
   disableScoring?: boolean
+
+  /**
+   * Specifies the scoring mode for the query, including the score fusion strategy used to merge
+   * the FTS and vector result sets of a hybrid request. Cannot be used together with the
+   * deprecated `disableScoring`.
+   *
+   * @see SearchScoringNone
+   * @see SearchScoringReciprocalRankFusion
+   * @see SearchScoringRelativeScoreFusion
+   * @experimental This API is subject to change without notice.
+   */
+  scoring?: SearchScoring
 
   /**
    * If set to true, will include the locations in the search result.

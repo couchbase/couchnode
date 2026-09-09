@@ -8,8 +8,6 @@ option ruby_package = "FIT::Protocol::SDK::Cluster::Query::IndexManager";
 option java_multiple_files = true;
 
 import "sdk.query.index_manager.proto";
-import "sdk.query.index_manager.options.proto";
-
 
 // This file is for QueryIndexManager: cluster.queryIndexes()
 // For Collection-level query index manager (collection.queryIndexes()), see sdk.collection.query.index_manager.proto.

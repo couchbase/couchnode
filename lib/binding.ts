@@ -475,6 +475,14 @@ export interface CppDiagPingResult {
   services: { [key: string /*CppServiceType*/]: CppDiagEndpointPingInfo[] }
   version: number
 }
+export interface CppSearchScoringNone {}
+export interface CppSearchScoringReciprocalRankFusion {
+  rank_constant?: number
+  window_size?: number
+}
+export interface CppSearchScoringRelativeScoreFusion {
+  window_size?: number
+}
 export interface CppPrependResponse extends CppObservableResponse {
   // ctx
   cas: CppCas
@@ -1002,6 +1010,12 @@ export interface CppSearchRequest extends CppObservableRequest {
   timeout?: CppMilliseconds
   log_request?: boolean
   log_response?: boolean
+  scoring_name: string
+  scoring_value:
+    | undefined
+    | CppSearchScoringNone
+    | CppSearchScoringReciprocalRankFusion
+    | CppSearchScoringRelativeScoreFusion
   body_str: string
   // parent_span
 }

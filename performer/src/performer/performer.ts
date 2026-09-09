@@ -280,6 +280,7 @@ class Performer {
     );
     // [end]
     sdkCaps.push(SdkCapsPb.SDK_QUERY_2120);
+    sdkCaps.push(SdkCapsPb.SDK_SEARCH_SCORE_FUSION);
     returnResult.setSdkImplementationCapsList(sdkCaps);
     const performerCaps = [
       PerformerCapsPb.KV_SUPPORT_1,

@@ -99,3 +99,9 @@ message GetAnyReplicaOptions {
 
     optional string parent_span_id = 4;
 }
+
+message GetReplicaOptions {
+    optional int32 timeout_msecs = 1;
+    optional shared.Transcoder transcoder = 2;
+    optional string parent_span_id = 3;
+}

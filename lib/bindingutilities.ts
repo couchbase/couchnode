@@ -41,6 +41,9 @@ import binding, {
   CppSamplingScan,
   CppSearchHighlightStyle,
   CppSearchScanConsistency,
+  CppSearchScoringNone,
+  CppSearchScoringReciprocalRankFusion,
+  CppSearchScoringRelativeScoreFusion,
   CppServiceType,
   CppStoreSemantics,
   CppTransactionKeyspace,
@@ -72,7 +75,13 @@ import {
 import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
 import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
-import { HighlightStyle, SearchScanConsistency } from './searchtypes'
+import {
+  HighlightStyle,
+  SearchScanConsistency,
+  SearchScoring,
+  SearchScoringReciprocalRankFusion,
+  SearchScoringRelativeScoreFusion,
+} from './searchtypes'
 import {
   TransactionGetMultiMode,
   TransactionGetMultiReplicasFromPreferredServerGroupMode,
@@ -405,6 +414,76 @@ export function searchHighlightStyleToCpp(
   }
 
   throw new errs.InvalidArgumentError()
+}
+
+const UINT32_MAX = 0xffffffff
+
+/**
+ * Validates that a SearchScoring numeric option fits the C++ core's
+ * `std::uint32_t` field, so an invalid value fails fast instead of being
+ * silently truncated/wrapped when it crosses the native boundary.
+ *
+ * @internal
+ */
+export function scoringUint32ToCpp(
+  name: string,
+  value: number | undefined
+): number | undefined {
+  if (value === null || value === undefined) {
+    return undefined
+  }
+
+  if (!Number.isInteger(value) || value < 0 || value > UINT32_MAX) {
+    throw new errs.InvalidArgumentError(
+      new Error(`${name} must be an unsigned 32-bit integer, got ${value}.`)
+    )
+  }
+
+  return value
+}
+
+/**
+ * @internal
+ */
+export function searchScoringToCpp(scoring: SearchScoring | undefined): {
+  scoring_name: string
+  scoring_value:
+    | CppSearchScoringNone
+    | CppSearchScoringReciprocalRankFusion
+    | CppSearchScoringRelativeScoreFusion
+    | undefined
+} {
+  if (scoring === null || scoring === undefined) {
+    return { scoring_name: '', scoring_value: undefined }
+  }
+
+  switch (SearchScoring.modeOf(scoring)) {
+    case 'none':
+      return { scoring_name: 'search_scoring_none', scoring_value: {} }
+    case 'rrf': {
+      const rrf = scoring as SearchScoringReciprocalRankFusion
+      return {
+        scoring_name: 'search_scoring_reciprocal_rank_fusion',
+        scoring_value: {
+          rank_constant: scoringUint32ToCpp('rankConstant', rrf.rankConstant),
+          window_size: scoringUint32ToCpp('windowSize', rrf.windowSize),
+        },
+      }
+    }
+    case 'rsf': {
+      const rsf = scoring as SearchScoringRelativeScoreFusion
+      return {
+        scoring_name: 'search_scoring_relative_score_fusion',
+        scoring_value: {
+          window_size: scoringUint32ToCpp('windowSize', rsf.windowSize),
+        },
+      }
+    }
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized SearchScoring implementation.')
+  )
 }
 
 /**

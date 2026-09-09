@@ -13,6 +13,7 @@ import "shared.content.proto";
 import "shared.basic.proto";
 import "google/protobuf/duration.proto";
 import "streams.top_level.proto";
+import "sdk.kv.replicas.proto";
 
 
 // Performer will return a MutationResult
@@ -66,6 +67,15 @@ message GetAnyReplica {
   optional GetAnyReplicaOptions options = 2;
 
   shared.ContentAs content_as = 3;
+}
+
+// Performer will return a GetReplicaResult
+message GetReplica {
+  shared.DocLocation location = 1;
+  replicas.GetReplicaStrategy strategy = 2;
+  optional GetReplicaOptions options = 3;
+
+  shared.ContentAs content_as = 4;
 }
 
 // Performer will return an empty result with success set

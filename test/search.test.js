@@ -5,7 +5,15 @@ const testdata = require('./testdata')
 const fs = require('fs')
 const path = require('path')
 
-const { HighlightStyle, SearchRequest } = require('../lib/searchtypes')
+const {
+  HighlightStyle,
+  SearchRequest,
+  SearchScoring,
+  SearchScoringNone,
+  SearchScoringReciprocalRankFusion,
+  SearchScoringRelativeScoreFusion,
+} = require('../lib/searchtypes')
+const { searchScoringToCpp } = require('../lib/bindingutilities')
 const { VectorQuery, VectorSearch } = require('../lib/vectorsearch')
 
 const H = require('./harness')
@@ -457,5 +465,109 @@ describe('#vectorsearch', function () {
 
   it('should successfully drop an index', async function () {
     await H.c.searchIndexes().dropIndex(idxName)
+  })
+})
+
+describe('#searchscoring', function () {
+  it('should construct SearchScoringNone', function () {
+    const scoring = new SearchScoringNone()
+    assert.instanceOf(scoring, SearchScoring)
+    assert.equal(SearchScoring.modeOf(scoring), 'none')
+  })
+
+  it('should construct SearchScoringNone via the static factory', function () {
+    const scoring = SearchScoring.none()
+    assert.instanceOf(scoring, SearchScoringNone)
+    assert.equal(SearchScoring.modeOf(scoring), 'none')
+  })
+
+  it('should construct SearchScoringReciprocalRankFusion with defaults', function () {
+    const scoring = new SearchScoringReciprocalRankFusion()
+    assert.equal(SearchScoring.modeOf(scoring), 'rrf')
+    assert.isUndefined(scoring.rankConstant)
+    assert.isUndefined(scoring.windowSize)
+  })
+
+  it('should construct SearchScoringReciprocalRankFusion with options', function () {
+    const scoring = new SearchScoringReciprocalRankFusion({
+      rankConstant: 60,
+      windowSize: 100,
+    })
+    assert.equal(SearchScoring.modeOf(scoring), 'rrf')
+    assert.equal(scoring.rankConstant, 60)
+    assert.equal(scoring.windowSize, 100)
+  })
+
+  it('should construct SearchScoringReciprocalRankFusion via the static factory', function () {
+    const scoring = SearchScoring.reciprocalRankFusion({
+      rankConstant: 60,
+      windowSize: 100,
+    })
+    assert.instanceOf(scoring, SearchScoringReciprocalRankFusion)
+    assert.equal(SearchScoring.modeOf(scoring), 'rrf')
+    assert.equal(scoring.rankConstant, 60)
+    assert.equal(scoring.windowSize, 100)
+  })
+
+  it('should construct SearchScoringRelativeScoreFusion with defaults', function () {
+    const scoring = new SearchScoringRelativeScoreFusion()
+    assert.equal(SearchScoring.modeOf(scoring), 'rsf')
+    assert.isUndefined(scoring.windowSize)
+  })
+
+  it('should construct SearchScoringRelativeScoreFusion with options', function () {
+    const scoring = new SearchScoringRelativeScoreFusion({ windowSize: 100 })
+    assert.equal(SearchScoring.modeOf(scoring), 'rsf')
+    assert.equal(scoring.windowSize, 100)
+  })
+
+  it('should construct SearchScoringRelativeScoreFusion via the static factory', function () {
+    const scoring = SearchScoring.relativeScoreFusion({ windowSize: 100 })
+    assert.instanceOf(scoring, SearchScoringRelativeScoreFusion)
+    assert.equal(SearchScoring.modeOf(scoring), 'rsf')
+    assert.equal(scoring.windowSize, 100)
+  })
+
+  it('should pass valid uint32 rankConstant/windowSize through to the cpp request', function () {
+    const { scoring_value: scoringValue } = searchScoringToCpp(
+      new SearchScoringReciprocalRankFusion({
+        rankConstant: 60,
+        windowSize: 4294967295,
+      })
+    )
+    assert.equal(scoringValue.rank_constant, 60)
+    assert.equal(scoringValue.window_size, 4294967295)
+  })
+
+  it('should leave undefined rankConstant/windowSize as undefined', function () {
+    const { scoring_value: scoringValue } = searchScoringToCpp(
+      new SearchScoringReciprocalRankFusion()
+    )
+    assert.isUndefined(scoringValue.rank_constant)
+    assert.isUndefined(scoringValue.window_size)
+  })
+
+  it('should reject a negative rankConstant', function () {
+    assert.throws(() => {
+      searchScoringToCpp(
+        new SearchScoringReciprocalRankFusion({ rankConstant: -1 })
+      )
+    }, H.lib.InvalidArgumentError)
+  })
+
+  it('should reject a non-integer windowSize', function () {
+    assert.throws(() => {
+      searchScoringToCpp(
+        new SearchScoringRelativeScoreFusion({ windowSize: 1.5 })
+      )
+    }, H.lib.InvalidArgumentError)
+  })
+
+  it('should reject a windowSize larger than uint32 max', function () {
+    assert.throws(() => {
+      searchScoringToCpp(
+        new SearchScoringRelativeScoreFusion({ windowSize: 4294967296 })
+      )
+    }, H.lib.InvalidArgumentError)
   })
 })

@@ -89,6 +89,26 @@ enum VectorQueryCombination {
   OR = 1;
 }
 
+message SearchScoringReciprocalRankFusion {
+  optional uint32 rank_constant = 1;
+  optional uint32 window_size = 2;
+}
+
+message SearchScoringRelativeScoreFusion {
+  optional uint32 window_size = 1;
+}
+
+message SearchScoringNone {
+}
+
+// Controls the top-level `score` field in the FTS request.
+message SearchScoring {
+  oneof mode {
+    SearchScoringReciprocalRankFusion reciprocal_rank_fusion = 1;
+    SearchScoringRelativeScoreFusion relative_score_fusion = 2;
+    SearchScoringNone none = 3;
+  }
+}
 
 // Executing a `cluster.searchQuery()` FTS query.
 //
@@ -319,6 +339,8 @@ message SearchOptions {
   map<string, string> raw = 12;
   optional bool include_locations = 13;
   optional protocol.shared.JsonSerializer serialize = 14;
+  optional SearchScoring scoring = 15;
+  optional bool disable_scoring = 16;
 }
 
 enum MatchOperator {

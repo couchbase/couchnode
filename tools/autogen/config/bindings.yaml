@@ -64,6 +64,7 @@ parser:
     - couchbase/query_scan_consistency.hxx
     - core/search_highlight_style.hxx
     - core/search_scan_consistency.hxx
+    - core/search_scoring.hxx
     - core/service_type.hxx
     - core/view_on_error.hxx
     - core/view_scan_consistency.hxx
@@ -153,6 +154,9 @@ parser:
     - couchbase::query_scan_consistency
     - couchbase::core::search_highlight_style
     - couchbase::core::search_scan_consistency
+    - couchbase::core::search_scoring_none
+    - couchbase::core::search_scoring_reciprocal_rank_fusion
+    - couchbase::core::search_scoring_relative_score_fusion
     - couchbase::core::service_type
     - couchbase::core::view_on_error
     - couchbase::core::view_scan_consistency
@@ -307,6 +311,16 @@ renderer:
         - tag: sampling_scan
           core_struct: couchbase::core::sampling_scan
 
+    - core_struct: couchbase::core::operations::search_request
+      field: scoring
+      alternatives:
+        - tag: search_scoring_none
+          core_struct: couchbase::core::search_scoring_none
+        - tag: search_scoring_reciprocal_rank_fusion
+          core_struct: couchbase::core::search_scoring_reciprocal_rank_fusion
+        - tag: search_scoring_relative_score_fusion
+          core_struct: couchbase::core::search_scoring_relative_score_fusion
+
   # Counter delta / initial / content are uint64 in the core.  The shared
   # integral marshalling rounds them through a JS number (lossy above 2^53), so
   # these fields opt into exact bigint marshalling via cbpp_to_js_u64 /
@@ -367,6 +381,7 @@ validation:
   allow_empty_fields:
     - couchbase::core::management::eventing::function_url_no_auth
     - couchbase::core::range_scan_cancel_result
+    - couchbase::core::search_scoring_none
 
   # Canaries for a partial parse.  A struct can lose most of its fields while
   # keeping a couple, which the empty check above would not notice; these are

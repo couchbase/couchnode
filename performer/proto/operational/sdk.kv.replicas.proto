@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package protocol.sdk.kv.replicas;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Kv.Replicas";
+option java_package = "com.couchbase.client.protocol.sdk.kv.replicas";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/kv/replicas";
+option ruby_package = "FIT::Protocol::SDK::KV::Replicas";
+option java_multiple_files = true;
+
+enum ReplicaIndex {
+  FIRST = 0;
+  SECOND = 1;
+  THIRD = 2;
+}
+
+message GetReplicaStrategyFromIndexOptions {
+  optional bool wrap = 1;
+}
+
+// Equivalent to a GetReplicaStrategy.fromIndex call in the SDK
+message GetReplicaStrategyFromIndex {
+  ReplicaIndex index = 1;
+  optional GetReplicaStrategyFromIndexOptions options = 2;
+}
+
+message GetReplicaStrategy {
+  oneof strategy {
+    GetReplicaStrategyFromIndex from_index = 1;
+  }
+}

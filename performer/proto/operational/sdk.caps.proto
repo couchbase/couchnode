@@ -153,6 +153,13 @@ enum Caps {
   // The SDK supports the RESUMING status in the result of functions_status() of the eventing management API.
   SDK_EVENTING_RESUMING_FUNCTION_STATUS = 40;
 
+  // The SDK supports hybrid search score fusion (SDK-RFC 52).
+  SDK_SEARCH_SCORE_FUSION = 41;
+
   // SDK handles query code 2120.
   SDK_QUERY_2120 = 42;
+
+  // The SDK has support for the Collection.GetReplica API. This includes the new DocumentNotFoundOnReplicaException,
+  // ReplicaIndexOutOfBoundsException and ReplicaIndexCurrentlyUnavailableException exceptions.
+  SDK_GET_REPLICA = 43;
 }

@@ -3,9 +3,11 @@ import {
   mutationStateToCpp,
   searchHighlightStyleToCpp,
   searchScanConsistencyToCpp,
+  searchScoringToCpp,
   vectorQueryCombinationToCpp,
 } from './bindingutilities'
 import { Cluster } from './cluster'
+import { InvalidArgumentError } from './errors'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
@@ -135,7 +137,18 @@ export class SearchExecutor {
         : query.searchQuery
           ? JSON.stringify(query.searchQuery)
           : JSON.stringify(new MatchNoneSearchQuery())
+    if (options.disableScoring && options.scoring !== undefined) {
+      throw new InvalidArgumentError(
+        new Error(
+          'Cannot specify both disableScoring and scoring, use scoring alone.'
+        )
+      )
+    }
+
     const timeout = options.timeout || this._cluster.searchTimeout
+    const { scoring_name, scoring_value } = searchScoringToCpp(
+      options.scoring
+    )
     const request: CppSearchRequest = {
       timeout,
       index_name: indexName,
@@ -144,6 +157,8 @@ export class SearchExecutor {
       skip: options.skip,
       explain: options.explain || false,
       disable_scoring: options.disableScoring || false,
+      scoring_name,
+      scoring_value,
       include_locations: options.includeLocations || false,
       highlight_style: options.highlight
         ? searchHighlightStyleToCpp(options.highlight.style)
