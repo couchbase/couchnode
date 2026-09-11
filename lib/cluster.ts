@@ -563,9 +563,9 @@ export class Cluster {
   @deprecated Use the static sdk-level {@link connect} method instead.
   */
   constructor(connStr: string, options?: ConnectOptions) {
-    if (!options) {
-      options = {}
-    }
+    // Copy before normalising: the options object belongs to the caller, and
+    // the defaulting below, plus any config profile, writes to it.
+    options = { ...options }
 
     if (!options.security) {
       options.security = {}
