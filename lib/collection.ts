@@ -803,8 +803,15 @@ export class Collection {
       const cppDocId = this._cppDocId(key)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       if (options.project || options.withExpiry) {
-        options.parentSpan = obsReqHandler?.wrappedSpan
-        return this._projectedGet(key, options, obsReqHandler, callback)
+        // Thread the span through a copy: the options object belongs to the
+        // caller, and one reused across requests would otherwise carry a
+        // finished request's span into the next call.
+        return this._projectedGet(
+          key,
+          { ...options, parentSpan: obsReqHandler?.wrappedSpan },
+          obsReqHandler,
+          callback
+        )
       }
 
       const transcoder = options.transcoder || this.transcoder
