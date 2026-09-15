@@ -51,11 +51,11 @@ export class Origin {
 }
 
 /**
- * Contains information about a role.
+ * Specifies information about a role.
  *
  * @category Management
  */
-export class Role {
+export interface IRole {
   /**
    * The name of the role.
    */
@@ -64,22 +64,49 @@ export class Role {
   /**
    * The bucket this role applies to.
    */
-  bucket: string | undefined
+  bucket?: string
 
   /**
    * The scope this role applies to.
    */
-  scope: string | undefined
+  scope?: string
 
   /**
    * The collection this role applies to.
    */
-  collection: string | undefined
+  collection?: string
+}
+
+/**
+ * Contains information about a role.
+ *
+ * @category Management
+ */
+export class Role implements IRole {
+  /**
+   * The name of the role.
+   */
+  name: string
+
+  /**
+   * The bucket this role applies to.
+   */
+  bucket?: string
+
+  /**
+   * The scope this role applies to.
+   */
+  scope?: string
+
+  /**
+   * The collection this role applies to.
+   */
+  collection?: string
 
   /**
    * @internal
    */
-  constructor(data: Role) {
+  constructor(data: IRole) {
     this.name = data.name
     this.bucket = data.bucket
     this.scope = data.scope
@@ -101,7 +128,7 @@ export class Role {
   /**
    * @internal
    */
-  static _toCppData(data: Role): CppManagementRbacRole {
+  static _toCppData(data: IRole): CppManagementRbacRole {
     return {
       name: data.name,
       bucket: data.bucket,
@@ -211,7 +238,7 @@ export interface IUser {
   /**
    * The roles associates with this user.
    */
-  roles?: (Role | string)[]
+  roles?: (IRole | string)[]
 
   /**
    * The password for this user.
@@ -393,7 +420,7 @@ export interface IGroup {
   /**
    * The roles which are associated with this group.
    */
-  roles?: (Role | string)[]
+  roles?: (IRole | string)[]
 
   /**
    * The LDAP group that this group is associated with.
