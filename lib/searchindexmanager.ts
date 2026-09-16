@@ -44,13 +44,13 @@ export interface ISearchIndex {
   /**
    * The UUID of the data source.
    */
-  sourceUuid: string
+  sourceUuid?: string
 
   /**
    * Extra parameters for the source.  These are usually things like advanced
    * connection options and tuning parameters.
    */
-  sourceParams: { [key: string]: any }
+  sourceParams?: { [key: string]: any }
 
   /**
    * The type of the source (couchbase or nil).
@@ -60,7 +60,7 @@ export interface ISearchIndex {
   /**
    * Plan properties such as the number of replicas and number of partitions.
    */
-  planParams: { [key: string]: any }
+  planParams?: { [key: string]: any }
 }
 
 /**
@@ -98,13 +98,13 @@ export class SearchIndex implements ISearchIndex {
   /**
    * The UUID of the data source.
    */
-  sourceUuid: string
+  sourceUuid?: string
 
   /**
    * Extra parameters for the source.  These are usually things like advanced
    * connection options and tuning parameters.
    */
-  sourceParams: { [key: string]: any }
+  sourceParams?: { [key: string]: any }
 
   /**
    * The type of the source (couchbase or nil).
@@ -114,7 +114,7 @@ export class SearchIndex implements ISearchIndex {
   /**
    * Plan properties such as the number of replicas and number of partitions.
    */
-  planParams: { [key: string]: any }
+  planParams?: { [key: string]: any }
 
   /**
    * @internal
