@@ -9,7 +9,7 @@ export class ViewResult<TValue = any, TKey = any> {
   /**
    * The rows which have been returned by the query.
    */
-  rows: ViewRow<TKey, TValue>[]
+  rows: ViewRow<TValue, TKey>[]
 
   /**
    * The meta-data which has been returned by the query.
