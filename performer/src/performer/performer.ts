@@ -279,6 +279,7 @@ class Performer {
       SdkCapsPb.SDK_STABLE_OTEL_SEMANTIC_CONVENTIONS_EMITTED_BY_DEFAULT,
     );
     // [end]
+    sdkCaps.push(SdkCapsPb.SDK_QUERY_2120);
     returnResult.setSdkImplementationCapsList(sdkCaps);
     const performerCaps = [
       PerformerCapsPb.KV_SUPPORT_1,
