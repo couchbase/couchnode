@@ -1936,7 +1936,6 @@ export function transactionGetMultiReplicasFromPreferredServerGroupModeToCpp(
       'Unrecognized TransactionGetMultiReplicasFromPreferredServerGroupMode.'
     )
   )
-
 }
 
 /**
@@ -1981,5 +1980,9 @@ export function subdocumentStatusFromCpp(
   if (status === binding.key_value_status_code.subdoc_value_too_deep) {
     return 'value_too_deep'
   }
-  throw new errs.CouchbaseError('Unknown subdocument status code')
+  // Total by construction. Only the sub-document subset of the KV status enum
+  // is modelled above, and a document level code does reach a field: a replica
+  // answering with a document level failure and no field results has one
+  // synthesized per requested spec, each stamped with that status.
+  return 'unknown'
 }

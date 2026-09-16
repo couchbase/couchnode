@@ -1,6 +1,7 @@
 import { MutationToken } from './mutationstate'
 import { Cas } from './utilities'
 import { SdUtils, SubdocStatus } from './sdutils'
+
 /**
  * Contains the results of a Get operation.
  *
@@ -255,13 +256,21 @@ export class LookupInResult {
     if (index < 0 || index >= this.content.length) {
       throw new Error('Index out of bounds')
     }
-    if (this.content[index].status === 'success') {
+    const entry = this.content[index]
+    if (entry.status === 'success') {
       return true
     }
-    if (this.content[index].status === 'path_not_found') {
+    if (entry.status === 'path_not_found') {
       return false
     }
-    return SdUtils.parseSubdocStatus(this.content[index].status)
+    // The entry carries the per field error the core sent, already mapped by
+    // errorFromCpp(), so it is the same class parseSubdocStatus() would
+    // synthesize but with the server's context attached. Prefer it, and fall
+    // back to the status when the entry has none.
+    if (entry.error) {
+      throw entry.error
+    }
+    return SdUtils.parseSubdocStatus(entry.status)
   }
 }
 
@@ -304,13 +313,21 @@ export class LookupInReplicaResult {
     if (index < 0 || index >= this.content.length) {
       throw new Error('Index out of bounds')
     }
-    if (this.content[index].status === 'success') {
+    const entry = this.content[index]
+    if (entry.status === 'success') {
       return true
     }
-    if (this.content[index].status === 'path_not_found') {
+    if (entry.status === 'path_not_found') {
       return false
     }
-    return SdUtils.parseSubdocStatus(this.content[index].status)
+    // The entry carries the per field error the core sent, already mapped by
+    // errorFromCpp(), so it is the same class parseSubdocStatus() would
+    // synthesize but with the server's context attached. Prefer it, and fall
+    // back to the status when the entry has none.
+    if (entry.error) {
+      throw entry.error
+    }
+    return SdUtils.parseSubdocStatus(entry.status)
   }
 }
 

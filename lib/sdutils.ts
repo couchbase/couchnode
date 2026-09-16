@@ -37,6 +37,7 @@ export type SubdocStatus =
   | 'delta_invalid'
   | 'path_exists'
   | 'value_too_deep'
+  | 'unknown'
 
 interface SdPathPartProp {
   type: 'property'
@@ -196,6 +197,7 @@ export class SdUtils {
       delta_invalid: () => new DeltaInvalidError(),
       path_exists: () => new PathExistsError(),
       value_too_deep: () => new ValueTooDeepError(),
+      unknown: () => new CouchbaseError('Unknown subdocument status code'),
     }
     throw errorFactories[status]()
   }
