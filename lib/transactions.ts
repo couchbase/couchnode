@@ -22,7 +22,9 @@ import {
 } from './bindingutilities'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
+import { KeyValueErrorContext } from './errorcontexts'
 import {
+  CouchbaseError,
   DocumentNotFoundError,
   TransactionCommitAmbiguousError,
   TransactionExpiredError,
@@ -796,6 +798,32 @@ function translateGetMultiReplicasFromPreferredServerGroupResult(
 }
 
 /**
+ * The C++ core reports no error context for a key-value failure raised inside
+ * a transaction, so the context the same operation carries outside one never
+ * arrives.  Until the core carries it, fill in what the SDK already holds:
+ * the document the operation was aimed at.  The server-supplied fields are
+ * left absent rather than zeroed, since a status_code of 0 is SUCCESS, and a
+ * context claiming success for an operation that failed is worse than one
+ * that claims nothing.
+ *
+ * @internal
+ */
+function kvContextFromDocId(
+  err: Error | null,
+  id: CppDocumentId
+): Error | null {
+  if (err instanceof CouchbaseError && !err.context) {
+    err.context = new KeyValueErrorContext({
+      key: id.key,
+      bucket: id.bucket,
+      scope: id.scope,
+      collection: id.collection,
+    } as KeyValueErrorContext)
+  }
+  return err
+}
+
+/**
  * Provides an interface to preform transactional operations in a transaction.
  *
  * @category Transactions
@@ -858,7 +886,7 @@ export class TransactionAttemptContext {
           id,
         },
         (cppErr, cppRes) => {
-          const err = errorFromCpp(cppErr)
+          const err = kvContextFromDocId(errorFromCpp(cppErr), id)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -889,7 +917,7 @@ export class TransactionAttemptContext {
           id,
         },
         (cppErr, cppRes) => {
-          const err = errorFromCpp(cppErr)
+          const err = kvContextFromDocId(errorFromCpp(cppErr), id)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -995,7 +1023,7 @@ export class TransactionAttemptContext {
           },
         },
         (cppErr, cppRes) => {
-          const err = errorFromCpp(cppErr)
+          const err = kvContextFromDocId(errorFromCpp(cppErr), id)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1039,7 +1067,7 @@ export class TransactionAttemptContext {
           },
         },
         (cppErr, cppRes) => {
-          const err = errorFromCpp(cppErr)
+          const err = kvContextFromDocId(errorFromCpp(cppErr), doc.id)
           if (err) {
             return wrapCallback(err, null)
           }
@@ -1071,7 +1099,7 @@ export class TransactionAttemptContext {
           },
         },
         (cppErr) => {
-          const err = errorFromCpp(cppErr)
+          const err = kvContextFromDocId(errorFromCpp(cppErr), doc.id)
           wrapCallback(err, null)
         }
       )
@@ -1267,7 +1295,10 @@ export class Transactions {
         ) {
           throw e
         }
-        throw new TransactionFailedError(e as Error)
+        throw new TransactionFailedError(
+          e as Error,
+          e instanceof CouchbaseError ? e.context : undefined
+        )
       }
 
       try {
