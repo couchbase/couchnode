@@ -3746,7 +3746,12 @@ export interface CppEnhancedErrorInfo {
 
 export interface CppKeyValueError extends CppErrorBase {
   ctxtype: 'key_value'
-  id: CppDocumentId
+  // The key alone, not a document id: key_value_error_context::id() returns the
+  // document key, and the bucket, scope and collection are separate fields.
+  id: string
+  bucket: string
+  scope: string
+  collection: string
   opaque: number
   cas: CppCas
   status_code: CppKeyValueStatusCode
@@ -3755,6 +3760,15 @@ export interface CppKeyValueError extends CppErrorBase {
   last_dispatched_from: string
   retry_attempts: number
   retry_reasons: CppRetryReason[]
+}
+
+// subdocument_error_context derives from key_value_error_context in the core, so
+// it carries every key-value field and adds three of its own.
+export interface CppSubdocError extends Omit<CppKeyValueError, 'ctxtype'> {
+  ctxtype: 'subdocument'
+  first_error_path: string
+  first_error_index: number
+  deleted: boolean
 }
 
 export interface CppViewError extends CppErrorBase {
@@ -3873,6 +3887,7 @@ export interface CppTransactionOpErrorContext {
 export type CppError =
   | CppGenericError
   | CppKeyValueError
+  | CppSubdocError
   | CppViewError
   | CppQueryError
   | CppSearchError

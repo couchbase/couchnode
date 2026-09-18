@@ -693,15 +693,17 @@ export function contextFromCpp(err: CppError | null): ErrorContext | null {
   }
 
   let context = null
-  if (err.ctxtype === 'key_value') {
+  // A subdocument error context is a key-value error context in the core, and
+  // adds only fields this context type does not carry, so both map here.
+  if (err.ctxtype === 'key_value' || err.ctxtype === 'subdocument') {
     context = new errctxs.KeyValueErrorContext({
       status_code: err.status_code,
       opaque: err.opaque,
       cas: err.cas,
-      key: err.id ? err.id.key : '',
-      bucket: err.id ? err.id.bucket : '',
-      collection: err.id ? err.id.collection : '',
-      scope: err.id ? err.id.scope : '',
+      key: err.id ?? '',
+      bucket: err.bucket ?? '',
+      collection: err.collection ?? '',
+      scope: err.scope ?? '',
       context: err.enhanced_error_info ? err.enhanced_error_info.context : '',
       ref: err.enhanced_error_info ? err.enhanced_error_info.reference : '',
       last_dispatched_from: err.last_dispatched_from
