@@ -69,6 +69,9 @@ struct js_to_cbpp_t<couchbase::core::key_value_error_context> {
         err.Set("ctxtype", Napi::String::New(env, "key_value"));
         err.Set("code", cbpp_to_js(env, ctx.ec().value()));
         err.Set("id", cbpp_to_js(env, ctx.id()));
+        err.Set("bucket", cbpp_to_js(env, ctx.bucket()));
+        err.Set("scope", cbpp_to_js(env, ctx.scope()));
+        err.Set("collection", cbpp_to_js(env, ctx.collection()));
         err.Set("opaque", cbpp_to_js(env, ctx.opaque()));
         err.Set("cas", cbpp_to_js(env, ctx.cas()));
         err.Set("status_code", cbpp_to_js(env, ctx.status_code()));
@@ -100,6 +103,9 @@ struct js_to_cbpp_t<couchbase::core::subdocument_error_context> {
         err.Set("ctxtype", Napi::String::New(env, "subdocument"));
         err.Set("code", cbpp_to_js(env, ctx.ec().value()));
         err.Set("id", cbpp_to_js(env, ctx.id()));
+        err.Set("bucket", cbpp_to_js(env, ctx.bucket()));
+        err.Set("scope", cbpp_to_js(env, ctx.scope()));
+        err.Set("collection", cbpp_to_js(env, ctx.collection()));
         err.Set("opaque", cbpp_to_js(env, ctx.opaque()));
         err.Set("cas", cbpp_to_js(env, ctx.cas()));
         err.Set("status_code", cbpp_to_js(env, ctx.status_code()));
