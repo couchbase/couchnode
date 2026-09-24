@@ -23,6 +23,7 @@ public:
     Napi::FunctionReference _transactionsCtor;
     Napi::FunctionReference _transactionCtor;
     Napi::FunctionReference _scanIteratorCtor;
+    Napi::FunctionReference _queryStreamIteratorCtor;
 };
 
 } // namespace couchnode

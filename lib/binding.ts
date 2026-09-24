@@ -80,6 +80,19 @@ export interface CppScanIterator {
   cancel(): boolean
 }
 
+export interface CppQueryStreamRow {
+  row?: string
+  meta?: CppQueryResponseQueryMetaData
+  cpp_core_span?: CppWrapperSdkSpan
+}
+
+export interface CppQueryStreamIterator {
+  next(
+    callback: (err: CppError | null, result: CppQueryStreamRow | null) => void
+  ): void
+  cancel(): void
+}
+
 export interface CppEncodedValue {
   data: Buffer
   flags: number
@@ -3991,6 +4004,14 @@ export interface CppConnection extends CppConnectionAutogen {
     scan_type_value: CppRangeScan | CppSamplingScan | CppPrefixScan,
     options: CppRangeScanOrchestratorOptions
   ): { cppErr: CppError | null; result: CppScanIterator }
+
+  queryStream(
+    options: CppQueryRequest,
+    callback: (
+      err: CppError | null,
+      result: CppQueryStreamIterator | null
+    ) => void
+  ): void
 
   getClusterLabels(): CppClusterLabelsResponse
 }

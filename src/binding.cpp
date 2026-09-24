@@ -3,6 +3,7 @@
 #include "connection.hpp"
 #include "constants.hpp"
 #include "mutationtoken.hpp"
+#include "query_stream_iterator.hpp"
 #include "scan_iterator.hpp"
 #include "transaction.hpp"
 #include "transactions.hpp"
@@ -84,6 +85,7 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
     Transactions::Init(env, exports);
     Transaction::Init(env, exports);
     ScanIterator::Init(env, exports);
+    QueryStreamIterator::Init(env, exports);
 
     exports.Set(Napi::String::New(env, "cbppVersion"),
                 Napi::String::New(env, "1.0.0-beta"));

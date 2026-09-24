@@ -38,7 +38,7 @@ import { LoggingMeter } from './loggingmeter'
 import { Meter } from './metrics'
 import { NoOpMeter, NoOpTracer } from './observability'
 import { ObservabilityInstruments } from './observabilitytypes'
-import { QueryExecutor } from './queryexecutor'
+import { OpenQueryStream, QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
 import { SearchExecutor } from './searchexecutor'
@@ -443,12 +443,28 @@ export class Cluster {
   private _metricsConfig: MetricsConfig | null
   private _meter: Meter | undefined
   private _logger: CouchbaseLogger
+  private _closing: boolean
+  private _openQueryStreams: Set<OpenQueryStream>
 
   /**
    * @internal
    */
   get conn(): CppConnection {
     return this._conn
+  }
+
+  /**
+   * @internal
+   */
+  get closing(): boolean {
+    return this._closing
+  }
+
+  /**
+   * @internal
+   */
+  get openQueryStreams(): Set<OpenQueryStream> {
+    return this._openQueryStreams
   }
 
   /**
@@ -719,6 +735,8 @@ export class Cluster {
     }
 
     this._openBuckets = []
+    this._closing = false
+    this._openQueryStreams = new Set()
     this._conn = new binding.Connection()
   }
 
@@ -1025,6 +1043,9 @@ export class Cluster {
    * @param callback A node-style callback to be invoked after execution.
    */
   async close(callback?: NodeCallback<void>): Promise<void> {
+    this._closing = true
+    await this._cancelQueryStreams()
+
     if (this._transactions) {
       await this._transactions._close()
       this._transactions = undefined
@@ -1043,6 +1064,15 @@ export class Cluster {
         wrapCallback(errorFromCpp(cppErr))
       })
     }, callback)
+  }
+
+  /**
+   * @internal
+   */
+  async _cancelQueryStreams(): Promise<void> {
+    const streams = Array.from(this._openQueryStreams)
+    streams.forEach((stream) => stream.cancel())
+    await Promise.all(streams.map((stream) => stream.ended))
   }
 
   /**

@@ -349,6 +349,113 @@ describe('N1QL', function () {
     })
   })
 
+  describe('#query - streaming', function () {
+    const rowCount = 100000
+
+    before(function () {
+      H.skipIfMissingFeature(this, H.Features.Query)
+    })
+
+    async function shutdownDuringQuery(adhoc, shutdownOn) {
+      const cluster = await H.newCluster()
+      let rows = 0
+      let error = null
+      let signalStreaming
+      const streaming = new Promise((resolve) => (signalStreaming = resolve))
+
+      const ended = new Promise((resolve) => {
+        cluster
+          .query(`SELECT RAW i FROM ARRAY_RANGE(0, ${rowCount}) AS i`, {
+            adhoc,
+          })
+          .on('row', () => {
+            if (rows++ === 0) {
+              signalStreaming()
+            }
+          })
+          .on('error', (err) => (error = err))
+          .on('end', resolve)
+      })
+
+      if (shutdownOn === 'streaming') {
+        await streaming
+      } else {
+        await new Promise((resolve) => setImmediate(resolve))
+      }
+      await cluster.close()
+      await ended
+
+      return { rows, error }
+    }
+
+    it('should cancel a streaming adhoc query when the cluster is closed', async function () {
+      const res = await shutdownDuringQuery(true, 'streaming')
+      assert.instanceOf(res.error, H.lib.RequestCanceledError)
+      assert.isAbove(res.rows, 0)
+      assert.isBelow(res.rows, rowCount)
+    }).timeout(30000)
+
+    // Prepared statements take the buffered path, which close() does not
+    // cancel once the request has been sent.
+    it('should complete an in-flight prepared query when the cluster is closed', async function () {
+      const res = await shutdownDuringQuery(false, 'querying')
+      assert.isNull(res.error)
+      assert.equal(res.rows, rowCount)
+    }).timeout(30000)
+
+    const collectEvents = (query, onRow) => {
+      return new Promise((resolve) => {
+        const events = []
+        query
+          .on('row', (row) => {
+            events.push('row')
+            if (onRow) {
+              onRow(row)
+            }
+          })
+          .on('error', (err) => events.push(err))
+          .on('end', async () => {
+            events.push('end')
+            // Give a duplicate terminal event the chance to show up.
+            await H.sleep(100)
+            resolve(events)
+          })
+      })
+    }
+
+    for (const adhoc of [true, false]) {
+      it(`should reject an unserializable parameter (adhoc: ${adhoc})`, async function () {
+        let res
+        assert.doesNotThrow(() => {
+          res = H.c.query('SELECT $1', { parameters: [1n], adhoc })
+        })
+        await H.throwsHelper(async () => {
+          await res
+        }, TypeError)
+      })
+
+      it(`should emit an unserializable parameter as an error (adhoc: ${adhoc})`, async function () {
+        const events = await collectEvents(
+          H.c.query('SELECT $1', { parameters: [1n], adhoc })
+        )
+        assert.lengthOf(events, 2)
+        assert.instanceOf(events[0], TypeError)
+        assert.equal(events[1], 'end')
+      })
+
+      it(`should fail the query when a row listener throws (adhoc: ${adhoc})`, async function () {
+        const boom = new Error('boom')
+        const events = await collectEvents(
+          H.c.query('SELECT RAW i FROM ARRAY_RANGE(0, 10) AS i', { adhoc }),
+          () => {
+            throw boom
+          }
+        )
+        assert.deepStrictEqual(events, ['row', boom, 'end'])
+      })
+    }
+  })
+
   describe('#query - scope level', function () {
     before(async function () {
       H.skipIfMissingFeature(this, H.Features.Collections)
