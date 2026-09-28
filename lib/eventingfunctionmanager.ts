@@ -840,7 +840,7 @@ export class EventingFunctionSettings {
    * @internal
    */
   static _toCppData(
-    data: EventingFunctionSettings
+    data?: EventingFunctionSettings
   ): CppManagementEventingFunctionSettings {
     if (!data) {
       return {
@@ -892,11 +892,81 @@ export class EventingFunctionSettings {
 }
 
 /**
+ * Specifies an eventing function to create or update.
+ *
+ * @category Management
+ */
+export interface IEventingFunction {
+  /**
+   * The name of the eventing function.
+   */
+  name: string
+
+  /**
+   * The code for this eventing function.
+   */
+  code: string
+
+  /**
+   * The authoring version of this eventing function.
+   */
+  version?: string
+
+  /**
+   * Whether to enable stricter validation of settings and configuration.
+   */
+  enforceSchema?: boolean
+
+  /**
+   * The unique ID for this eventing function.
+   */
+  handlerUuid?: number
+
+  /**
+   * The unique id for the deployment of the handler.
+   */
+  functionInstanceId?: string
+
+  /**
+   * The keyspace to store the functions metadata.
+   */
+  metadataKeyspace: EventingFunctionKeyspace
+
+  /**
+   * The keyspace that the function should operate on.
+   */
+  sourceKeyspace: EventingFunctionKeyspace
+
+  /**
+   * The buckets to bind to the function.
+   */
+  bucketBindings?: EventingFunctionBucketBinding[]
+
+  /**
+   * The URLs to bind to the function.
+   */
+  urlBindings?: EventingFunctionUrlBinding[]
+
+  /**
+   * The constants to bind to the function.
+   */
+  constantBindings?: EventingFunctionConstantBinding[]
+
+  /**
+   * The settings for this function.
+   */
+  settings?: EventingFunctionSettings
+}
+
+/**
  * Describes an eventing function.
  *
  * @category Management
  */
-export class EventingFunction {
+export class EventingFunction implements IEventingFunction {
+  /**
+   * @internal
+   */
   constructor(v: EventingFunction) {
     this.name = v.name
     this.code = v.code
@@ -1015,7 +1085,7 @@ export class EventingFunction {
   /**
    * @internal
    */
-  static _toCppData(data: EventingFunction): CppManagementEventingFunction {
+  static _toCppData(data: IEventingFunction): CppManagementEventingFunction {
     return {
       name: data.name,
       code: data.code,
@@ -1033,13 +1103,13 @@ export class EventingFunction {
       enforce_schema: data.enforceSchema,
       handler_uuid: data.handlerUuid,
       function_instance_id: data.functionInstanceId,
-      bucket_bindings: data.bucketBindings.map((binding) =>
+      bucket_bindings: (data.bucketBindings ?? []).map((binding) =>
         EventingFunctionBucketBinding._toCppData(binding)
       ),
-      url_bindings: data.urlBindings.map((binding) =>
+      url_bindings: (data.urlBindings ?? []).map((binding) =>
         EventingFunctionUrlBinding._toCppData(binding)
       ),
-      constant_bindings: data.constantBindings.map((binding) =>
+      constant_bindings: (data.constantBindings ?? []).map((binding) =>
         EventingFunctionConstantBinding._toCppData(binding)
       ),
       settings: EventingFunctionSettings._toCppData(data.settings),
@@ -1316,7 +1386,7 @@ export class EventingFunctionManager {
    * @param callback A node-style callback to be invoked after execution.
    */
   async upsertFunction(
-    functionDefinition: EventingFunction,
+    functionDefinition: IEventingFunction,
     options?: UpsertFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {

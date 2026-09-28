@@ -366,7 +366,14 @@ export class UserAndMetadata extends User {
   /**
    * @internal
    */
-  constructor(data: UserAndMetadata) {
+  constructor(
+    // effectiveRolesAndOrigins is derived from effectiveRoles, so it is
+    // accepted but not required.  Revert to UserAndMetadata once the
+    // deprecated accessor is removed.
+    data: Omit<UserAndMetadata, 'effectiveRolesAndOrigins'> & {
+      effectiveRolesAndOrigins?: RoleAndOrigin[]
+    }
+  ) {
     super(data)
     this.domain = data.domain
     this.effectiveRoles = data.effectiveRoles
@@ -392,7 +399,6 @@ export class UserAndMetadata extends User {
       ...user,
       domain: authDomainFromCpp(data.domain),
       effectiveRoles: effectiveRoles,
-      effectiveRolesAndOrigins: effectiveRoles,
       passwordChanged: data.password_changed
         ? new Date(data.password_changed)
         : undefined,

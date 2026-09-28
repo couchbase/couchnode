@@ -9,6 +9,7 @@ import {
   FunctionsStatusOptions,
   GetAllFunctionsOptions,
   GetFunctionOptions,
+  IEventingFunction,
   PauseFunctionOptions,
   ResumeFunctionOptions,
   UpsertFunctionOptions,
@@ -56,7 +57,7 @@ export class ScopeEventingFunctionManager {
    * @param callback A node-style callback to be invoked after execution.
    */
   async upsertFunction(
-    functionDefinition: EventingFunction,
+    functionDefinition: IEventingFunction,
     options?: UpsertFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {

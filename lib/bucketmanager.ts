@@ -408,7 +408,7 @@ export class BucketSettings implements IBucketSettings {
   /**
    * @internal
    */
-  static _toCppData(data: IBucketSettings): any {
+  static _toCppData(data: Partial<IBucketSettings>): any {
     let durabilityInput: DurabilityLevel | string | undefined
 
     if (data.durabilityMinLevel !== undefined) {
@@ -687,12 +687,13 @@ export class BucketManager {
   /**
    * Updates the settings for an existing bucket.
    *
-   * @param settings The new settings to use for the bucket.
+   * @param settings The new settings to use for the bucket.  Only `name` is
+   *  required; any setting which is omitted is left unchanged.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
   async updateBucket(
-    settings: BucketSettings,
+    settings: Partial<IBucketSettings> & Pick<IBucketSettings, 'name'>,
     options?: UpdateBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
