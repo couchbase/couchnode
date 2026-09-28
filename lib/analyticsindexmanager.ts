@@ -1226,7 +1226,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createDataverse(
+  createDataverse(
     dataverseName: string,
     options?: CreateAnalyticsDataverseOptions,
     callback?: NodeCallback<void>
@@ -1246,32 +1246,27 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      const ignoreIfExists = options.ignoreIfExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
+    const ignoreIfExists = options.ignoreIfExists || false
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsDataverseCreate.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            timeout: timeout,
-            ignore_if_exists: ignoreIfExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsDataverseCreate.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          timeout: timeout,
+          ignore_if_exists: ignoreIfExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1281,7 +1276,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropDataverse(
+  dropDataverse(
     dataverseName: string,
     options?: DropAnalyticsDataverseOptions,
     callback?: NodeCallback<void>
@@ -1301,32 +1296,27 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      const ignoreIfNotExists = options.ignoreIfNotExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsDataverseDrop.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            timeout: timeout,
-            ignore_if_does_not_exist: ignoreIfNotExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsDataverseDrop.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          timeout: timeout,
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1337,7 +1327,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createDataset(
+  createDataset(
     bucketName: string,
     datasetName: string,
     options?: CreateAnalyticsDatasetOptions,
@@ -1358,36 +1348,31 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const ignoreIfExists = options.ignoreIfExists || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfExists = options.ignoreIfExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsDatasetCreate.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            dataset_name: datasetName,
-            bucket_name: bucketName,
-            condition: options?.condition,
-            timeout: timeout,
-            ignore_if_exists: ignoreIfExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsDatasetCreate.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          bucket_name: bucketName,
+          condition: options?.condition,
+          timeout: timeout,
+          ignore_if_exists: ignoreIfExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1397,7 +1382,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropDataset(
+  dropDataset(
     datasetName: string,
     options?: DropAnalyticsDatasetOptions,
     callback?: NodeCallback<void>
@@ -1417,34 +1402,29 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const ignoreIfNotExists = options.ignoreIfNotExists || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsDatasetDrop.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            dataset_name: datasetName,
-            timeout: timeout,
-            ignore_if_does_not_exist: ignoreIfNotExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsDatasetDrop.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          timeout: timeout,
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1453,7 +1433,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllDatasets(
+  getAllDatasets(
     options?: GetAllAnalyticsDatasetsOptions,
     callback?: NodeCallback<AnalyticsDataset[]>
   ): Promise<AnalyticsDataset[]> {
@@ -1472,38 +1452,33 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsDatasetGetAll.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.datasets.map(
-          (dataset: CppManagementAnalyticsDataset) =>
-            new AnalyticsDataset({
-              name: dataset.name,
-              dataverseName: dataset.dataverse_name,
-              linkName: dataset.link_name,
-              bucketName: dataset.bucket_name,
-            })
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsDatasetGetAll.bind(
+          this._cluster.conn
+        ),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.datasets.map(
+        (dataset: CppManagementAnalyticsDataset) =>
+          new AnalyticsDataset({
+            name: dataset.name,
+            dataverseName: dataset.dataverse_name,
+            linkName: dataset.link_name,
+            bucketName: dataset.bucket_name,
+          })
+      )
+    }, callback)
   }
 
   /**
@@ -1515,7 +1490,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createIndex(
+  createIndex(
     datasetName: string,
     indexName: string,
     fields: { [key: string]: string },
@@ -1537,36 +1512,31 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const ignoreIfExists = options.ignoreIfExists || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfExists = options.ignoreIfExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsIndexCreate.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            dataset_name: datasetName,
-            index_name: indexName,
-            fields: fields,
-            timeout: timeout,
-            ignore_if_exists: ignoreIfExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsIndexCreate.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          index_name: indexName,
+          fields: fields,
+          timeout: timeout,
+          ignore_if_exists: ignoreIfExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1577,7 +1547,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropIndex(
+  dropIndex(
     datasetName: string,
     indexName: string,
     options?: DropAnalyticsIndexOptions,
@@ -1598,35 +1568,30 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const ignoreIfNotExists = options.ignoreIfNotExists || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const ignoreIfNotExists = options.ignoreIfNotExists || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsIndexDrop.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            dataset_name: datasetName,
-            index_name: indexName,
-            timeout: timeout,
-            ignore_if_does_not_exist: ignoreIfNotExists,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsIndexDrop.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          dataset_name: datasetName,
+          index_name: indexName,
+          timeout: timeout,
+          ignore_if_does_not_exist: ignoreIfNotExists,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1635,7 +1600,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllIndexes(
+  getAllIndexes(
     options?: GetAllAnalyticsIndexesOptions,
     callback?: NodeCallback<AnalyticsIndex[]>
   ): Promise<AnalyticsIndex[]> {
@@ -1654,38 +1619,33 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsIndexGetAll.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.indexes.map(
-          (index: CppManagementAnalyticsIndex) =>
-            new AnalyticsIndex({
-              name: index.name,
-              dataverseName: index.dataverse_name,
-              datasetName: index.dataset_name,
-              isPrimary: index.is_primary,
-            })
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsIndexGetAll.bind(
+          this._cluster.conn
+        ),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.indexes.map(
+        (index: CppManagementAnalyticsIndex) =>
+          new AnalyticsIndex({
+            name: index.name,
+            dataverseName: index.dataverse_name,
+            datasetName: index.dataset_name,
+            isPrimary: index.is_primary,
+          })
+      )
+    }, callback)
   }
 
   // TODO(JSCBC-1293):  Remove deprecated path
@@ -1697,7 +1657,7 @@ export class AnalyticsIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated Use the other overload instead.
    */
-  async connectLink(
+  connectLink(
     linkStr: string,
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -1708,14 +1668,14 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async connectLink(
+  connectLink(
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void>
   /**
    * @internal
    */
-  async connectLink(): Promise<void> {
+  connectLink(): Promise<void> {
     if (typeof arguments[0] === 'string') {
       return this._connectLinkDeprecated(
         arguments[0],
@@ -1731,7 +1691,7 @@ export class AnalyticsIndexManager {
   /**
    * @internal
    */
-  async _connectLinkDeprecated(
+  _connectLinkDeprecated(
     linkStr: string,
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -1751,31 +1711,26 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const force = options.force || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const force = options.force || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      let qs = 'CONNECT LINK ' + linkStr
-      if (force) {
-        qs += ' WITH {"force": true}'
-      }
-
-      return PromiseHelper.wrapAsync(async () => {
-        await this._cluster.analyticsQuery(qs, {
-          timeout: timeout,
-          parentSpan: obsReqHandler.wrappedSpan,
-        })
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
+    let qs = 'CONNECT LINK ' + linkStr
+    if (force) {
+      qs += ' WITH {"force": true}'
     }
+
+    return PromiseHelper.wrapAsync(async () => {
+      await this._cluster.analyticsQuery(qs, {
+        timeout: timeout,
+        parentSpan: obsReqHandler.wrappedSpan,
+      })
+    }, callback)
   }
 
   /**
    * @internal
    */
-  async _connectLink(
+  _connectLink(
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -1794,35 +1749,30 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const linkName = options.linkName || 'Local'
-      const force = options.force || false
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const linkName = options.linkName || 'Local'
+    const force = options.force || false
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsLinkConnect.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            link_name: linkName,
-            timeout: timeout,
-            force: force,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsLinkConnect.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+          force: force,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   // TODO(JSCBC-1293):  Remove deprecated path
@@ -1834,7 +1784,7 @@ export class AnalyticsIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated Use the other overload instead.
    */
-  async disconnectLink(
+  disconnectLink(
     linkStr: string,
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -1845,14 +1795,14 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async disconnectLink(
+  disconnectLink(
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void>
   /**
    * @internal
    */
-  async disconnectLink(): Promise<void> {
+  disconnectLink(): Promise<void> {
     if (typeof arguments[0] === 'string') {
       return this._disconnectLinkDeprecated(
         arguments[0],
@@ -1868,7 +1818,7 @@ export class AnalyticsIndexManager {
   /**
    * @internal
    */
-  async _disconnectLinkDeprecated(
+  _disconnectLinkDeprecated(
     linkStr: string,
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -1887,25 +1837,20 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const qs = 'DISCONNECT LINK ' + linkStr
-      const timeout = options.timeout || this._cluster.managementTimeout
-      return PromiseHelper.wrapAsync(async () => {
-        await this._cluster.analyticsQuery(qs, {
-          timeout: timeout,
-          parentSpan: obsReqHandler.wrappedSpan,
-        })
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    const qs = 'DISCONNECT LINK ' + linkStr
+    const timeout = options.timeout || this._cluster.managementTimeout
+    return PromiseHelper.wrapAsync(async () => {
+      await this._cluster.analyticsQuery(qs, {
+        timeout: timeout,
+        parentSpan: obsReqHandler.wrappedSpan,
+      })
+    }, callback)
   }
 
   /**
    * @internal
    */
-  async _disconnectLink(
+  _disconnectLink(
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -1924,33 +1869,28 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverseName || 'Default'
-      const linkName = options.linkName || 'Local'
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverseName || 'Default'
+    const linkName = options.linkName || 'Local'
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsLinkDisconnect.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            link_name: linkName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsLinkDisconnect.bind(
+          this._cluster.conn
+        ),
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1959,7 +1899,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getPendingMutations(
+  getPendingMutations(
     options?: GetPendingAnalyticsMutationsOptions,
     callback?: NodeCallback<{ [k: string]: { [k: string]: number } }>
   ): Promise<{ [k: string]: { [k: string]: number } }> {
@@ -1978,30 +1918,25 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsGetPendingMutations.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return { stats: resp.stats }
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsGetPendingMutations.bind(
+          this._cluster.conn
+        ),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return { stats: resp.stats }
+    }, callback)
   }
 
   /**
@@ -2011,7 +1946,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createLink(
+  createLink(
     link: IAnalyticsLink,
     options?: CreateAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -2114,7 +2049,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async replaceLink(
+  replaceLink(
     link: IAnalyticsLink,
     options?: ReplaceAnalyticsLinkOptions,
     callback?: NodeCallback<void>
@@ -2218,7 +2153,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropLink(
+  dropLink(
     linkName: string,
     dataverseName: string,
     options?: DropAnalyticsLinkOptions,
@@ -2239,31 +2174,24 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsLinkDrop.bind(
-            this._cluster.conn
-          ),
-          {
-            dataverse_name: dataverseName,
-            link_name: linkName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsLinkDrop.bind(this._cluster.conn),
+        {
+          dataverse_name: dataverseName,
+          link_name: linkName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -2272,7 +2200,7 @@ export class AnalyticsIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllLinks(
+  getAllLinks(
     options?: GetAllAnalyticsLinksOptions,
     callback?: NodeCallback<AnalyticsLink[]>
   ): Promise<AnalyticsLink[]> {
@@ -2291,49 +2219,44 @@ export class AnalyticsIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const dataverseName = options.dataverse
-      const linkName = options.name
-      const linkType = options.linkType
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const dataverseName = options.dataverse
+    const linkName = options.name
+    const linkType = options.linkType
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementAnalyticsLinkGetAll.bind(
-            this._cluster.conn
-          ),
-          {
-            link_type: linkType,
-            link_name: linkName,
-            dataverse_name: dataverseName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementAnalyticsLinkGetAll.bind(
+          this._cluster.conn
+        ),
+        {
+          link_type: linkType,
+          link_name: linkName,
+          dataverse_name: dataverseName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      const links: AnalyticsLink[] = []
+      resp.couchbase.forEach(
+        (link: CppManagementAnalyticsCouchbaseRemoteLink) => {
+          links.push(CouchbaseRemoteAnalyticsLink._fromCppData(link))
         }
-        obsReqHandler.end()
-        const links: AnalyticsLink[] = []
-        resp.couchbase.forEach(
-          (link: CppManagementAnalyticsCouchbaseRemoteLink) => {
-            links.push(CouchbaseRemoteAnalyticsLink._fromCppData(link))
-          }
-        )
-        resp.s3.forEach((link: CppManagementAnalyticsS3ExternalLink) => {
-          links.push(S3ExternalAnalyticsLink._fromCppData(link))
-        })
-        resp.azure_blob.forEach(
-          (link: CppManagementAnalyticsAzureBlobExternalLink) => {
-            links.push(AzureExternalAnalyticsLink._fromCppData(link))
-          }
-        )
-        return links
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      )
+      resp.s3.forEach((link: CppManagementAnalyticsS3ExternalLink) => {
+        links.push(S3ExternalAnalyticsLink._fromCppData(link))
+      })
+      resp.azure_blob.forEach(
+        (link: CppManagementAnalyticsAzureBlobExternalLink) => {
+          links.push(AzureExternalAnalyticsLink._fromCppData(link))
+        }
+      )
+      return links
+    }, callback)
   }
 }

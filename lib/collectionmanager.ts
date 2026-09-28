@@ -325,7 +325,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllScopes(
+  getAllScopes(
     options?: GetAllScopesOptions,
     callback?: NodeCallback<ScopeSpec[]>
   ): Promise<ScopeSpec[]> {
@@ -344,34 +344,29 @@ export class CollectionManager {
     )
     obsReqHandler.setRequestHttpAttributes({ bucketName: this._bucket.name })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementScopeGetAll.bind(this._cluster.conn),
-          {
-            bucket_name: bucketName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementScopeGetAll.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-        return resp.manifest.scopes.map((scopeData) =>
-          ScopeSpec._fromCppData(scopeData)
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+      return resp.manifest.scopes.map((scopeData) =>
+        ScopeSpec._fromCppData(scopeData)
+      )
+    }, callback)
   }
 
   /**
@@ -382,7 +377,7 @@ export class CollectionManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated Use the other overload instead.
    */
-  async createCollection(
+  createCollection(
     collectionSpec: ICollectionSpec,
     options?: CreateCollectionOptions,
     callback?: NodeCallback<void>
@@ -391,7 +386,7 @@ export class CollectionManager {
   /**
    * Creates a collection in a scope.
    */
-  async createCollection(
+  createCollection(
     collectionName: string,
     scopeName: string,
     options?: CreateCollectionOptions,
@@ -407,7 +402,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createCollection(
+  createCollection(
     collectionName: string,
     scopeName: string,
     settings?: CreateCollectionSettings,
@@ -418,7 +413,7 @@ export class CollectionManager {
   /**
    * @internal
    */
-  async createCollection(): Promise<void> {
+  createCollection(): Promise<void> {
     let collectionName: string = arguments[0]
     let scopeName: string = arguments[1]
     let settings: CreateCollectionSettings | undefined = arguments[2]
@@ -474,38 +469,31 @@ export class CollectionManager {
       collectionName: collectionName,
     })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
-      const maxExpiry = settings?.maxExpiry
-      const history = settings?.history
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
+    const maxExpiry = settings?.maxExpiry
+    const history = settings?.history
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementCollectionCreate.bind(
-            this._cluster.conn
-          ),
-          {
-            bucket_name: bucketName,
-            scope_name: scopeName,
-            collection_name: collectionName,
-            max_expiry: maxExpiry,
-            history: history,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementCollectionCreate.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          max_expiry: maxExpiry,
+          history: history,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -516,7 +504,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropCollection(
+  dropCollection(
     collectionName: string,
     scopeName: string,
     options?: DropCollectionOptions,
@@ -541,33 +529,28 @@ export class CollectionManager {
       collectionName: collectionName,
     })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementCollectionDrop.bind(this._cluster.conn),
-          {
-            bucket_name: bucketName,
-            scope_name: scopeName,
-            collection_name: collectionName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementCollectionDrop.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -579,7 +562,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async updateCollection(
+  updateCollection(
     collectionName: string,
     scopeName: string,
     settings: UpdateCollectionSettings,
@@ -605,36 +588,29 @@ export class CollectionManager {
       collectionName: collectionName,
     })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementCollectionUpdate.bind(
-            this._cluster.conn
-          ),
-          {
-            bucket_name: bucketName,
-            scope_name: scopeName,
-            collection_name: collectionName,
-            max_expiry: settings.maxExpiry,
-            history: settings.history,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementCollectionUpdate.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          collection_name: collectionName,
+          max_expiry: settings.maxExpiry,
+          history: settings.history,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -644,7 +620,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createScope(
+  createScope(
     scopeName: string,
     options?: CreateScopeOptions,
     callback?: NodeCallback<void>
@@ -667,32 +643,27 @@ export class CollectionManager {
       scopeName: scopeName,
     })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementScopeCreate.bind(this._cluster.conn),
-          {
-            bucket_name: bucketName,
-            scope_name: scopeName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementScopeCreate.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -702,7 +673,7 @@ export class CollectionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropScope(
+  dropScope(
     scopeName: string,
     options?: DropScopeOptions,
     callback?: NodeCallback<void>
@@ -725,31 +696,26 @@ export class CollectionManager {
       scopeName: scopeName,
     })
 
-    try {
-      const bucketName = this._bucket.name
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const bucketName = this._bucket.name
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementScopeDrop.bind(this._cluster.conn),
-          {
-            bucket_name: bucketName,
-            scope_name: scopeName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementScopeDrop.bind(this._cluster.conn),
+        {
+          bucket_name: bucketName,
+          scope_name: scopeName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 }

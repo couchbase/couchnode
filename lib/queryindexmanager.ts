@@ -371,7 +371,7 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
-  async createIndex(
+  createIndex(
     bucketName: string,
     isPrimary: boolean,
     options: {
@@ -422,7 +422,7 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
-  async dropIndex(
+  dropIndex(
     bucketName: string,
     isPrimary: boolean,
     options: {
@@ -470,7 +470,7 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
-  async getAllIndexes(
+  getAllIndexes(
     bucketName: string,
     options: {
       collectionName?: string
@@ -522,7 +522,7 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
-  async buildDeferredIndexes(
+  buildDeferredIndexes(
     bucketName: string,
     options: {
       collectionName?: string
@@ -563,7 +563,7 @@ class InternalQueryIndexManager {
   /**
    * @internal
    */
-  async watchIndexes(
+  watchIndexes(
     bucketName: string,
     indexNames: string[],
     timeout: number,
@@ -697,7 +697,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createIndex(
+  createIndex(
     indexName: string,
     keys: string[],
     options?: CreateQueryIndexOptions,
@@ -720,27 +720,22 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.createIndex(
-        this._bucketName,
-        false,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          name: indexName,
-          keys: keys,
-          ignoreIfExists: options.ignoreIfExists,
-          numReplicas: options.numReplicas,
-          deferred: options.deferred,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.createIndex(
+      this._bucketName,
+      false,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: indexName,
+        keys: keys,
+        ignoreIfExists: options.ignoreIfExists,
+        numReplicas: options.numReplicas,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -749,7 +744,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createPrimaryIndex(
+  createPrimaryIndex(
     options?: CreatePrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -770,25 +765,20 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.createIndex(
-        this._bucketName,
-        true,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          name: options.name,
-          ignoreIfExists: options.ignoreIfExists,
-          deferred: options.deferred,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.createIndex(
+      this._bucketName,
+      true,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: options.name,
+        ignoreIfExists: options.ignoreIfExists,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -798,7 +788,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropIndex(
+  dropIndex(
     indexName: string,
     options?: DropQueryIndexOptions,
     callback?: NodeCallback<void>
@@ -820,24 +810,19 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.dropIndex(
-        this._bucketName,
-        false,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          name: indexName,
-          ignoreIfNotExists: options.ignoreIfNotExists,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.dropIndex(
+      this._bucketName,
+      false,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: indexName,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -846,7 +831,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropPrimaryIndex(
+  dropPrimaryIndex(
     options?: DropPrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -867,24 +852,19 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.dropIndex(
-        this._bucketName,
-        true,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          name: options.name,
-          ignoreIfNotExists: options.ignoreIfNotExists,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.dropIndex(
+      this._bucketName,
+      true,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        name: options.name,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -893,7 +873,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllIndexes(
+  getAllIndexes(
     options?: GetAllQueryIndexesOptions,
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
@@ -914,21 +894,16 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.getAllIndexes(
-        this._bucketName,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.getAllIndexes(
+      this._bucketName,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -937,7 +912,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async buildDeferredIndexes(
+  buildDeferredIndexes(
     options?: BuildQueryIndexOptions,
     callback?: NodeCallback<string[]>
   ): Promise<string[]> {
@@ -958,21 +933,16 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.buildDeferredIndexes(
-        this._bucketName,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.buildDeferredIndexes(
+      this._bucketName,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -983,7 +953,7 @@ export class CollectionQueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async watchIndexes(
+  watchIndexes(
     indexNames: string[],
     timeout: number,
     options?: WatchQueryIndexOptions,
@@ -1006,23 +976,18 @@ export class CollectionQueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.watchIndexes(
-        this._bucketName,
-        indexNames,
-        timeout,
-        {
-          collectionName: this._collectionName,
-          scopeName: this._scopeName,
-          watchPrimary: options.watchPrimary,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.watchIndexes(
+      this._bucketName,
+      indexNames,
+      timeout,
+      {
+        collectionName: this._collectionName,
+        scopeName: this._scopeName,
+        watchPrimary: options.watchPrimary,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 }
 
@@ -1051,7 +1016,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createIndex(
+  createIndex(
     bucketName: string,
     indexName: string,
     keys: string[],
@@ -1073,27 +1038,22 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.createIndex(
-        bucketName,
-        false,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          name: indexName,
-          keys: keys,
-          ignoreIfExists: options.ignoreIfExists,
-          numReplicas: options.numReplicas,
-          deferred: options.deferred,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.createIndex(
+      bucketName,
+      false,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: indexName,
+        keys: keys,
+        ignoreIfExists: options.ignoreIfExists,
+        numReplicas: options.numReplicas,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1103,7 +1063,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createPrimaryIndex(
+  createPrimaryIndex(
     bucketName: string,
     options?: CreatePrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
@@ -1123,25 +1083,20 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.createIndex(
-        bucketName,
-        true,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          name: options.name,
-          ignoreIfExists: options.ignoreIfExists,
-          deferred: options.deferred,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.createIndex(
+      bucketName,
+      true,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: options.name,
+        ignoreIfExists: options.ignoreIfExists,
+        deferred: options.deferred,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1152,7 +1107,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropIndex(
+  dropIndex(
     bucketName: string,
     indexName: string,
     options?: DropQueryIndexOptions,
@@ -1173,24 +1128,19 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.dropIndex(
-        bucketName,
-        false,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          name: indexName,
-          ignoreIfNotExists: options.ignoreIfNotExists,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.dropIndex(
+      bucketName,
+      false,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: indexName,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1200,7 +1150,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropPrimaryIndex(
+  dropPrimaryIndex(
     bucketName: string,
     options?: DropPrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
@@ -1220,24 +1170,19 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.dropIndex(
-        bucketName,
-        true,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          name: options.name,
-          ignoreIfNotExists: options.ignoreIfNotExists,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.dropIndex(
+      bucketName,
+      true,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        name: options.name,
+        ignoreIfNotExists: options.ignoreIfNotExists,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1247,7 +1192,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllIndexes(
+  getAllIndexes(
     bucketName: string,
     options?: GetAllQueryIndexesOptions,
     callback?: NodeCallback<QueryIndex[]>
@@ -1267,21 +1212,16 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.getAllIndexes(
-        bucketName,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.getAllIndexes(
+      bucketName,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1291,7 +1231,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async buildDeferredIndexes(
+  buildDeferredIndexes(
     bucketName: string,
     options?: BuildQueryIndexOptions,
     callback?: NodeCallback<string[]>
@@ -1311,21 +1251,16 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.buildDeferredIndexes(
-        bucketName,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          timeout: options.timeout,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.buildDeferredIndexes(
+      bucketName,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        timeout: options.timeout,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 
   /**
@@ -1337,7 +1272,7 @@ export class QueryIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async watchIndexes(
+  watchIndexes(
     bucketName: string,
     indexNames: string[],
     timeout: number,
@@ -1359,22 +1294,17 @@ export class QueryIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      return this._manager.watchIndexes(
-        bucketName,
-        indexNames,
-        timeout,
-        {
-          collectionName: options.collectionName,
-          scopeName: options.scopeName,
-          watchPrimary: options.watchPrimary,
-        },
-        obsReqHandler,
-        callback
-      )
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return this._manager.watchIndexes(
+      bucketName,
+      indexNames,
+      timeout,
+      {
+        collectionName: options.collectionName,
+        scopeName: options.scopeName,
+        watchPrimary: options.watchPrimary,
+      },
+      obsReqHandler,
+      callback
+    )
   }
 }

@@ -638,7 +638,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async createBucket(
+  createBucket(
     settings: ICreateBucketSettings,
     options?: CreateBucketOptions,
     callback?: NodeCallback<void>
@@ -692,7 +692,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async updateBucket(
+  updateBucket(
     settings: Partial<IBucketSettings> & Pick<IBucketSettings, 'name'>,
     options?: UpdateBucketOptions,
     callback?: NodeCallback<void>
@@ -745,7 +745,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropBucket(
+  dropBucket(
     bucketName: string,
     options?: DropBucketOptions,
     callback?: NodeCallback<void>
@@ -765,30 +765,25 @@ export class BucketManager {
     )
     obsReqHandler.setRequestHttpAttributes({ bucketName: bucketName })
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementBucketDrop.bind(this._cluster.conn),
-          {
-            name: bucketName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementBucketDrop.bind(this._cluster.conn),
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -798,7 +793,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getBucket(
+  getBucket(
     bucketName: string,
     options?: GetBucketOptions,
     callback?: NodeCallback<BucketSettings>
@@ -818,31 +813,26 @@ export class BucketManager {
     )
     obsReqHandler.setRequestHttpAttributes({ bucketName: bucketName })
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementBucketGet.bind(this._cluster.conn),
-          {
-            name: bucketName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementBucketGet.bind(this._cluster.conn),
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-        return BucketSettings._fromCppData(resp.bucket)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+      return BucketSettings._fromCppData(resp.bucket)
+    }, callback)
   }
 
   /**
@@ -851,7 +841,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllBuckets(
+  getAllBuckets(
     options?: GetAllBucketsOptions,
     callback?: NodeCallback<BucketSettings[]>
   ): Promise<BucketSettings[]> {
@@ -870,32 +860,27 @@ export class BucketManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementBucketGetAll.bind(this._cluster.conn),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementBucketGetAll.bind(this._cluster.conn),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-        return resp.buckets.map((bucketData: any) =>
-          BucketSettings._fromCppData(bucketData)
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+      return resp.buckets.map((bucketData: any) =>
+        BucketSettings._fromCppData(bucketData)
+      )
+    }, callback)
   }
 
   /**
@@ -905,7 +890,7 @@ export class BucketManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async flushBucket(
+  flushBucket(
     bucketName: string,
     options?: FlushBucketOptions,
     callback?: NodeCallback<void>
@@ -925,29 +910,24 @@ export class BucketManager {
     )
     obsReqHandler.setRequestHttpAttributes({ bucketName: bucketName })
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementBucketFlush.bind(this._cluster.conn),
-          {
-            name: bucketName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementBucketFlush.bind(this._cluster.conn),
+        {
+          name: bucketName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
 
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
 
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      obsReqHandler.end()
+    }, callback)
   }
 }

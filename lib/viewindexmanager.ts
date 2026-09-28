@@ -318,7 +318,7 @@ export class ViewIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated
    */
-  async getAllDesignDocuments(
+  getAllDesignDocuments(
     options?: GetAllDesignDocumentOptions,
     callback?: NodeCallback<DesignDocument[]>
   ): Promise<DesignDocument[]>
@@ -330,7 +330,7 @@ export class ViewIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllDesignDocuments(
+  getAllDesignDocuments(
     namespace: DesignDocumentNamespace,
     options?: GetAllDesignDocumentOptions,
     callback?: NodeCallback<DesignDocument[]>
@@ -339,7 +339,7 @@ export class ViewIndexManager {
   /**
    * @internal
    */
-  async getAllDesignDocuments(): Promise<DesignDocument[]> {
+  getAllDesignDocuments(): Promise<DesignDocument[]> {
     let namespace: DesignDocumentNamespace | undefined
     let options: GetAllDesignDocumentOptions | undefined
     let callback: NodeCallback<DesignDocument[]> | undefined
@@ -373,33 +373,28 @@ export class ViewIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      const ns = namespace ?? DesignDocumentNamespace.Production
+    const timeout = options.timeout || this._cluster.managementTimeout
+    const ns = namespace ?? DesignDocumentNamespace.Production
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementViewIndexGetAll.bind(this._cluster.conn),
-          {
-            bucket_name: this._bucket.name,
-            ns: designDocumentNamespaceToCpp(ns),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.design_documents.map((ddoc) =>
-          DesignDocument._fromCppData(ddoc)
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementViewIndexGetAll.bind(this._cluster.conn),
+        {
+          bucket_name: this._bucket.name,
+          ns: designDocumentNamespaceToCpp(ns),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.design_documents.map((ddoc) =>
+        DesignDocument._fromCppData(ddoc)
+      )
+    }, callback)
   }
 
   /**
@@ -410,7 +405,7 @@ export class ViewIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated
    */
-  async getDesignDocument(
+  getDesignDocument(
     designDocName: string,
     options?: GetDesignDocumentOptions,
     callback?: NodeCallback<DesignDocument>
@@ -424,7 +419,7 @@ export class ViewIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getDesignDocument(
+  getDesignDocument(
     designDocName: string,
     namespace: DesignDocumentNamespace,
     options?: GetDesignDocumentOptions,
@@ -434,7 +429,7 @@ export class ViewIndexManager {
   /**
    * @internal
    */
-  async getDesignDocument(): Promise<DesignDocument> {
+  getDesignDocument(): Promise<DesignDocument> {
     let designDocName: string = arguments[0]
     let namespace: DesignDocumentNamespace | undefined
     let options: GetDesignDocumentOptions | undefined
@@ -468,36 +463,31 @@ export class ViewIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      if (designDocName.startsWith('dev_')) {
-        namespace = DesignDocumentNamespace.Development
-        designDocName = designDocName.substring(4)
-      }
-      const ns = namespace ?? DesignDocumentNamespace.Production
-
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementViewIndexGet.bind(this._cluster.conn),
-          {
-            bucket_name: this._bucket.name,
-            document_name: designDocName,
-            ns: designDocumentNamespaceToCpp(ns),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return DesignDocument._fromCppData(resp.document)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
+    const timeout = options.timeout || this._cluster.managementTimeout
+    if (designDocName.startsWith('dev_')) {
+      namespace = DesignDocumentNamespace.Development
+      designDocName = designDocName.substring(4)
     }
+    const ns = namespace ?? DesignDocumentNamespace.Production
+
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementViewIndexGet.bind(this._cluster.conn),
+        {
+          bucket_name: this._bucket.name,
+          document_name: designDocName,
+          ns: designDocumentNamespaceToCpp(ns),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return DesignDocument._fromCppData(resp.document)
+    }, callback)
   }
 
   /**
@@ -508,7 +498,7 @@ export class ViewIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated
    */
-  async upsertDesignDocument(
+  upsertDesignDocument(
     designDoc: DesignDocument,
     options?: UpsertDesignDocumentOptions,
     callback?: NodeCallback<void>
@@ -522,7 +512,7 @@ export class ViewIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async upsertDesignDocument(
+  upsertDesignDocument(
     designDoc: DesignDocument,
     namespace?: DesignDocumentNamespace,
     options?: UpsertDesignDocumentOptions,
@@ -532,7 +522,7 @@ export class ViewIndexManager {
   /**
    * @internal
    */
-  async upsertDesignDocument(): Promise<void> {
+  upsertDesignDocument(): Promise<void> {
     const designDoc: DesignDocument = arguments[0]
     let namespace: DesignDocumentNamespace | undefined
     let options: UpsertDesignDocumentOptions | undefined
@@ -566,34 +556,29 @@ export class ViewIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      if (designDoc.name.startsWith('dev_')) {
-        namespace = DesignDocumentNamespace.Development
-        designDoc.name = designDoc.name.substring(4)
-      }
-      const ns = namespace ?? DesignDocumentNamespace.Production
-
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementViewIndexUpsert.bind(this._cluster.conn),
-          {
-            bucket_name: this._bucket.name,
-            document: DesignDocument._toCppData(designDoc, ns),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
+    const timeout = options.timeout || this._cluster.managementTimeout
+    if (designDoc.name.startsWith('dev_')) {
+      namespace = DesignDocumentNamespace.Development
+      designDoc.name = designDoc.name.substring(4)
     }
+    const ns = namespace ?? DesignDocumentNamespace.Production
+
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementViewIndexUpsert.bind(this._cluster.conn),
+        {
+          bucket_name: this._bucket.name,
+          document: DesignDocument._toCppData(designDoc, ns),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -604,7 +589,7 @@ export class ViewIndexManager {
    * @param callback A node-style callback to be invoked after execution.
    * @deprecated
    */
-  async dropDesignDocument(
+  dropDesignDocument(
     designDocName: string,
     options?: DropDesignDocumentOptions,
     callback?: NodeCallback<void>
@@ -618,7 +603,7 @@ export class ViewIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropDesignDocument(
+  dropDesignDocument(
     designDocName: string,
     namespace: DesignDocumentNamespace,
     options?: DropDesignDocumentOptions,
@@ -628,7 +613,7 @@ export class ViewIndexManager {
   /**
    * @internal
    */
-  async dropDesignDocument(): Promise<void> {
+  dropDesignDocument(): Promise<void> {
     let designDocName: string = arguments[0]
     let namespace: DesignDocumentNamespace | undefined
     let options: DropDesignDocumentOptions | undefined
@@ -662,35 +647,30 @@ export class ViewIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      if (designDocName.startsWith('dev_')) {
-        namespace = DesignDocumentNamespace.Development
-        designDocName = designDocName.substring(4)
-      }
-      const ns = namespace ?? DesignDocumentNamespace.Production
-
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementViewIndexDrop.bind(this._cluster.conn),
-          {
-            bucket_name: this._bucket.name,
-            document_name: designDocName,
-            ns: designDocumentNamespaceToCpp(ns),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
+    const timeout = options.timeout || this._cluster.managementTimeout
+    if (designDocName.startsWith('dev_')) {
+      namespace = DesignDocumentNamespace.Development
+      designDocName = designDocName.substring(4)
     }
+    const ns = namespace ?? DesignDocumentNamespace.Production
+
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementViewIndexDrop.bind(this._cluster.conn),
+        {
+          bucket_name: this._bucket.name,
+          document_name: designDocName,
+          ns: designDocumentNamespaceToCpp(ns),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -703,7 +683,7 @@ export class ViewIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async publishDesignDocument(
+  publishDesignDocument(
     designDocName: string,
     options?: PublishDesignDocumentOptions,
     callback?: NodeCallback<void>
@@ -723,32 +703,27 @@ export class ViewIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
-      const timer = new CompoundTimeout(timeout)
+    const timeout = options.timeout || this._cluster.managementTimeout
+    const timer = new CompoundTimeout(timeout)
 
-      return PromiseHelper.wrapAsync(async () => {
-        const designDoc = await this.getDesignDocument(
-          designDocName,
-          DesignDocumentNamespace.Development,
-          {
-            timeout: timer.left(),
-            parentSpan: obsReqHandler.wrappedSpan,
-          }
-        )
+    return PromiseHelper.wrapAsync(async () => {
+      const designDoc = await this.getDesignDocument(
+        designDocName,
+        DesignDocumentNamespace.Development,
+        {
+          timeout: timer.left(),
+          parentSpan: obsReqHandler.wrappedSpan,
+        }
+      )
 
-        await this.upsertDesignDocument(
-          designDoc,
-          DesignDocumentNamespace.Production,
-          {
-            timeout: timer.left(),
-            parentSpan: obsReqHandler.wrappedSpan,
-          }
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+      await this.upsertDesignDocument(
+        designDoc,
+        DesignDocumentNamespace.Production,
+        {
+          timeout: timer.left(),
+          parentSpan: obsReqHandler.wrappedSpan,
+        }
+      )
+    }, callback)
   }
 }

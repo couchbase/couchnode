@@ -48,9 +48,11 @@ export class PromiseHelper {
     fn: () => U,
     callback?: (err: Error | null, result: T | null) => void
   ): U {
-    // If a callback in in use, we wrap the promise with a handler which
-    // forwards to the callback and return undefined.  If there is no
-    // callback specified.  We directly return the promise.
+    // If a callback is in use, we attach a handler which forwards the result
+    // to the callback, and still return the promise so it can be awaited.
+    // The handler is what marks a rejection as handled, so the caller must
+    // return this promise as is rather than from an async function, which
+    // would wrap it in a new promise that nothing handles.
     if (callback) {
       const prom = fn()
       prom.then(

@@ -707,7 +707,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getUser(
+  getUser(
     username: string,
     options?: GetUserOptions,
     callback?: NodeCallback<UserAndMetadata>
@@ -760,7 +760,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllUsers(
+  getAllUsers(
     options?: GetAllUsersOptions,
     callback?: NodeCallback<UserAndMetadata[]>
   ): Promise<UserAndMetadata[]> {
@@ -812,7 +812,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async upsertUser(
+  upsertUser(
     user: IUser,
     options?: UpsertUserOptions,
     callback?: NodeCallback<void>
@@ -865,7 +865,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async changePassword(
+  changePassword(
     newPassword: string,
     options?: ChangePasswordOptions,
     callback?: NodeCallback<void>
@@ -885,28 +885,23 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementChangePassword.bind(this._cluster.conn),
-          {
-            newPassword: newPassword,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementChangePassword.bind(this._cluster.conn),
+        {
+          newPassword: newPassword,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -916,7 +911,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropUser(
+  dropUser(
     username: string,
     options?: DropUserOptions,
     callback?: NodeCallback<void>
@@ -968,7 +963,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getRoles(
+  getRoles(
     options?: GetRolesOptions,
     callback?: NodeCallback<Role[]>
   ): Promise<Role[]> {
@@ -987,28 +982,23 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementRoleGetAll.bind(this._cluster.conn),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.roles.map((role) => Role._fromCppData(role))
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementRoleGetAll.bind(this._cluster.conn),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.roles.map((role) => Role._fromCppData(role))
+    }, callback)
   }
 
   /**
@@ -1018,7 +1008,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getGroup(
+  getGroup(
     groupName: string,
     options?: GetGroupOptions,
     callback?: NodeCallback<Group>
@@ -1038,29 +1028,24 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementGroupGet.bind(this._cluster.conn),
-          {
-            name: groupName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return Group._fromCppData(resp.group)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementGroupGet.bind(this._cluster.conn),
+        {
+          name: groupName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return Group._fromCppData(resp.group)
+    }, callback)
   }
 
   /**
@@ -1069,7 +1054,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllGroups(
+  getAllGroups(
     options?: GetAllGroupsOptions,
     callback?: NodeCallback<Group[]>
   ): Promise<Group[]> {
@@ -1088,28 +1073,23 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementGroupGetAll.bind(this._cluster.conn),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.groups.map((group) => Group._fromCppData(group))
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementGroupGetAll.bind(this._cluster.conn),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.groups.map((group) => Group._fromCppData(group))
+    }, callback)
   }
 
   /**
@@ -1119,7 +1099,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async upsertGroup(
+  upsertGroup(
     group: IGroup,
     options?: UpsertGroupOptions,
     callback?: NodeCallback<void>
@@ -1139,28 +1119,23 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementGroupUpsert.bind(this._cluster.conn),
-          {
-            group: Group._toCppData(group),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementGroupUpsert.bind(this._cluster.conn),
+        {
+          group: Group._toCppData(group),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1170,7 +1145,7 @@ export class UserManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropGroup(
+  dropGroup(
     groupName: string,
     options?: DropGroupOptions,
     callback?: NodeCallback<void>
@@ -1190,27 +1165,22 @@ export class UserManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementGroupDrop.bind(this._cluster.conn),
-          {
-            name: groupName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementGroupDrop.bind(this._cluster.conn),
+        {
+          name: groupName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 }

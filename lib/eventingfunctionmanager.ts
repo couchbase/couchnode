@@ -1385,7 +1385,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async upsertFunction(
+  upsertFunction(
     functionDefinition: IEventingFunction,
     options?: UpsertFunctionOptions,
     callback?: NodeCallback<void>
@@ -1405,30 +1405,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingUpsertFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            function: EventingFunction._toCppData(functionDefinition),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingUpsertFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          function: EventingFunction._toCppData(functionDefinition),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1438,7 +1433,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropFunction(
+  dropFunction(
     name: string,
     options?: DropFunctionOptions,
     callback?: NodeCallback<void>
@@ -1458,30 +1453,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingDropFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingDropFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1490,7 +1480,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllFunctions(
+  getAllFunctions(
     options?: GetAllFunctionsOptions,
     callback?: NodeCallback<EventingFunction[]>
   ): Promise<EventingFunction[]> {
@@ -1509,33 +1499,27 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingGetAllFunctions.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.functions.map(
-          (functionData: CppManagementEventingFunction) =>
-            EventingFunction._fromCppData(functionData)
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingGetAllFunctions.bind(
+          this._cluster.conn
+        ),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.functions.map((functionData: CppManagementEventingFunction) =>
+        EventingFunction._fromCppData(functionData)
+      )
+    }, callback)
   }
 
   /**
@@ -1545,7 +1529,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getFunction(
+  getFunction(
     name: string,
     options?: GetFunctionOptions,
     callback?: NodeCallback<EventingFunction>
@@ -1565,31 +1549,26 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingGetFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return EventingFunction._fromCppData(resp.function)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingGetFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return EventingFunction._fromCppData(resp.function)
+    }, callback)
   }
 
   /**
@@ -1599,7 +1578,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async deployFunction(
+  deployFunction(
     name: string,
     options?: DeployFunctionOptions,
     callback?: NodeCallback<void>
@@ -1619,30 +1598,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingDeployFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingDeployFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1652,7 +1626,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async undeployFunction(
+  undeployFunction(
     name: string,
     options?: DeployFunctionOptions,
     callback?: NodeCallback<void>
@@ -1672,30 +1646,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingUndeployFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingUndeployFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1705,7 +1674,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async pauseFunction(
+  pauseFunction(
     name: string,
     options?: PauseFunctionOptions,
     callback?: NodeCallback<void>
@@ -1725,30 +1694,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingPauseFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingPauseFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1758,7 +1722,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async resumeFunction(
+  resumeFunction(
     name: string,
     options?: ResumeFunctionOptions,
     callback?: NodeCallback<void>
@@ -1778,30 +1742,25 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingResumeFunction.bind(
-            this._cluster.conn
-          ),
-          {
-            name: name,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingResumeFunction.bind(
+          this._cluster.conn
+        ),
+        {
+          name: name,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -1810,7 +1769,7 @@ export class EventingFunctionManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async functionsStatus(
+  functionsStatus(
     options?: FunctionsStatusOptions,
     callback?: NodeCallback<EventingState>
   ): Promise<EventingState> {
@@ -1829,29 +1788,22 @@ export class EventingFunctionManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementEventingGetStatus.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return EventingState._fromCppData(resp.status)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementEventingGetStatus.bind(this._cluster.conn),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return EventingState._fromCppData(resp.status)
+    }, callback)
   }
 }

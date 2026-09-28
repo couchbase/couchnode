@@ -386,7 +386,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getIndex(
+  getIndex(
     indexName: string,
     options?: GetSearchIndexOptions,
     callback?: NodeCallback<SearchIndex>
@@ -406,29 +406,24 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexGet.bind(this._cluster.conn),
-          {
-            index_name: indexName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return SearchIndex._fromCppData(resp.index)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexGet.bind(this._cluster.conn),
+        {
+          index_name: indexName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return SearchIndex._fromCppData(resp.index)
+    }, callback)
   }
 
   /**
@@ -437,7 +432,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAllIndexes(
+  getAllIndexes(
     options?: GetAllSearchIndexesOptions,
     callback?: NodeCallback<SearchIndex[]>
   ): Promise<SearchIndex[]> {
@@ -456,32 +451,25 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexGetAll.bind(
-            this._cluster.conn
-          ),
-          {
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.indexes.map((indexData: any) =>
-          SearchIndex._fromCppData(indexData)
-        )
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexGetAll.bind(this._cluster.conn),
+        {
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.indexes.map((indexData: any) =>
+        SearchIndex._fromCppData(indexData)
+      )
+    }, callback)
   }
 
   /**
@@ -491,7 +479,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async upsertIndex(
+  upsertIndex(
     indexDefinition: ISearchIndex,
     options?: UpsertSearchIndexOptions,
     callback?: NodeCallback<void>
@@ -511,30 +499,23 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexUpsert.bind(
-            this._cluster.conn
-          ),
-          {
-            index: SearchIndex._toCppData(indexDefinition),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexUpsert.bind(this._cluster.conn),
+        {
+          index: SearchIndex._toCppData(indexDefinition),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -544,7 +525,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async dropIndex(
+  dropIndex(
     indexName: string,
     options?: DropSearchIndexOptions,
     callback?: NodeCallback<void>
@@ -564,28 +545,23 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexDrop.bind(this._cluster.conn),
-          {
-            index_name: indexName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexDrop.bind(this._cluster.conn),
+        {
+          index_name: indexName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -595,7 +571,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getIndexedDocumentsCount(
+  getIndexedDocumentsCount(
     indexName: string,
     options?: GetSearchIndexedDocumentsCountOptions,
     callback?: NodeCallback<number>
@@ -615,31 +591,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexGetDocumentsCount.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return resp.count
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexGetDocumentsCount.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return resp.count
+    }, callback)
   }
 
   /**
@@ -649,7 +620,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async pauseIngest(
+  pauseIngest(
     indexName: string,
     options?: PauseSearchIngestOptions,
     callback?: NodeCallback<void>
@@ -669,31 +640,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlIngest.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            pause: true,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlIngest.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          pause: true,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -703,7 +669,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async resumeIngest(
+  resumeIngest(
     indexName: string,
     options?: ResumeSearchIngestOptions,
     callback?: NodeCallback<void>
@@ -723,31 +689,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlIngest.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            pause: false,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlIngest.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          pause: false,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -757,7 +718,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async allowQuerying(
+  allowQuerying(
     indexName: string,
     options?: AllowSearchQueryingOptions,
     callback?: NodeCallback<void>
@@ -777,31 +738,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlQuery.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            allow: true,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlQuery.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          allow: true,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -811,7 +767,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async disallowQuerying(
+  disallowQuerying(
     indexName: string,
     options?: DisallowSearchQueryingOptions,
     callback?: NodeCallback<void>
@@ -831,31 +787,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlQuery.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            allow: false,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlQuery.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          allow: false,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -865,7 +816,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async freezePlan(
+  freezePlan(
     indexName: string,
     options?: FreezeSearchPlanOptions,
     callback?: NodeCallback<void>
@@ -885,31 +836,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            freeze: true,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          freeze: true,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -919,7 +865,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async unfreezePlan(
+  unfreezePlan(
     indexName: string,
     options?: UnfreezeSearchPlanOptions,
     callback?: NodeCallback<void>
@@ -939,31 +885,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, _] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            freeze: false,
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, _] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          freeze: false,
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+    }, callback)
   }
 
   /**
@@ -974,7 +915,7 @@ export class SearchIndexManager {
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async analyzeDocument(
+  analyzeDocument(
     indexName: string,
     document: any,
     options?: AnalyzeSearchDocumentOptions,
@@ -995,31 +936,26 @@ export class SearchIndexManager {
     )
     obsReqHandler.setRequestHttpAttributes()
 
-    try {
-      const timeout = options.timeout || this._cluster.managementTimeout
+    const timeout = options.timeout || this._cluster.managementTimeout
 
-      return PromiseHelper.wrapAsync(async () => {
-        const [err, resp] = await wrapObservableBindingCall(
-          this._cluster.conn.managementSearchIndexAnalyzeDocument.bind(
-            this._cluster.conn
-          ),
-          {
-            index_name: indexName,
-            encoded_document: JSON.stringify(document),
-            timeout: timeout,
-          },
-          obsReqHandler
-        )
-        if (err) {
-          obsReqHandler.endWithError(err)
-          throw err
-        }
-        obsReqHandler.end()
-        return JSON.parse(resp.analysis)
-      }, callback)
-    } catch (err) {
-      obsReqHandler.endWithError(err)
-      throw err
-    }
+    return PromiseHelper.wrapAsync(async () => {
+      const [err, resp] = await wrapObservableBindingCall(
+        this._cluster.conn.managementSearchIndexAnalyzeDocument.bind(
+          this._cluster.conn
+        ),
+        {
+          index_name: indexName,
+          encoded_document: JSON.stringify(document),
+          timeout: timeout,
+        },
+        obsReqHandler
+      )
+      if (err) {
+        obsReqHandler.endWithError(err)
+        throw err
+      }
+      obsReqHandler.end()
+      return JSON.parse(resp.analysis)
+    }, callback)
   }
 }
