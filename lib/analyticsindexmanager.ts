@@ -1468,15 +1468,16 @@ export class AnalyticsIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.datasets.map(
-        (dataset: CppManagementAnalyticsDataset) =>
-          new AnalyticsDataset({
-            name: dataset.name,
-            dataverseName: dataset.dataverse_name,
-            linkName: dataset.link_name,
-            bucketName: dataset.bucket_name,
-          })
+      return obsReqHandler.endAfter(() =>
+        resp.datasets.map(
+          (dataset: CppManagementAnalyticsDataset) =>
+            new AnalyticsDataset({
+              name: dataset.name,
+              dataverseName: dataset.dataverse_name,
+              linkName: dataset.link_name,
+              bucketName: dataset.bucket_name,
+            })
+        )
       )
     }, callback)
   }
@@ -1635,15 +1636,16 @@ export class AnalyticsIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.indexes.map(
-        (index: CppManagementAnalyticsIndex) =>
-          new AnalyticsIndex({
-            name: index.name,
-            dataverseName: index.dataverse_name,
-            datasetName: index.dataset_name,
-            isPrimary: index.is_primary,
-          })
+      return obsReqHandler.endAfter(() =>
+        resp.indexes.map(
+          (index: CppManagementAnalyticsIndex) =>
+            new AnalyticsIndex({
+              name: index.name,
+              dataverseName: index.dataverse_name,
+              datasetName: index.dataset_name,
+              isPrimary: index.is_primary,
+            })
+        )
       )
     }, callback)
   }
@@ -2241,22 +2243,23 @@ export class AnalyticsIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      const links: AnalyticsLink[] = []
-      resp.couchbase.forEach(
-        (link: CppManagementAnalyticsCouchbaseRemoteLink) => {
-          links.push(CouchbaseRemoteAnalyticsLink._fromCppData(link))
-        }
-      )
-      resp.s3.forEach((link: CppManagementAnalyticsS3ExternalLink) => {
-        links.push(S3ExternalAnalyticsLink._fromCppData(link))
+      return obsReqHandler.endAfter(() => {
+        const links: AnalyticsLink[] = []
+        resp.couchbase.forEach(
+          (link: CppManagementAnalyticsCouchbaseRemoteLink) => {
+            links.push(CouchbaseRemoteAnalyticsLink._fromCppData(link))
+          }
+        )
+        resp.s3.forEach((link: CppManagementAnalyticsS3ExternalLink) => {
+          links.push(S3ExternalAnalyticsLink._fromCppData(link))
+        })
+        resp.azure_blob.forEach(
+          (link: CppManagementAnalyticsAzureBlobExternalLink) => {
+            links.push(AzureExternalAnalyticsLink._fromCppData(link))
+          }
+        )
+        return links
       })
-      resp.azure_blob.forEach(
-        (link: CppManagementAnalyticsAzureBlobExternalLink) => {
-          links.push(AzureExternalAnalyticsLink._fromCppData(link))
-        }
-      )
-      return links
     }, callback)
   }
 }

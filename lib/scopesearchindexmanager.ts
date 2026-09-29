@@ -97,8 +97,7 @@ export class ScopeSearchIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return SearchIndex._fromCppData(resp.index)
+      return obsReqHandler.endAfter(() => SearchIndex._fromCppData(resp.index))
     }, callback)
   }
 
@@ -146,9 +145,10 @@ export class ScopeSearchIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.indexes.map((indexData: any) =>
-        SearchIndex._fromCppData(indexData)
+      return obsReqHandler.endAfter(() =>
+        resp.indexes.map((indexData: any) =>
+          SearchIndex._fromCppData(indexData)
+        )
       )
     }, callback)
   }
@@ -685,8 +685,7 @@ export class ScopeSearchIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return JSON.parse(resp.analysis)
+      return obsReqHandler.endAfter(() => JSON.parse(resp.analysis))
     }, callback)
   }
 }

@@ -500,21 +500,22 @@ class InternalQueryIndexManager {
         throw err
       }
 
-      obsReqHandler.end()
-      return resp.indexes.map(
-        (row) =>
-          new QueryIndex({
-            isPrimary: row.is_primary,
-            name: row.name,
-            state: row.state,
-            type: row.type,
-            indexKey: row.index_key,
-            partition: row.partition,
-            condition: row.condition,
-            bucketName: row.bucket_name,
-            scopeName: row.scope_name,
-            collectionName: row.collection_name,
-          })
+      return obsReqHandler.endAfter(() =>
+        resp.indexes.map(
+          (row) =>
+            new QueryIndex({
+              isPrimary: row.is_primary,
+              name: row.name,
+              state: row.state,
+              type: row.type,
+              indexKey: row.index_key,
+              partition: row.partition,
+              condition: row.condition,
+              bucketName: row.bucket_name,
+              scopeName: row.scope_name,
+              collectionName: row.collection_name,
+            })
+        )
       )
     }, callback)
   }

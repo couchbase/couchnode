@@ -745,8 +745,9 @@ export class UserManager {
           obsReqHandler.endWithError(err)
           throw err
         }
-        obsReqHandler.end()
-        return UserAndMetadata._fromCppData(resp.user)
+        return obsReqHandler.endAfter(() =>
+          UserAndMetadata._fromCppData(resp.user)
+        )
       }, callback)
     } catch (err) {
       obsReqHandler.endWithError(err)
@@ -796,8 +797,9 @@ export class UserManager {
           obsReqHandler.endWithError(err)
           throw err
         }
-        obsReqHandler.end()
-        return resp.users.map((user) => UserAndMetadata._fromCppData(user))
+        return obsReqHandler.endAfter(() =>
+          resp.users.map((user) => UserAndMetadata._fromCppData(user))
+        )
       }, callback)
     } catch (err) {
       obsReqHandler.endWithError(err)
@@ -996,8 +998,9 @@ export class UserManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.roles.map((role) => Role._fromCppData(role))
+      return obsReqHandler.endAfter(() =>
+        resp.roles.map((role) => Role._fromCppData(role))
+      )
     }, callback)
   }
 
@@ -1043,8 +1046,7 @@ export class UserManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return Group._fromCppData(resp.group)
+      return obsReqHandler.endAfter(() => Group._fromCppData(resp.group))
     }, callback)
   }
 
@@ -1087,8 +1089,9 @@ export class UserManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.groups.map((group) => Group._fromCppData(group))
+      return obsReqHandler.endAfter(() =>
+        resp.groups.map((group) => Group._fromCppData(group))
+      )
     }, callback)
   }
 

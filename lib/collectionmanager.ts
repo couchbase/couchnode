@@ -362,9 +362,10 @@ export class CollectionManager {
         throw err
       }
 
-      obsReqHandler.end()
-      return resp.manifest.scopes.map((scopeData) =>
-        ScopeSpec._fromCppData(scopeData)
+      return obsReqHandler.endAfter(() =>
+        resp.manifest.scopes.map((scopeData) =>
+          ScopeSpec._fromCppData(scopeData)
+        )
       )
     }, callback)
   }

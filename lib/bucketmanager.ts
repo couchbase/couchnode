@@ -830,8 +830,9 @@ export class BucketManager {
         throw err
       }
 
-      obsReqHandler.end()
-      return BucketSettings._fromCppData(resp.bucket)
+      return obsReqHandler.endAfter(() =>
+        BucketSettings._fromCppData(resp.bucket)
+      )
     }, callback)
   }
 
@@ -876,9 +877,10 @@ export class BucketManager {
         throw err
       }
 
-      obsReqHandler.end()
-      return resp.buckets.map((bucketData: any) =>
-        BucketSettings._fromCppData(bucketData)
+      return obsReqHandler.endAfter(() =>
+        resp.buckets.map((bucketData: any) =>
+          BucketSettings._fromCppData(bucketData)
+        )
       )
     }, callback)
   }

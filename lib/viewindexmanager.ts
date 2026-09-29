@@ -390,9 +390,8 @@ export class ViewIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.design_documents.map((ddoc) =>
-        DesignDocument._fromCppData(ddoc)
+      return obsReqHandler.endAfter(() =>
+        resp.design_documents.map((ddoc) => DesignDocument._fromCppData(ddoc))
       )
     }, callback)
   }
@@ -485,8 +484,9 @@ export class ViewIndexManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return DesignDocument._fromCppData(resp.document)
+      return obsReqHandler.endAfter(() =>
+        DesignDocument._fromCppData(resp.document)
+      )
     }, callback)
   }
 

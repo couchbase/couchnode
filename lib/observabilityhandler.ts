@@ -648,6 +648,24 @@ export class ObservableRequestHandler {
   }
 
   /**
+   * Runs fn, then ends the request, so that a failure in fn is recorded as
+   * an error rather than as a success.
+   *
+   * @internal
+   */
+  endAfter<T>(fn: () => T): T {
+    let result: T
+    try {
+      result = fn()
+    } catch (e) {
+      this.endWithError(e)
+      throw e
+    }
+    this.end()
+    return result
+  }
+
+  /**
    * @internal
    */
   maybeAddEncodingSpan(encodeFn: () => [Buffer, number]): [Buffer, number] {

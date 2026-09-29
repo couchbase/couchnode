@@ -201,9 +201,10 @@ export class ScopeEventingFunctionManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return resp.functions.map((functionData: CppManagementEventingFunction) =>
-        EventingFunction._fromCppData(functionData)
+      return obsReqHandler.endAfter(() =>
+        resp.functions.map((functionData: CppManagementEventingFunction) =>
+          EventingFunction._fromCppData(functionData)
+        )
       )
     }, callback)
   }
@@ -257,8 +258,9 @@ export class ScopeEventingFunctionManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return EventingFunction._fromCppData(resp.function)
+      return obsReqHandler.endAfter(() =>
+        EventingFunction._fromCppData(resp.function)
+      )
     }, callback)
   }
 
@@ -518,8 +520,9 @@ export class ScopeEventingFunctionManager {
         obsReqHandler.endWithError(err)
         throw err
       }
-      obsReqHandler.end()
-      return EventingState._fromCppData(resp.status)
+      return obsReqHandler.endAfter(() =>
+        EventingState._fromCppData(resp.status)
+      )
     }, callback)
   }
 }
