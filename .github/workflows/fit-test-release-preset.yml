@@ -1,0 +1,22 @@
+name: Run FIT Testing (Release preset)
+
+on:
+  schedule:
+    - cron: '0 9 * * SAT'
+  workflow_dispatch:
+    inputs:
+      performer_image:
+        description: Performer image to use (e.g. main, 4.7.2, etc.)
+        required: false
+        type: string
+        default: main
+
+permissions:
+  id-token: write
+
+jobs:
+  run-node-fit:
+    uses: ./.github/workflows/fit-test.yml
+    with:
+      fit_cli_preset: ${{ vars.FIT_CLI_RELEASE_PRESET || 'op-multi-release' }}
+      performer_image: ${{ inputs.performer_image }}

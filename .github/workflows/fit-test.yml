@@ -25,6 +25,14 @@ on:
         required: false
         type: string
         default: main
+  workflow_call:
+    inputs:
+      fit_cli_preset:
+        required: false
+        type: string
+      performer_image:
+        required: false
+        type: string
 
 concurrency:
   group: ${{ github.workflow }}-${{ inputs.fit_cli_preset || 'op-multi-lite' }}-${{ inputs.performer_image || 'main' }}
@@ -37,7 +45,7 @@ jobs:
   run-node-fit:
     uses: couchbaselabs/fit-cli/.github/workflows/fit-cli.yaml@main
     with:
-      preset: ${{ vars.FIT_CLI_PRESET || inputs.fit_cli_preset || 'op-multi-lite' }}
+      preset: ${{ inputs.fit_cli_preset || vars.FIT_CLI_PRESET || 'op-multi-lite' }}
       collect_extra_diagnostics: ${{ inputs.collect_extra_diagnostics != false }}
-      channel: ${{ vars.FIT_CLI_CHANNEL || inputs.fit_cli_channel || 'ci' }}
+      channel: ${{ inputs.fit_cli_channel || vars.FIT_CLI_CHANNEL || 'ci' }}
       performer: node-fit-performer:${{ inputs.performer_image || 'main' }}
