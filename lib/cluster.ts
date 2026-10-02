@@ -743,7 +743,7 @@ export class Cluster {
   /**
   @internal
   */
-  static async connect(
+  static connect(
     connStr: string,
     options?: ConnectOptions,
     callback?: NodeCallback<Cluster>
@@ -1042,26 +1042,28 @@ export class Cluster {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async close(callback?: NodeCallback<void>): Promise<void> {
-    this._closing = true
-    await this._cancelQueryStreams()
+  close(callback?: NodeCallback<void>): Promise<void> {
+    return PromiseHelper.wrapAsync(async () => {
+      this._closing = true
+      await this._cancelQueryStreams()
 
-    if (this._transactions) {
-      await this._transactions._close()
-      this._transactions = undefined
-    }
+      if (this._transactions) {
+        await this._transactions._close()
+        this._transactions = undefined
+      }
 
-    if (this._tracer instanceof ThresholdLoggingTracer) {
-      this._tracer.cleanup()
-    }
+      if (this._tracer instanceof ThresholdLoggingTracer) {
+        this._tracer.cleanup()
+      }
 
-    if (this._meter instanceof LoggingMeter) {
-      this._meter.cleanup()
-    }
+      if (this._meter instanceof LoggingMeter) {
+        this._meter.cleanup()
+      }
 
-    return PromiseHelper.wrap((wrapCallback) => {
-      this._conn.shutdown((cppErr) => {
-        wrapCallback(errorFromCpp(cppErr))
+      return PromiseHelper.wrap<void>((wrapCallback) => {
+        this._conn.shutdown((cppErr) => {
+          wrapCallback(errorFromCpp(cppErr))
+        })
       })
     }, callback)
   }

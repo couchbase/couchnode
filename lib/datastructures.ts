@@ -40,7 +40,7 @@ export class CouchbaseList {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAll(callback?: NodeCallback<any[]>): Promise<any[]> {
+  getAll(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListGetAll,
       this._coll.observabilityInstruments
@@ -65,7 +65,7 @@ export class CouchbaseList {
    * @param rowCallback A callback invoked for each item in the list.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async forEach(
+  forEach(
     rowCallback: (value: any, index: number, array: CouchbaseList) => void,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -107,7 +107,7 @@ export class CouchbaseList {
    * @param index The index to retrieve.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAt(index: number, callback?: NodeCallback<any>): Promise<any> {
+  getAt(index: number, callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListGetAt,
       this._coll.observabilityInstruments
@@ -142,7 +142,7 @@ export class CouchbaseList {
    * @param index The index to remove.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async removeAt(index: number, callback?: NodeCallback<void>): Promise<void> {
+  removeAt(index: number, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListRemoveAt,
       this._coll.observabilityInstruments
@@ -170,7 +170,7 @@ export class CouchbaseList {
    * @param value The value to search for.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async indexOf(value: any, callback?: NodeCallback<number>): Promise<number> {
+  indexOf(value: any, callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListIndexOf,
       this._coll.observabilityInstruments
@@ -202,7 +202,7 @@ export class CouchbaseList {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async size(callback?: NodeCallback<number>): Promise<number> {
+  size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListSize,
       this._coll.observabilityInstruments
@@ -231,7 +231,7 @@ export class CouchbaseList {
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async push(value: any, callback?: NodeCallback<void>): Promise<void> {
+  push(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListPush,
       this._coll.observabilityInstruments
@@ -262,7 +262,7 @@ export class CouchbaseList {
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async unshift(value: any, callback?: NodeCallback<void>): Promise<void> {
+  unshift(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.ListUnshift,
       this._coll.observabilityInstruments
@@ -323,7 +323,7 @@ export class CouchbaseMap {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async getAll(
+  getAll(
     callback?: NodeCallback<{ [key: string]: any }>
   ): Promise<{ [key: string]: any }> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -350,7 +350,7 @@ export class CouchbaseMap {
    * @param rowCallback A callback invoked for each item in the list.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async forEach(
+  forEach(
     rowCallback: (value: any, key: string, map: CouchbaseMap) => void,
     callback?: NodeCallback<void>
   ): Promise<void> {
@@ -397,11 +397,7 @@ export class CouchbaseMap {
    * @param value The new value to set.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async set(
-    item: string,
-    value: any,
-    callback?: NodeCallback<void>
-  ): Promise<void> {
+  set(item: string, value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapSet,
       this._coll.observabilityInstruments
@@ -432,7 +428,7 @@ export class CouchbaseMap {
    * @param item The key in the map to retrieve.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async get(item: string, callback?: NodeCallback<any>): Promise<any> {
+  get(item: string, callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapGet,
       this._coll.observabilityInstruments
@@ -467,7 +463,7 @@ export class CouchbaseMap {
    * @param item The key in the map to remove.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async remove(item: string, callback?: NodeCallback<void>): Promise<void> {
+  remove(item: string, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapRemove,
       this._coll.observabilityInstruments
@@ -493,10 +489,7 @@ export class CouchbaseMap {
    * @param item The key in the map to search for.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async exists(
-    item: string,
-    callback?: NodeCallback<boolean>
-  ): Promise<boolean> {
+  exists(item: string, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapExists,
       this._coll.observabilityInstruments
@@ -526,7 +519,7 @@ export class CouchbaseMap {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async keys(callback?: NodeCallback<string[]>): Promise<string[]> {
+  keys(callback?: NodeCallback<string[]>): Promise<string[]> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapKeys,
       this._coll.observabilityInstruments
@@ -550,7 +543,7 @@ export class CouchbaseMap {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async values(callback?: NodeCallback<any[]>): Promise<any[]> {
+  values(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapValues,
       this._coll.observabilityInstruments
@@ -574,7 +567,7 @@ export class CouchbaseMap {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async size(callback?: NodeCallback<number>): Promise<number> {
+  size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.MapSize,
       this._coll.observabilityInstruments
@@ -630,7 +623,7 @@ export class CouchbaseQueue {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async size(callback?: NodeCallback<number>): Promise<number> {
+  size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.QueueSize,
       this._coll.observabilityInstruments
@@ -658,7 +651,7 @@ export class CouchbaseQueue {
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async push(value: any, callback?: NodeCallback<void>): Promise<void> {
+  push(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.QueuePush,
       this._coll.observabilityInstruments
@@ -688,7 +681,7 @@ export class CouchbaseQueue {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async pop(callback?: NodeCallback<any>): Promise<any> {
+  pop(callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.QueuePop,
       this._coll.observabilityInstruments
@@ -771,7 +764,7 @@ export class CouchbaseSet {
    * @param item The item to add.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async add(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
+  add(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.SetAdd,
       this._coll.observabilityInstruments
@@ -809,10 +802,7 @@ export class CouchbaseSet {
    * @param item The value to search for.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async contains(
-    item: any,
-    callback?: NodeCallback<boolean>
-  ): Promise<boolean> {
+  contains(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.SetContains,
       this._coll.observabilityInstruments
@@ -843,7 +833,7 @@ export class CouchbaseSet {
    * @param item The value to remove.
    * @param callback A node-style callback to be invoked after execution.
    */
-  async remove(item: any, callback?: NodeCallback<void>): Promise<void> {
+  remove(item: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.SetRemove,
       this._coll.observabilityInstruments
@@ -895,7 +885,7 @@ export class CouchbaseSet {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async values(callback?: NodeCallback<any[]>): Promise<any[]> {
+  values(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.SetValues,
       this._coll.observabilityInstruments
@@ -919,7 +909,7 @@ export class CouchbaseSet {
    *
    * @param callback A node-style callback to be invoked after execution.
    */
-  async size(callback?: NodeCallback<number>): Promise<number> {
+  size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
       DatastructureOp.SetSize,
       this._coll.observabilityInstruments

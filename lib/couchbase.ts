@@ -11,7 +11,7 @@ import { NodeCallback } from './utilities'
  * @param callback A node-style callback to be invoked after execution.
  * @category Core
  */
-export async function connect(
+export function connect(
   connStr: string,
   options?: ConnectOptions,
   callback?: NodeCallback<Cluster>
