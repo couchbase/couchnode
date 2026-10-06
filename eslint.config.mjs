@@ -50,7 +50,7 @@ export default [
 
   // Main configuration for lib/ and test/
   {
-    files: ['lib/**/*.ts', 'test/**/*.{js,ts}'],
+    files: ['lib/**/*.ts', 'test/**/*.{js,cjs,ts,mts}'],
 
     languageOptions: {
       parser: tseslint.parser,
@@ -177,7 +177,7 @@ export default [
 
   // Test-specific overrides
   {
-    files: ['test/**/*.{js,ts}'],
+    files: ['test/**/*.{js,cjs,ts,mts}'],
     rules: {
       '@typescript-eslint/no-var-requires': 'off',
       '@typescript-eslint/no-require-imports': 'off', // Tests use CommonJS

@@ -28,6 +28,9 @@ config.json
 /.lock-wscript
 /build/
 /node_modules/
+# Vitest writes a cache to node_modules/.vite beside each config it loads,
+# including the self-test fixtures under test/v2, so this rule is unanchored.
+node_modules/
 /docs/
 /test/CouchbaseMock.jar
 /builderror.log
