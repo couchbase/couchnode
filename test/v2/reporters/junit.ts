@@ -94,7 +94,12 @@ export function caseFor(test: TestCase): Case {
   return {
     name: titleChain(test).join(' > '),
     seconds: seconds(diagnostic?.duration),
-    skipped: result.state === 'skipped' ? skipMessage(test) : undefined,
+    // A skipped block inside a skipped block leaves its tests `pending`, never
+    // run, and a bare case would read as a pass.
+    skipped:
+      result.state === 'skipped' || result.state === 'pending'
+        ? skipMessage(test)
+        : undefined,
     failures: result.state === 'failed' ? result.errors : [],
     properties,
   }

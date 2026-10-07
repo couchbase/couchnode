@@ -150,6 +150,7 @@ describe('the project split', () => {
     // convention and the project agree in both directions, so a file named
     // `*.exclusive.test.ts` somewhere the exclusive `include` does not reach
     // fails here rather than running in parallel with everything else.
+    expect(exclusiveOnDisk.length).toBeGreaterThan(0)
     expect(byProject.get('exclusive')).toEqual(exclusiveOnDisk)
   })
 

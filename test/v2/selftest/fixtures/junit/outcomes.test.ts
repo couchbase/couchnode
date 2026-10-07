@@ -35,6 +35,9 @@ describe.skip('#skipped block', skipOptions(KNOWN), () => {
   describe('#nested', () => {
     it('inherits the block reason', () => {})
   })
+  describe.skip('#gated inside', skipOptions(MISSING), () => {
+    it('is still a skip', () => {})
+  })
 })
 
 it('skips at runtime', ({ skip }) => {

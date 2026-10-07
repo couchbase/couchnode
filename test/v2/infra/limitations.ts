@@ -32,6 +32,16 @@ export interface MockLimitation {
 
 /** Every known sub-feature defect, by id. Ids lead with the backend. */
 export const MOCK_LIMITATIONS = Object.freeze({
+  'gocaves-mutatein-expiry': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'a `mutateIn` carrying an expiry is rejected outright: the subdocument ' +
+      'response is `invalid_argument` (status 4) before any path is evaluated. ' +
+      'The same call with no expiry succeeds, and the same call with an expiry ' +
+      'succeeds against a real 7.6 cluster, so it is the expiry field the mock ' +
+      'refuses rather than anything about the specs.',
+    observedIn: MEASURED_AGAINST,
+  }),
   'gocaves-subdoc-mutation-macros': Object.freeze({
     backends: Object.freeze(['gocaves'] as const),
     note:
@@ -40,6 +50,20 @@ export const MOCK_LIMITATIONS = Object.freeze({
       '`xattr_unknown_macro` (124), including the paths whose expected result ' +
       'is an `InvalidArgumentError` raised by the SDK, so the negative tests ' +
       'fail here too.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-scope-error-classification': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'a missing scope or collection cannot be recognized by the client, ' +
+      'because the mock reports it in a body that is not JSON: ' +
+      '`{"errors":{"_":"Scope with name "s" is not found"}` interpolates the ' +
+      'name without escaping the quotes around it and leaves the object a ' +
+      'brace short. The core cannot parse that, so a DELETE returns ' +
+      '`unsupported_operation` (12) and the create path returns ' +
+      '`invalid_argument` where `ScopeNotFound` and `CollectionNotFound` are ' +
+      'expected. This is the defect that also reaches cleanup code, which is ' +
+      'why `limits()` exists as well as the gates.',
     observedIn: MEASURED_AGAINST,
   }),
 }) satisfies Readonly<Record<string, MockLimitation>>

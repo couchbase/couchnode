@@ -106,6 +106,12 @@ describe('the JUnit reporter', () => {
     )
   })
 
+  it('reports a skipped block inside a skipped block as a skip', () => {
+    expect(
+      testcase(xml, '#skipped block > #gated inside > is still a skip')
+    ).toContain(`<skipped message="${escapeXml(gateLine)}"/>`)
+  })
+
   it('writes a bare skip for a bare true', () => {
     expect(testcase(xml, '#gated > declared with a bare true')).toContain(
       '<skipped/>'
