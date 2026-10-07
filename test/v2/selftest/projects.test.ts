@@ -17,16 +17,12 @@ import { UNIT_PROJECT } from '../globalSetup'
 const V2_ROOT = join(import.meta.dirname, '..')
 const CONFIG = join(V2_ROOT, 'vitest.config.mts')
 
-/** Never walked: other packages' tests, and the runner's cache. */
 const SKIP_DIRS = new Set(['node_modules'])
 
 /** Spawned by selftests as a child process; excluded from every project. */
 const FIXTURES = join('selftest', 'fixtures')
 
-/**
- * Every `*.test.ts` under `test/v2/`. The whole tree, not just where the globs
- * look, or a file no glob reaches would go unnoticed.
- */
+/** The whole tree, not just where the globs look, so unclaimed files show. */
 function testFilesOnDisk(): string[] {
   const found: string[] = []
   const walk = (dir: string): void => {
@@ -45,7 +41,6 @@ function testFilesOnDisk(): string[] {
   return found.filter((f) => !f.startsWith(FIXTURES + sep)).sort()
 }
 
-/** Every file under `test/v2/` that `match` accepts, given directory and name. */
 function filesOnDisk(match: (dir: string, name: string) => boolean): string[] {
   const found: string[] = []
   const walk = (dir: string): void => {
@@ -78,9 +73,8 @@ const AXES: readonly { script: string; expected: string[] }[] = [
 /**
  * The `--project` values an npm script passes, read out of `package.json`.
  *
- * Checked rather than read because a negation is not a filter: `!periodic`
- * matches every other project, and selection is an `any` over the patterns, so
- * `--project unit --project '!periodic'` silently selects `exclusive` too.
+ * Checked because a negation is not a filter: selection is an `any` over the
+ * patterns, so `--project unit --project '!periodic'` also selects `exclusive`.
  */
 function projectFlags(script: string): string[] {
   const pkg = JSON.parse(
@@ -146,10 +140,8 @@ describe('the project split', () => {
     const exclusiveOnDisk = testFilesOnDisk().filter((f) =>
       f.endsWith('.exclusive.test.ts')
     )
-    // Not a tautology against the glob: the assertion is that the naming
-    // convention and the project agree in both directions, so a file named
-    // `*.exclusive.test.ts` somewhere the exclusive `include` does not reach
-    // fails here rather than running in parallel with everything else.
+    // Not a tautology: name and project must agree both ways, or an
+    // `*.exclusive.test.ts` outside the `include` runs in parallel.
     expect(exclusiveOnDisk.length).toBeGreaterThan(0)
     expect(byProject.get('exclusive')).toEqual(exclusiveOnDisk)
   })
@@ -158,12 +150,9 @@ describe('the project split', () => {
     const periodicOnDisk = testFilesOnDisk().filter((f) =>
       f.endsWith('.periodic.test.ts')
     )
-    // The same claim the exclusive check makes, and it matters more here,
-    // because this project is the one no ordinary run selects. A file named
-    // `*.periodic.test.ts` that the periodic `include` does not reach is run by
-    // nothing at all: it is excluded from the default run by its name and
-    // excluded from the periodic run by not matching, and the only symptom is
-    // a suite nobody notices has stopped running.
+    // A `*.periodic.test.ts` outside the periodic `include` runs nowhere: the
+    // default run excludes it by name, the periodic run by not matching.
+    expect(periodicOnDisk.length).toBeGreaterThan(0)
     expect(byProject.get('periodic')).toEqual(periodicOnDisk)
   })
 

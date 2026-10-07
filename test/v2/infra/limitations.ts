@@ -52,6 +52,25 @@ export const MOCK_LIMITATIONS = Object.freeze({
       'fail here too.',
     observedIn: MEASURED_AGAINST,
   }),
+  'gocaves-bucket-create-drop-always-succeed': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'bucket create and drop are unconditional. Creating a bucket that ' +
+      'already exists succeeds instead of raising `BucketExists`, and dropping ' +
+      'one that is already gone succeeds instead of raising `BucketNotFound`. ' +
+      'Only the tests asserting those two errors are affected; the ordinary ' +
+      'create, get, update and drop paths behave.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-bucket-settings-roundtrip': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'a bucket does not read back as it was created. `getBucket` returns ' +
+      'settings that differ from the `createBucket` arguments, so any ' +
+      'assertion over the whole settings object fails while the individual ' +
+      'management calls succeed.',
+    observedIn: MEASURED_AGAINST,
+  }),
   'gocaves-scope-error-classification': Object.freeze({
     backends: Object.freeze(['gocaves'] as const),
     note:
@@ -64,6 +83,45 @@ export const MOCK_LIMITATIONS = Object.freeze({
       '`invalid_argument` where `ScopeNotFound` and `CollectionNotFound` are ' +
       'expected. This is the defect that also reaches cleanup code, which is ' +
       'why `limits()` exists as well as the gates.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-flush-ignores-timeout': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'a `flushBucket` given a 1ms timeout succeeds rather than timing out. ' +
+      'The mock answers management requests locally and fast enough that no ' +
+      'deadline this side of zero can be missed, so a suite asserting that an ' +
+      'unreachably short timeout is honoured has nothing to observe.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-accepts-any-credentials': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'the mock does not authenticate. A connection made with a username it ' +
+      'has never heard of is accepted like any other, so a test asserting that ' +
+      'wrong credentials raise `AuthenticationFailureError` has no rejection ' +
+      'to observe.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-query-transactions': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'transactions run in query mode fail. Key-value transactions work, ' +
+      'which is why `Transactions` is a supported feature, but anything that ' +
+      'moves the transaction into the query service raises ' +
+      '`TransactionOperationFailedError`, and the suites that assert a ' +
+      'specific cause (`ParsingFailure`, `BucketNotFound`) get a timeout or ' +
+      'the generic failure instead.',
+    observedIn: MEASURED_AGAINST,
+  }),
+  'gocaves-binary-transaction-errors': Object.freeze({
+    backends: Object.freeze(['gocaves'] as const),
+    note:
+      'a binary transaction fails with the wrong cause. Binary transactions ' +
+      'are not supported before 7.6.2 and the mock reports 7.0.0, so the ' +
+      'expected outcome is a `FeatureNotAvailableError` cause; what arrives ' +
+      'is `error in create_staged_insert`. The assertion under test is the ' +
+      'error mapping, so there is nothing left to check here.',
     observedIn: MEASURED_AGAINST,
   }),
 }) satisfies Readonly<Record<string, MockLimitation>>

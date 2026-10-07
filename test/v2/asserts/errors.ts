@@ -13,13 +13,27 @@ import { formatErrorContext } from './serializer'
 
 export type ErrorClass<E> = abstract new (...args: never[]) => E
 
+/** How many causes a mismatch report follows. */
+const MAX_CAUSE_DEPTH = 3
+
 function describeThrown(err: unknown): string {
   if (err instanceof Error) {
     const rendered = formatErrorContext(err)
-    return (
+    let described =
       `${err.constructor.name}: ${err.message}` +
       (rendered ? `\n  ${rendered}` : '')
-    )
+    // A wrapping error, such as `TransactionFailedError`, says only that
+    // something failed. Its cause says what.
+    let cause: unknown = err.cause
+    let depth = 0
+    while (cause !== undefined && depth++ < MAX_CAUSE_DEPTH) {
+      described +=
+        cause instanceof Error
+          ? `\n  caused by ${cause.constructor.name}: ${cause.message}`
+          : `\n  caused by ${JSON.stringify(cause)}`
+      cause = cause instanceof Error ? cause.cause : undefined
+    }
+    return described
   }
   return `a non-Error value: ${JSON.stringify(err)}`
 }

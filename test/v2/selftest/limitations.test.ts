@@ -21,7 +21,6 @@ const REGISTRY = join('infra', 'limitations.ts')
 
 const entries = Object.entries(MOCK_LIMITATIONS) as [string, MockLimitation][]
 
-/** Every `.ts` under `test/v2` except the registry itself and this file. */
 function sources(): string[] {
   const found: string[] = []
   const walk = (dir: string): void => {
@@ -85,11 +84,8 @@ describe('the mock-limitation registry', () => {
   })
 
   it('has no entry that nothing uses', () => {
-    // A limitation nobody references silences nothing and is pure debt: it
-    // reads as a known defect, it survives every rebase, and deleting it costs
-    // whoever eventually notices an afternoon of proving it is dead. The id is
-    // a string literal at every call site, so a plain search over the tree is
-    // exact.
+    // An unreferenced entry silences nothing but still reads as a known
+    // defect. Ids are string literals at call sites, so plain search is exact.
     const unused = entries
       .filter(([id]) => !corpus.includes(`'${id}'`))
       .map(([id]) => id)
