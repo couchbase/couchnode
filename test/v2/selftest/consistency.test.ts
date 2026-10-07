@@ -191,6 +191,20 @@ describe('management requests', () => {
     ).rejects.toThrow(/reported HTTP 404, wanted 200/)
   })
 
+  it('reads the cluster name', async () => {
+    const port = await serve(discovery(ONE_NODE))
+
+    await expect(utils(port).getClusterName()).resolves.toBe('selftest')
+  })
+
+  it('reads an unnamed cluster as no name', async () => {
+    const port = await serve((_path, respond) =>
+      respond.json({ clusterName: '' })
+    )
+
+    await expect(utils(port).getClusterName()).resolves.toBeNull()
+  })
+
   it('stops promptly when the poll is cancelled', async () => {
     const port = await serve((_path, respond) => respond.hang())
     const controller = new AbortController()

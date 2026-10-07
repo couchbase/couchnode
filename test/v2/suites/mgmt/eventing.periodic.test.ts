@@ -1,7 +1,6 @@
 import { describe, expect } from 'vitest'
 
 import type { Cluster } from '../../../../lib/cluster'
-import { EventingFunctionNotDeployedError } from '../../../../lib/errors'
 import type {
   EventingFunctionManager,
   IEventingFunction,
@@ -84,28 +83,8 @@ type Manager = Pick<
   | 'undeployFunction'
 >
 
-async function ensureDropped(manager: Manager, name: string): Promise<void> {
-  try {
-    await ensureEventingFunctionDropped(manager, name, STATE_DEADLINE_MS)
-  } catch (err) {
-    // Some servers answer a drop of a function already dropped this way, so
-    // the listing decides whether it is gone.
-    if (!(err instanceof EventingFunctionNotDeployedError)) {
-      throw err
-    }
-    await pollUntil<true>(
-      `eventing function ${name} to leave getAllFunctions`,
-      async (ctx) => {
-        const listed = (await manager.getAllFunctions()).map((f) => f.name)
-        if (!listed.includes(name)) {
-          return true
-        }
-        ctx.note('the function is still listed')
-        return undefined
-      },
-      { deadlineMs: LISTING_DEADLINE_MS, intervalMs: STATE_POLL_INTERVAL_MS }
-    )
-  }
+function ensureDropped(manager: Manager, name: string): Promise<void> {
+  return ensureEventingFunctionDropped(manager, name, STATE_DEADLINE_MS)
 }
 
 interface Fixture {

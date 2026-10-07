@@ -1,12 +1,17 @@
-// Two eventing service quirks shape these helpers:
+// Three eventing service quirks shape these helpers:
 //
 // - `/api/v1/status` can answer `500 INTERNAL_SERVER_ERROR` mid deploy, tagged
 //   `"attributes": ["retry"]`, so waits and cleanups retry it.
 // - A deployed function cannot be dropped, so cleanup undeploys first.
+// - Some servers answer a drop of a function that is already gone with
+//   `ERR_APP_NOT_DEPLOYED` rather than not found, so the listing decides.
 
 import type { EventingFunctionManager } from '../../../lib/eventingfunctionmanager'
 import { EventingFunctionStatus } from '../../../lib/eventingfunctionmanager'
-import { EventingFunctionNotFoundError } from '../../../lib/errors'
+import {
+  EventingFunctionNotDeployedError,
+  EventingFunctionNotFoundError,
+} from '../../../lib/errors'
 import type { ScopeEventingFunctionManager } from '../../../lib/scopeeventingfunctionmanager'
 import { pollUntil, tryNTimes } from './retry'
 
@@ -66,7 +71,8 @@ export async function awaitEventingState(
 
 /**
  * Undeploys `name` if needed, then drops it, whatever state it was left in.
- * The status read and undeploy are retried; the drop tolerates only not found.
+ * The status read and undeploy are retried. The drop tolerates not found, and
+ * not deployed from a function that is already gone.
  */
 export async function ensureEventingFunctionDropped(
   manager: EventingStateManager,
@@ -96,10 +102,28 @@ export async function ensureEventingFunctionDropped(
     if (err instanceof EventingFunctionNotFoundError) {
       return
     }
-    throw err
+    if (!(err instanceof EventingFunctionNotDeployedError)) {
+      throw err
+    }
   }
-  // The drop returns before the service forgets the function, and the suite's
-  // scope, which holds the function's metadata collection, goes next.
+  // The suite's scope, which holds the function's metadata collection, goes
+  // next. After a not deployed answer this is also what shows the function is
+  // gone.
+  await awaitEventingFunctionDropped(manager, name, {
+    deadlineMs: DROP_DEADLINE_MS,
+  })
+}
+
+/**
+ * A drop returns before the service forgets the function, so a read straight
+ * after it can still find the function. Errors are polled through until the
+ * deadline.
+ */
+export async function awaitEventingFunctionDropped(
+  manager: EventingStateManager,
+  name: string,
+  opts: EventingStateOptions
+): Promise<void> {
   await pollUntil<true>(
     `eventing function ${name} to leave getAllFunctions after its drop`,
     async (ctx) => {
@@ -110,6 +134,11 @@ export async function ensureEventingFunctionDropped(
       ctx.note('the function is still listed')
       return undefined
     },
-    { deadlineMs: DROP_DEADLINE_MS, intervalMs: STATE_POLL_INTERVAL_MS }
+    {
+      deadlineMs: opts.deadlineMs,
+      intervalMs: opts.intervalMs ?? STATE_POLL_INTERVAL_MS,
+      retryErrors: true,
+      signal: opts.signal,
+    }
   )
 }

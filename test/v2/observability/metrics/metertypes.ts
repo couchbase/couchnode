@@ -1,6 +1,3 @@
-// The two test meters. Pass one to `Cluster.connect` and read its recorders
-// back.
-//
 // `NoOpTestMeter` must extend `NoOpMeter`: `observabilityhandler.ts` picks the
 // no-op path by `instanceof NoOpMeter`, so any recorder appearing under it
 // means the handler took the recording path for a meter that opted out.
@@ -12,10 +9,9 @@ import { OpAttributeName } from '../../../../lib/observabilitytypes'
 /** What the SDK passes as a recorder's tags. Values are whatever it sets. */
 export type RecorderAttributes = Readonly<Record<string, unknown>>
 
-/** A recorder that keeps everything it is given, for later assertion. */
 export class TestValueRecorder implements ValueRecorder {
   readonly values: number[] = []
-  /** The operation named in the tags, or undefined; recorders are looked up by it. */
+  /** The operation named in the tags; recorders are looked up by it. */
   readonly opName: string | undefined
 
   constructor(
@@ -48,12 +44,19 @@ export class TestMeter implements Meter {
 
   /** The operation-duration recorder for `opName`, if the SDK made one. */
   getValueRecorderByOpName(opName: string): TestValueRecorder | undefined {
-    const forDuration =
-      this.recorders.get(OpAttributeName.MeterNameOpDuration) ?? []
-    return forDuration.find((recorder) => recorder.opName === opName)
+    return this.getValueRecordersByOpName(opName)[0]
   }
 
-  /** Forgets everything recorded so far, so the next operation starts clean. */
+  /**
+   * Every operation-duration recorder for `opName`, in creation order. The SDK
+   * creates one per recording, so the length is the recording count.
+   */
+  getValueRecordersByOpName(opName: string): TestValueRecorder[] {
+    const forDuration =
+      this.recorders.get(OpAttributeName.MeterNameOpDuration) ?? []
+    return forDuration.filter((recorder) => recorder.opName === opName)
+  }
+
   clear(): void {
     this.recorders.clear()
   }

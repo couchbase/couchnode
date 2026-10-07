@@ -155,6 +155,7 @@ export class ConsistencyUtils {
   /**
    * Retried on a 5xx or a failed connection, because the cluster manager
    * answers `/pools/default` with a transient 500 often enough to matter.
+   * An unnamed cluster answers `""` and gets no labels, so it reads as null.
    */
   async getClusterName(): Promise<string | null> {
     const body = await pollUntil<{ clusterName?: string }>(
@@ -177,7 +178,7 @@ export class ConsistencyUtils {
       },
       { deadlineMs: CLUSTER_NAME_DEADLINE_MS, intervalMs: 1_000 }
     )
-    return body.clusterName ?? null
+    return body.clusterName || null
   }
 
   async waitUntilUserPresent(
