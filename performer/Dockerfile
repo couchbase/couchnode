@@ -13,7 +13,19 @@ RUN npm run prepare
 
 WORKDIR /app/performer
 
+# Install the SDK as a real copy (install-links) rather than the symlink a
+# file: dependency normally gets, so it resolves its peer dependencies
+# (@opentelemetry/api) from performer/node_modules exactly as a registry install
+# would. The copy holds only what root's package.json "files" ships, and its
+# install script (scripts/install.js) copies in the addon built above from
+# couchbase_local_prebuilds instead of recompiling. The .npmrc also keeps the
+# later `npm prune` from relinking the copy.
+RUN printf 'install-links=true\ncouchbase_local_prebuilds=/app/build/Release\n' > .npmrc
 RUN npm install --unsafe-perm
+RUN test -f node_modules/couchbase/build/Release/couchbase_impl.node
+# The copy carries the C++ sources from "files"; none are needed at runtime.
+RUN rm -rf node_modules/couchbase/deps node_modules/couchbase/src \
+        node_modules/couchbase/tools node_modules/couchbase/CMakeLists.txt
 
 RUN mkdir -p src/proto
 
@@ -30,12 +42,6 @@ ENV NODE_ENV=production
 RUN npm run build
 RUN npm prune --omit=dev
 
-# Root's own devDependencies (typescript, mocha, eslint, ...) are only needed up
-# through the last step that can retrigger root's "prepare" lifecycle script —
-# which is performer's `npm install` above, since npm re-runs a file: dependency's
-# prepare script when linking it. Pruning any earlier breaks that reinstall.
-RUN npm --prefix /app prune --omit=dev
-
 FROM node:22-slim AS testing
 
 # Passed by couchbaselabs/sdk-docker-build-action (build-arg SDK=...). Declared
@@ -47,24 +53,15 @@ LABEL org.opencontainers.image.title="${SDK}-fit-performer" \
 
 RUN apt-get update && apt-get install -y procps && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /app
-
-# Only the pieces actually needed at runtime: the compiled SDK JS + its native
-# addon, and the performer's own compiled JS + generated proto stubs. Skip
-# deps/ (C++ source + CPM cache, ~670MB) and the rest of build/ (~180MB of
-# CMake intermediates) — neither is touched once the addon is built.
-COPY --from=builder /app/package.json ./package.json
-COPY --from=builder /app/scripts ./scripts
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/build/Release ./build/Release
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/performer/package.json ./performer/package.json
-COPY --from=builder /app/performer/node_modules ./performer/node_modules
-COPY --from=builder /app/performer/src/build ./performer/src/build
-COPY --from=builder /app/performer/src/proto ./performer/src/proto
-COPY --from=builder /app/performer/entrypoint.sh ./performer/entrypoint.sh
-
 WORKDIR /app/performer
+
+# Only the performer's compiled JS, generated proto stubs and node_modules. The
+# SDK, including its native addon, is an ordinary installed package in there.
+COPY --from=builder /app/performer/package.json ./package.json
+COPY --from=builder /app/performer/node_modules ./node_modules
+COPY --from=builder /app/performer/src/build ./src/build
+COPY --from=builder /app/performer/src/proto ./src/proto
+COPY --from=builder /app/performer/entrypoint.sh ./entrypoint.sh
 
 # entrypoint.sh translates LOG_LEVEL (set generically by the FIT test
 # framework) into CBPPLOGLEVEL, the env var the native addon reads at
