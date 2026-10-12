@@ -9,6 +9,7 @@ import { Cluster } from './cluster'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
+import { QueryExecutor } from './queryexecutor'
 import { MatchNoneSearchQuery, SearchQuery } from './searchquery'
 import { SearchSort } from './searchsort'
 import {
@@ -20,7 +21,6 @@ import {
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
 import { CppSearchRequest, CppSearchResponse } from './binding'
-import { PromiseHelper } from './utilities'
 
 /**
  * @internal
@@ -49,6 +49,19 @@ export class SearchExecutor {
   /**
    * @internal
    */
+  static _endWithError(
+    emitter: StreamableRowPromise<SearchResult, SearchRow, SearchMetaData>,
+    err: Error,
+    obsReqHandler?: ObservableRequestHandler
+  ): void {
+    obsReqHandler?.endWithError(err)
+    emitter.emit('error', err)
+    emitter.emit('end')
+  }
+
+  /**
+   * @internal
+   */
   static _processSearchResponse(
     emitter: StreamableRowPromise<SearchResult, SearchRow, SearchMetaData>,
     err: Error | null,
@@ -56,21 +69,19 @@ export class SearchExecutor {
     obsReqHandler?: ObservableRequestHandler
   ): void {
     if (err) {
-      obsReqHandler?.endWithError(err)
-      emitter.emit('error', err)
-      emitter.emit('end')
+      SearchExecutor._endWithError(emitter, err, obsReqHandler)
       return
     }
 
-    resp.rows.forEach((row) => {
-      row.fields = row.fields ? JSON.parse(row.fields) : undefined
-      row.explanation = row.explanation
-        ? JSON.parse(row.explanation)
-        : undefined
-      emitter.emit('row', row)
-    })
+    try {
+      resp.rows.forEach((row) => {
+        row.fields = row.fields ? JSON.parse(row.fields) : undefined
+        row.explanation = row.explanation
+          ? JSON.parse(row.explanation)
+          : undefined
+        emitter.emit('row', row)
+      })
 
-    {
       const metaData = resp.meta
       emitter.emit('meta', {
         facets: Object.fromEntries(
@@ -78,6 +89,9 @@ export class SearchExecutor {
         ),
         ...metaData,
       } as SearchMetaData)
+    } catch (err) {
+      SearchExecutor._endWithError(emitter, err as Error, obsReqHandler)
+      return
     }
 
     obsReqHandler?.end()
@@ -102,10 +116,23 @@ export class SearchExecutor {
       })
     })
 
-    PromiseHelper.wrapAsync(async () => {
-      const [err, resp] = await searchPromise
-      SearchExecutor._processSearchResponse(emitter, err, resp, obsReqHandler)
-    })
+    searchPromise.then(
+      ([err, resp]) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          SearchExecutor._processSearchResponse(
+            emitter,
+            err,
+            resp,
+            obsReqHandler
+          )
+        })
+      },
+      (err) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          SearchExecutor._endWithError(emitter, err, obsReqHandler)
+        })
+      }
+    )
 
     return emitter
   }

@@ -42,6 +42,24 @@ export class QueryExecutor {
 
   /**
    * @internal
+   *
+   * Native callbacks swallow anything thrown out of them, so anything still
+   * thrown by the callback body (an 'error' emitted with no listener, or a
+   * throwing 'end' listener) is rethrown on a later tick, where it surfaces as
+   * an uncaught exception.
+   */
+  static _rethrowListenerErrors(fn: () => void): void {
+    try {
+      fn()
+    } catch (err) {
+      process.nextTick(() => {
+        throw err
+      })
+    }
+  }
+
+  /**
+   * @internal
    */
   static _processQueryResponse<TRow>(
     emitter: StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData>,
