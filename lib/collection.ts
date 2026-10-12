@@ -833,12 +833,12 @@ export class Collection {
           throw err
         }
 
-        const content = transcoder.decode(resp.value, resp.flags)
-        obsReqHandler?.end()
-        return new GetResult({
-          content: content,
-          cas: resp.cas,
-        })
+        const toResult = () =>
+          new GetResult({
+            content: transcoder.decode(resp.value, resp.flags),
+            cas: resp.cas,
+          })
+        return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
       }, callback)
     } catch (e) {
       obsReqHandler?.endWithError(e)
@@ -1623,13 +1623,12 @@ export class Collection {
           throw err
         }
 
-        const content = transcoder.decode(resp.value, resp.flags)
-
-        obsReqHandler?.end()
-        return new GetResult({
-          content: content,
-          cas: resp.cas,
-        })
+        const toResult = () =>
+          new GetResult({
+            content: transcoder.decode(resp.value, resp.flags),
+            cas: resp.cas,
+          })
+        return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
       }, callback)
     } catch (e) {
       obsReqHandler?.endWithError(e)
@@ -1760,13 +1759,12 @@ export class Collection {
           throw err
         }
 
-        const content = transcoder.decode(resp.value, resp.flags)
-
-        obsReqHandler?.end()
-        return new GetResult({
-          content: content,
-          cas: resp.cas,
-        })
+        const toResult = () =>
+          new GetResult({
+            content: transcoder.decode(resp.value, resp.flags),
+            cas: resp.cas,
+          })
+        return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
       }, callback)
     } catch (e) {
       obsReqHandler?.endWithError(e)
