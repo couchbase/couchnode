@@ -1,3 +1,5 @@
+import { InvalidArgumentError } from './errors'
+
 /**
  * Represents a search term for a RangeScan.
  *
@@ -118,6 +120,11 @@ export class PrefixScan implements ScanType {
    * @internal
    */
   constructor(prefix: string) {
+    if (typeof prefix !== 'string') {
+      throw new InvalidArgumentError(
+        new Error('PrefixScan prefix must be a string.')
+      )
+    }
     this.prefix = prefix
   }
 

@@ -224,9 +224,11 @@ function rangeScanTests(collFn) {
     })
 
     describe('#batchByteLimit', function () {
-      const testBatchByteLimit = ({ scanType, limit, expected }) =>
+      const testBatchByteLimit = ({ scanTypeFor, limit, expected }) =>
         async function () {
-          const res = await collFn().scan(scanType, { batchByteLimit: limit })
+          const res = await collFn().scan(scanTypeFor(), {
+            batchByteLimit: limit,
+          })
 
           assert.isArray(res)
           validateResults(res, expected)
@@ -235,7 +237,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchByteLimit=0',
         testBatchByteLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 0,
           expected: 100,
         })
@@ -244,7 +246,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchByteLimit=1',
         testBatchByteLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 1,
           expected: 100,
         })
@@ -253,7 +255,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchByteLimit=25',
         testBatchByteLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 25,
           expected: 100,
         })
@@ -262,7 +264,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchByteLimit=100',
         testBatchByteLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 100,
           expected: 100,
         })
@@ -271,7 +273,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchByteLimit=0',
         testBatchByteLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 0,
           expected: 100,
         })
@@ -280,7 +282,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchByteLimit=1',
         testBatchByteLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 1,
           expected: 100,
         })
@@ -289,7 +291,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchByteLimit=25',
         testBatchByteLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 25,
           expected: 100,
         })
@@ -298,7 +300,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchByteLimit=100',
         testBatchByteLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 100,
           expected: 100,
         })
@@ -307,7 +309,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchByteLimit=0',
         testBatchByteLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 0,
           expected: 10,
         })
@@ -316,7 +318,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchByteLimit=1',
         testBatchByteLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 1,
           expected: 10,
         })
@@ -325,7 +327,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchByteLimit=25',
         testBatchByteLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 25,
           expected: 10,
         })
@@ -334,7 +336,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchByteLimit=100',
         testBatchByteLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 100,
           expected: 10,
         })
@@ -342,9 +344,11 @@ function rangeScanTests(collFn) {
     })
 
     describe('#batchItemLimit', function () {
-      const testBatchItemLimit = ({ scanType, limit, expected }) =>
+      const testBatchItemLimit = ({ scanTypeFor, limit, expected }) =>
         async function () {
-          const res = await collFn().scan(scanType, { batchItemLimit: limit })
+          const res = await collFn().scan(scanTypeFor(), {
+            batchItemLimit: limit,
+          })
 
           assert.isArray(res)
           validateResults(res, expected)
@@ -353,7 +357,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchItemLimit=0',
         testBatchItemLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 0,
           expected: 100,
         })
@@ -362,7 +366,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchItemLimit=10',
         testBatchItemLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 10,
           expected: 100,
         })
@@ -371,7 +375,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchItemLimit=25',
         testBatchItemLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 25,
           expected: 100,
         })
@@ -380,7 +384,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute RangeScan with batchItemLimit=100',
         testBatchItemLimit({
-          scanType: new RangeScan(),
+          scanTypeFor: () => new RangeScan(),
           limit: 100,
           expected: 100,
         })
@@ -389,7 +393,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchItemLimit=0',
         testBatchItemLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 0,
           expected: 100,
         })
@@ -398,7 +402,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchItemLimit=10',
         testBatchItemLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 10,
           expected: 100,
         })
@@ -407,7 +411,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchItemLimit=25',
         testBatchItemLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 25,
           expected: 100,
         })
@@ -416,7 +420,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute PrefixScan with batchItemLimit=100',
         testBatchItemLimit({
-          scanType: new PrefixScan(testUid),
+          scanTypeFor: () => new PrefixScan(testUid),
           limit: 100,
           expected: 100,
         })
@@ -425,7 +429,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchItemLimit=0',
         testBatchItemLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 0,
           expected: 10,
         })
@@ -434,7 +438,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchItemLimit=10',
         testBatchItemLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 10,
           expected: 10,
         })
@@ -443,7 +447,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchItemLimit=25',
         testBatchItemLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 25,
           expected: 10,
         })
@@ -452,7 +456,7 @@ function rangeScanTests(collFn) {
       it(
         'should execute SamplingScan with batchItemLimit=100',
         testBatchItemLimit({
-          scanType: new SamplingScan(10, 50),
+          scanTypeFor: () => new SamplingScan(10, 50),
           limit: 100,
           expected: 10,
         })
