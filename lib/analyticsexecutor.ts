@@ -15,8 +15,8 @@ import { Cluster } from './cluster'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
+import { QueryExecutor } from './queryexecutor'
 import { StreamableRowPromise } from './streamablepromises'
-import { PromiseHelper } from './utilities'
 
 /**
  * @internal
@@ -41,6 +41,23 @@ export class AnalyticsExecutor {
   /**
    * @internal
    */
+  static _endWithError<TRow>(
+    emitter: StreamableRowPromise<
+      AnalyticsResult<TRow>,
+      TRow,
+      AnalyticsMetaData
+    >,
+    err: Error,
+    obsReqHandler?: ObservableRequestHandler
+  ): void {
+    obsReqHandler?.endWithError(err)
+    emitter.emit('error', err)
+    emitter.emit('end')
+  }
+
+  /**
+   * @internal
+   */
   static _processAnalyticsResponse<TRow>(
     emitter: StreamableRowPromise<
       AnalyticsResult<TRow>,
@@ -52,17 +69,15 @@ export class AnalyticsExecutor {
     obsReqHandler?: ObservableRequestHandler
   ): void {
     if (err) {
-      obsReqHandler?.endWithError(err)
-      emitter.emit('error', err)
-      emitter.emit('end')
+      AnalyticsExecutor._endWithError(emitter, err, obsReqHandler)
       return
     }
 
-    resp.rows.forEach((row) => {
-      emitter.emit('row', JSON.parse(row))
-    })
+    try {
+      resp.rows.forEach((row) => {
+        emitter.emit('row', JSON.parse(row))
+      })
 
-    {
       const metaData = resp.meta
 
       let warnings: AnalyticsWarning[]
@@ -101,6 +116,9 @@ export class AnalyticsExecutor {
       })
 
       emitter.emit('meta', meta)
+    } catch (err) {
+      AnalyticsExecutor._endWithError(emitter, err as Error, obsReqHandler)
+      return
     }
 
     obsReqHandler?.end()
@@ -125,15 +143,23 @@ export class AnalyticsExecutor {
       })
     })
 
-    PromiseHelper.wrapAsync(async () => {
-      const [err, resp] = await queryPromise
-      AnalyticsExecutor._processAnalyticsResponse(
-        emitter,
-        err,
-        resp,
-        obsReqHandler
-      )
-    })
+    queryPromise.then(
+      ([err, resp]) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          AnalyticsExecutor._processAnalyticsResponse(
+            emitter,
+            err,
+            resp,
+            obsReqHandler
+          )
+        })
+      },
+      (err) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          AnalyticsExecutor._endWithError(emitter, err, obsReqHandler)
+        })
+      }
+    )
 
     return emitter
   }

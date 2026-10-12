@@ -1053,7 +1053,7 @@ export class Collection {
           return
         }
 
-        resp.entries.forEach((replica) => {
+        for (const replica of resp.entries) {
           try {
             const content = transcoder.decode(replica.value, replica.flags)
             emitter.emit(
@@ -1070,7 +1070,7 @@ export class Collection {
             emitter.emit('end')
             return
           }
-        })
+        }
         obsReqHandler?.end()
         emitter.emit('end')
       })
@@ -1106,6 +1106,8 @@ export class Collection {
         } catch (err) {
           obsReqHandler?.endWithError(err)
           emitter.emit('error', err)
+          emitter.emit('end')
+          return
         }
         obsReqHandler?.end()
         emitter.emit('end')

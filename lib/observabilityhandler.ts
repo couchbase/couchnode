@@ -630,18 +630,30 @@ export class ObservableRequestHandler {
   }
 
   /**
+   * Ends the request.  A request is recorded once, so a call after the
+   * request has ended does nothing.
+   *
    * @internal
    */
   end(): void {
+    if (this._requestHasEnded) {
+      return
+    }
     this._requestHasEnded = true
     this._tracerImpl.end()
     this._meterImpl.processEnd(this.clusterName, this.clusterUUID)
   }
 
   /**
+   * Ends the request with an error.  As with end, a call after the request
+   * has ended does nothing.
+   *
    * @internal
    */
   endWithError(error?: any): void {
+    if (this._requestHasEnded) {
+      return
+    }
     this._requestHasEnded = true
     this._tracerImpl.endWithError(error)
     this._meterImpl.processEnd(this.clusterName, this.clusterUUID, error)

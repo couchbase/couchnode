@@ -10,8 +10,8 @@ import { Cluster } from './cluster'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
+import { QueryExecutor } from './queryexecutor'
 import { StreamableRowPromise } from './streamablepromises'
-import { PromiseHelper } from './utilities'
 import {
   DesignDocumentNamespace,
   ViewMetaData,
@@ -50,6 +50,23 @@ export class ViewExecutor {
   /**
    * @internal
    */
+  static _endWithError<TValue = any, TKey = any>(
+    emitter: StreamableRowPromise<
+      ViewResult<TValue, TKey>,
+      ViewRow<TValue, TKey>,
+      ViewMetaData
+    >,
+    err: Error,
+    obsReqHandler?: ObservableRequestHandler
+  ): void {
+    obsReqHandler?.endWithError(err)
+    emitter.emit('error', err)
+    emitter.emit('end')
+  }
+
+  /**
+   * @internal
+   */
   static _processViewResponse<TValue = any, TKey = any>(
     emitter: StreamableRowPromise<
       ViewResult<TValue, TKey>,
@@ -61,24 +78,22 @@ export class ViewExecutor {
     obsReqHandler?: ObservableRequestHandler
   ): void {
     if (err) {
-      obsReqHandler?.endWithError(err)
-      emitter.emit('error', err)
-      emitter.emit('end')
+      ViewExecutor._endWithError(emitter, err, obsReqHandler)
       return
     }
 
-    resp.rows.forEach((row) => {
-      emitter.emit(
-        'row',
-        new ViewRow<TValue, TKey>({
-          value: JSON.parse(row.value),
-          id: row.id,
-          key: JSON.parse(row.key),
-        })
-      )
-    })
+    try {
+      resp.rows.forEach((row) => {
+        emitter.emit(
+          'row',
+          new ViewRow<TValue, TKey>({
+            value: JSON.parse(row.value),
+            id: row.id,
+            key: JSON.parse(row.key),
+          })
+        )
+      })
 
-    {
       const metaData = resp.meta
 
       const meta = new ViewMetaData({
@@ -87,6 +102,9 @@ export class ViewExecutor {
       })
 
       emitter.emit('meta', meta)
+    } catch (err) {
+      ViewExecutor._endWithError(emitter, err as Error, obsReqHandler)
+      return
     }
 
     obsReqHandler?.end()
@@ -115,10 +133,18 @@ export class ViewExecutor {
       })
     })
 
-    PromiseHelper.wrapAsync(async () => {
-      const [err, resp] = await viewPromise
-      ViewExecutor._processViewResponse(emitter, err, resp, obsReqHandler)
-    })
+    viewPromise.then(
+      ([err, resp]) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          ViewExecutor._processViewResponse(emitter, err, resp, obsReqHandler)
+        })
+      },
+      (err) => {
+        QueryExecutor._rethrowListenerErrors(() => {
+          ViewExecutor._endWithError(emitter, err, obsReqHandler)
+        })
+      }
+    )
 
     return emitter
   }
