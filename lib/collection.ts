@@ -2565,7 +2565,8 @@ export class Collection {
       const expiry = parseExpiry(options.expiry)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
 
       const incrementReq = {
@@ -2655,7 +2656,8 @@ export class Collection {
       const expiry = parseExpiry(options.expiry)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
 
       const decrementReq = {
@@ -2744,7 +2746,8 @@ export class Collection {
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
       const cas = options.cas
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
 
       if (!Buffer.isBuffer(value)) {
@@ -2832,7 +2835,8 @@ export class Collection {
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
       const cas = options.cas
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout =
+        options.timeout || this._mutationTimeout(options.durabilityLevel)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
 
       if (!Buffer.isBuffer(value)) {
