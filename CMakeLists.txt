@@ -203,6 +203,9 @@ file(GLOB SOURCE_FILES "src/*.cpp")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 target_compile_definitions(${PROJECT_NAME} PRIVATE COUCHBASE_CXX_CLIENT_IGNORE_CORE_DEPRECATIONS)
 add_definitions(-DNAPI_VERSION=6)
+# A callback that reaches JS while a worker is terminating cannot throw. Without
+# this, node-addon-api aborts the process building the error instead.
+add_definitions(-DNODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS)
 set(COUCHBASE_CXX_SOURCE_DIR "${PROJECT_SOURCE_DIR}/deps/couchbase-cxx-client")
 if(CMAKE_JS_VERSION VERSION_GREATER_EQUAL "7.0.0")
   target_include_directories(${PROJECT_NAME}
