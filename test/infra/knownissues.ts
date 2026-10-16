@@ -35,9 +35,15 @@ export interface KnownIssue {
  * Every accepted defect, by id. Ids are kebab-case and name the symptom
  * (`mutatein-expiry-lost`), not the ticket, so a call site says whether to care.
  */
-export const KNOWN_ISSUES = Object.freeze({}) satisfies Readonly<
-  Record<string, KnownIssue>
->
+export const KNOWN_ISSUES = Object.freeze({
+  'worker-terminate-cancel-after-env': {
+    ticket: 'JSCBC-1527',
+    note:
+      'after a worker with operations in flight is terminated, the core ' +
+      'cancels them on its IO thread and calls a thread-safe function ' +
+      'whose environment is gone, aborting the process',
+  },
+}) satisfies Readonly<Record<string, KnownIssue>>
 
 /** The ids a suite may cite; `never` while the registry is empty. */
 export type KnownIssueId = keyof typeof KNOWN_ISSUES

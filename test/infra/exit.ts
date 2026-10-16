@@ -4,8 +4,9 @@
 // does not list a native callback the core never makes, and under
 // `pool: 'forks'` Vitest ends a file's process whether its loop has drained or
 // not. So a "process does not exit" defect needs a process of its own to watch:
-// a `*.exitfixture.ts` beside the owning suite, run under `ts-node` against
-// `lib/`. `exitchild.ts` is the fixture side.
+// a `*.exitfixture.ts` in an `exitfixtures/` directory beside the owning
+// suite, run under `ts-node` against `lib/`. `exitchild.ts` is the fixture
+// side.
 //
 // Each use costs a spawn and usually a connection, so reserve it for scenarios
 // where not exiting is the plausible failure.
