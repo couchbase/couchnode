@@ -44,7 +44,11 @@ import {
   CouchbaseQueue,
   CouchbaseSet,
 } from './datastructures'
-import { InvalidArgumentError } from './errors'
+import {
+  DocumentNotFoundError,
+  DocumentNotFoundOnReplicaError,
+  InvalidArgumentError,
+} from './errors'
 import { DurabilityLevel, ReadPreference, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
 import { wrapObservableBindingCall } from './observability'
@@ -305,6 +309,115 @@ export interface RemoveOptions {
    * exclusive of {@link durabilityLevel}.
    */
   durabilityReplicateTo?: number
+
+  /**
+   * The timeout for this operation, represented in milliseconds.
+   */
+  timeout?: number
+
+  /**
+   * Specifies the parent span for this specific operation.
+   */
+  parentSpan?: RequestSpan
+}
+
+/**
+ * The position of a replica in a document's replica chain.
+ *
+ * @category Key-Value
+ */
+export enum ReplicaIndex {
+  /**
+   * The first replica.
+   */
+  First = 0,
+
+  /**
+   * The second replica.
+   */
+  Second = 1,
+
+  /**
+   * The third replica.
+   */
+  Third = 2,
+}
+
+/**
+ * @category Key-Value
+ */
+export interface GetReplicaStrategyFromIndexOptions {
+  /**
+   * When the requested replica is out of bounds or currently unavailable, read
+   * the next available replica instead, wrapping around the replica chain.
+   * Defaults to false.
+   */
+  wrap?: boolean
+}
+
+/**
+ * Selects the replica that {@link Collection.getReplica} reads from.
+ *
+ * @category Key-Value
+ */
+export abstract class GetReplicaStrategy {
+  /**
+   * Reads from the replica at the given index.
+   *
+   * @param replicaIndex The replica to read from.
+   * @param options Optional parameters for this strategy.
+   */
+  static fromIndex(
+    replicaIndex: ReplicaIndex,
+    options?: GetReplicaStrategyFromIndexOptions
+  ): GetReplicaStrategyFromIndex {
+    return new GetReplicaStrategyFromIndex(replicaIndex, options?.wrap ?? false)
+  }
+}
+
+/**
+ * Reads from the replica at a given index.
+ *
+ * @see {@link GetReplicaStrategy.fromIndex}
+ * @category Key-Value
+ */
+export class GetReplicaStrategyFromIndex extends GetReplicaStrategy {
+  /**
+   * The replica to read from.
+   */
+  readonly replicaIndex: ReplicaIndex
+
+  /**
+   * Whether to wrap around the available replicas.
+   */
+  readonly wrap: boolean
+
+  /**
+   * @internal
+   */
+  constructor(replicaIndex: ReplicaIndex, wrap: boolean) {
+    super()
+    if (!Number.isInteger(replicaIndex) || replicaIndex < 0) {
+      throw new InvalidArgumentError(
+        new Error('replicaIndex must be a non-negative integer.')
+      )
+    }
+    if (typeof wrap !== 'boolean') {
+      throw new InvalidArgumentError(new Error('wrap must be a boolean.'))
+    }
+    this.replicaIndex = replicaIndex
+    this.wrap = wrap
+  }
+}
+
+/**
+ * @category Key-Value
+ */
+export interface GetReplicaOptions {
+  /**
+   * Specifies an explicit transcoder to use for this specific operation.
+   */
+  transcoder?: Transcoder
 
   /**
    * The timeout for this operation, represented in milliseconds.
@@ -1147,6 +1260,91 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         const replicas = await this._getReplica(key, KeyValueOp.GetAnyReplica, obsReqHandler, options)
         return replicas[0]
+      }, callback)
+    } catch (e) {
+      obsReqHandler?.endWithError(e)
+      throw e
+    }
+  }
+
+  /**
+   * Retrieves the value of the document from the replica selected by the given
+   * strategy.
+   *
+   * @param key The document key to retrieve.
+   * @param strategy Selects the replica to read from.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   */
+  getReplica(
+    key: string,
+    strategy: GetReplicaStrategy,
+    options?: GetReplicaOptions,
+    callback?: NodeCallback<GetReplicaResult>
+  ): Promise<GetReplicaResult> {
+    if (options instanceof Function) {
+      callback = arguments[2]
+      options = undefined
+    }
+    if (!options) {
+      options = {}
+    }
+
+    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
+      ? null
+      : new ObservableRequestHandler(
+          KeyValueOp.GetReplica,
+          this.observabilityInstruments,
+          options?.parentSpan
+        )
+
+    try {
+      const cppDocId = this._cppDocId(key)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+
+      if (!(strategy instanceof GetReplicaStrategyFromIndex)) {
+        throw new InvalidArgumentError(
+          new Error('strategy must be created by GetReplicaStrategy.fromIndex.')
+        )
+      }
+
+      const transcoder = options.transcoder || this.transcoder
+      const timeout = options.timeout || this.cluster.kvTimeout
+
+      return PromiseHelper.wrapAsync(async () => {
+        const [err, resp] = await wrapObservableBindingCall(
+          this._conn.getReplica.bind(this._conn),
+          {
+            id: cppDocId,
+            timeout,
+            partition: 0,
+            opaque: 0,
+            selection: {
+              replica_index: strategy.replicaIndex,
+              wrap: strategy.wrap,
+            },
+          },
+          obsReqHandler
+        )
+
+        if (err) {
+          // The core reports a missing document as a plain document_not_found.
+          const replicaErr =
+            err instanceof DocumentNotFoundError &&
+            !(err instanceof DocumentNotFoundOnReplicaError)
+              ? new DocumentNotFoundOnReplicaError(err, err.context)
+              : err
+          obsReqHandler?.endWithError(replicaErr)
+          throw replicaErr
+        }
+
+        const toResult = () =>
+          new GetReplicaResult({
+            content: transcoder.decode(resp.value, resp.flags),
+            cas: resp.cas,
+            isReplica: true,
+          })
+        return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
       }, callback)
     } catch (e) {
       obsReqHandler?.endWithError(e)

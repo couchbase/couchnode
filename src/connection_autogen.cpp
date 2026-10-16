@@ -200,6 +200,27 @@ Napi::Value Connection::jsGetAnyReplica(const Napi::CallbackInfo &info)
     return info.Env().Null();
 }
 
+Napi::Value Connection::jsGetReplica(const Napi::CallbackInfo &info)
+{
+    auto optsJsObj = info[0].As<Napi::Object>();
+    auto callbackJsFn = info[1].As<Napi::Function>();
+
+    std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapper_span;
+    auto span_name = jsToCbpp<std::string>(optsJsObj.Get("wrapper_span_name"));
+    if (!span_name.empty()) {
+        wrapper_span =
+            std::make_shared<couchbase::core::tracing::wrapper_sdk_span>(
+                span_name);
+    }
+
+    executeOp("getReplica",
+              jsToCbpp<couchbase::core::operations::get_replica_request>(
+                  optsJsObj, wrapper_span),
+              callbackJsFn, wrapper_span);
+
+    return info.Env().Null();
+}
+
 Napi::Value Connection::jsAppend(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();

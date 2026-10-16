@@ -9,6 +9,7 @@ const {
 } = require('./tracing/tracingtypes')
 const { createKeyValueValidator } = require('./tracing/validators')
 const { EncodingFailureError, DecodingFailureError } = require('../lib/errors')
+const { GetReplicaStrategy, ReplicaIndex } = require('../lib/collection')
 const { DurabilityLevel } = require('../lib/generaltypes')
 const { KeyValueOp } = require('../lib/observabilitytypes')
 const { MutateInSpec, LookupInSpec } = require('../lib/sdspecs')
@@ -529,6 +530,10 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
           nestedOps: [KeyValueOp.Get, KeyValueOp.GetReplica],
           serverDurationAboveZero: false,
         },
+        getReplica: {
+          op: KeyValueOp.GetReplica,
+          args: [GetReplicaStrategy.fromIndex(ReplicaIndex.First)],
+        },
       }
 
       before(function () {
@@ -551,7 +556,10 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
             if (kvReplicaOpMap[funcName].serverDurationAboveZero === false) {
               validator.serverDurationAboveZero(false)
             }
-            const res = await coll[funcName](testKey)
+            const res = await coll[funcName](
+              testKey,
+              ...(kvReplicaOpMap[funcName].args || [])
+            )
             if (kvReplicaOpMap[funcName].resultIsArray) {
               assert.isArray(res)
             } else {
@@ -570,22 +578,26 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
             if (kvReplicaOpMap[funcName].serverDurationAboveZero === false) {
               validator.serverDurationAboveZero(false)
             }
-            coll[funcName](testKey, (err, res) => {
-              if (err) {
-                return done(err)
-              }
-              try {
-                if (kvReplicaOpMap[funcName].resultIsArray) {
-                  assert.isArray(res)
-                } else {
-                  assert.isObject(res)
+            coll[funcName](
+              testKey,
+              ...(kvReplicaOpMap[funcName].args || []),
+              (err, res) => {
+                if (err) {
+                  return done(err)
                 }
-                validator.validate()
-                done()
-              } catch (_e) {
-                done(_e)
+                try {
+                  if (kvReplicaOpMap[funcName].resultIsArray) {
+                    assert.isArray(res)
+                  } else {
+                    assert.isObject(res)
+                  }
+                  validator.validate()
+                  done()
+                } catch (_e) {
+                  done(_e)
+                }
               }
-            })
+            )
           }).timeout(3000)
 
           it(`should perform ${funcName} with parent span`, async function () {
@@ -600,9 +612,11 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
             if (kvReplicaOpMap[funcName].serverDurationAboveZero === false) {
               validator.serverDurationAboveZero(false)
             }
-            const res = await coll[funcName](testKey, {
-              parentSpan: parentSpan,
-            })
+            const res = await coll[funcName](
+              testKey,
+              ...(kvReplicaOpMap[funcName].args || []),
+              { parentSpan: parentSpan }
+            )
             if (kvReplicaOpMap[funcName].resultIsArray) {
               assert.isArray(res)
             } else {
@@ -614,7 +628,10 @@ function tracingTests(collFn, tracerFn, collectionDetailsFn) {
           it(`should handle error in ${funcName}`, async function () {
             validator.reset().op(kvReplicaOpMap[funcName].op).error(true)
             try {
-              await coll[funcName](INVALID_KEY_NAME)
+              await coll[funcName](
+                INVALID_KEY_NAME,
+                ...(kvReplicaOpMap[funcName].args || [])
+              )
             } catch (_e) {
               // ignore
             }

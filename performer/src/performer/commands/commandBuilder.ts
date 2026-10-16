@@ -46,6 +46,7 @@ export class CommandBuilder {
     CollectionCommandCase.GET_AND_LOCK,
     CollectionCommandCase.GET_AND_TOUCH,
     CollectionCommandCase.GET_ANY_REPLICA,
+    CollectionCommandCase.GET_REPLICA,
     CollectionCommandCase.LOOKUP_IN,
     CollectionCommandCase.LOOKUP_IN_ALL_REPLICAS,
     CollectionCommandCase.LOOKUP_IN_ANY_REPLICA,

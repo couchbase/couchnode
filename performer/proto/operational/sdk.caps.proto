@@ -162,4 +162,18 @@ enum Caps {
   // The SDK has support for the Collection.GetReplica API. This includes the new DocumentNotFoundOnReplicaException,
   // ReplicaIndexOutOfBoundsException and ReplicaIndexCurrentlyUnavailableException exceptions.
   SDK_GET_REPLICA = 43;
+
+  // The performer supports the ScopeEventingFunctionManager API.
+  // This is everything under sdk.scope.eventing_function_manager
+  SDK_SCOPE_EVENTING_FUNCTION_MANAGER = 44;
+
+  // The SDK raises InvalidArgumentException for an HTTP 400 from any HTTP service when no more specific error applies
+  // (SDK-RFC 58 revision 22).
+  SDK_HTTP_400_INVALID_ARGUMENT = 45;
+
+  // The SDK has support for the eventing-specific error types defined in SDK-RFC 62 (see shared.exceptions.proto).
+  SDK_EVENTING_ERRORS = 46;
+
+  // The SDK has support for the CustomScoreQuery and CustomFilterQuery SearchQuery types
+  SDK_SEARCH_CUSTOM_SCRIPT_QUERIES = 47;
 }

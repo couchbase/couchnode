@@ -67,7 +67,7 @@ export enum KeyValueOp {
   GetAndLock = 'get_and_lock',
   GetAndTouch = 'get_and_touch',
   GetAnyReplica = 'get_any_replica',
-  GetReplica = 'get_replica', // this is only for the C++ core replica ops
+  GetReplica = 'get_replica',
   Increment = 'increment',
   Insert = 'insert',
   LookupIn = 'lookup_in',

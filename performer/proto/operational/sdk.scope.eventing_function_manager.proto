@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package protocol.sdk.scope.eventing_function_manager;
+option csharp_namespace = "Couchbase.Grpc.Protocol.Sdk.Scope.EventingFunctionManager";
+option java_package = "com.couchbase.client.protocol.sdk.scope.eventingfunctionmanager";
+option go_package = "github.com/couchbaselabs/transactions-fit-performer/protocol/sdk/scope/eventingfunctionmanager";
+option ruby_package = "FIT::Protocol::SDK::Scope::EventingFunctionManager";
+option java_multiple_files = true;
+
+import "sdk.cluster.eventing_function_manager.proto";
+
+// This file is for ScopeEventingFunctionManager: scope.eventingFunctions()
+// For global eventing function manager (cluster.eventingFunctions()), see sdk.cluster.eventing_function_manager.proto.
+
+message Command {
+  oneof command {
+    cluster.eventing_function_manager.GetFunctionRequest get_function = 1;
+    cluster.eventing_function_manager.GetAllFunctionsRequest get_all_functions = 2;
+    cluster.eventing_function_manager.DeployFunctionRequest deploy_function = 3;
+    cluster.eventing_function_manager.DropFunctionRequest drop_function = 4;
+    cluster.eventing_function_manager.FunctionsStatusRequest functions_status = 5;
+    cluster.eventing_function_manager.PauseFunctionRequest pause_function = 6;
+    cluster.eventing_function_manager.ResumeFunctionRequest resume_function = 7;
+    cluster.eventing_function_manager.UndeployFunctionRequest undeploy_function = 8;
+    cluster.eventing_function_manager.UpsertFunctionRequest upsert_function = 9;
+  }
+}

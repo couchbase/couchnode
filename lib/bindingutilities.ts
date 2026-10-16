@@ -1022,6 +1022,12 @@ export function errorFromCpp(err: CppError | null): Error | null {
 
     case binding.errc_key_value.document_not_found:
       return new errs.DocumentNotFoundError(baseErr, context)
+    case binding.errc_key_value.document_not_found_on_replica:
+      return new errs.DocumentNotFoundOnReplicaError(baseErr, context)
+    case binding.errc_key_value.replica_index_out_of_bounds:
+      return new errs.ReplicaIndexOutOfBoundsError(baseErr, context)
+    case binding.errc_key_value.replica_index_currently_unavailable:
+      return new errs.ReplicaIndexCurrentlyUnavailableError(baseErr, context)
     case binding.errc_key_value.document_irretrievable:
       return new errs.DocumentUnretrievableError(baseErr, context)
     case binding.errc_key_value.document_locked:

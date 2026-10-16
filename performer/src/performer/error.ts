@@ -90,6 +90,12 @@ export class SdkError {
         return CouchbaseExceptionTypePb.SDK_QUOTA_LIMITED_EXCEPTION;
       case "DocumentNotFoundError":
         return CouchbaseExceptionTypePb.SDK_DOCUMENT_NOT_FOUND_EXCEPTION;
+      case "DocumentNotFoundOnReplicaError":
+        return CouchbaseExceptionTypePb.SDK_DOCUMENT_NOT_FOUND_ON_REPLICA_EXCEPTION;
+      case "ReplicaIndexOutOfBoundsError":
+        return CouchbaseExceptionTypePb.SDK_REPLICA_INDEX_OUT_OF_BOUNDS_EXCEPTION;
+      case "ReplicaIndexCurrentlyUnavailableError":
+        return CouchbaseExceptionTypePb.SDK_REPLICA_INDEX_CURRENTLY_UNAVAILABLE_EXCEPTION;
       case "DocumentUnretrievableError":
         return CouchbaseExceptionTypePb.SDK_DOCUMENT_UNRETRIEVABLE_EXCEPTION;
       case "DocumentLockedError":

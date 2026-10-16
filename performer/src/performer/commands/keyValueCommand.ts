@@ -19,6 +19,7 @@ import {
   GetAndLock as GetAndLockPb,
   GetAndTouch as GetAndTouchPb,
   GetAnyReplica as GetAnyReplicaPb,
+  GetReplica as GetReplicaPb,
   Exists as ExistsPb,
   Insert as InsertPb,
   Remove as RemovePb,
@@ -56,6 +57,11 @@ import {
   ReplaceOperation as ReplaceOperationPb,
   UpsertOperation as UpsertOperationPb,
 } from "../../proto/sdk.kv.mutate_in_pb";
+import {
+  GetReplicaStrategy as GetReplicaStrategyPb,
+  GetReplicaStrategyFromIndex as GetReplicaStrategyFromIndexPb,
+  ReplicaIndex as ReplicaIndexPb,
+} from "../../proto/sdk.kv.replicas_pb";
 // [if:4.2.6]
 import {
   Scan as ScanPb,
@@ -97,6 +103,8 @@ import {
   GetAndTouchOptions,
   GetAnyReplicaOptions,
   GetOptions,
+  GetReplicaOptions,
+  GetReplicaStrategy,
   GetResult,
   IncrementOptions,
   InsertOptions,
@@ -116,6 +124,7 @@ import {
   PrependOptions,
   RemoveOptions,
   ReplaceOptions,
+  ReplicaIndex,
   // [if:4.2.6]
   ScanOptions,
   ScanResult,
@@ -162,6 +171,7 @@ type KVCommandsPb =
   | GetAllReplicasPb
   | GetAnyReplicaPb
   | GetPb
+  | GetReplicaPb
   | IncrementPb
   | InsertPb
   // [if:4.2.7]
@@ -246,6 +256,35 @@ class SdkCommand {
     throw new Error("Unhandled scan type");
   }
   // [end]
+
+  static toGetReplicaStrategy(
+    strategyPb: GetReplicaStrategyPb,
+  ): GetReplicaStrategy {
+    if (strategyPb.hasFromIndex()) {
+      const fromIndex =
+        strategyPb.getFromIndex() as GetReplicaStrategyFromIndexPb;
+      return GetReplicaStrategy.fromIndex(
+        SdkCommand.toReplicaIndex(fromIndex.getIndex()),
+        { wrap: fromIndex.getOptions()?.getWrap() },
+      );
+    }
+    throw new NotImplementedError("Unsupported GetReplicaStrategy");
+  }
+
+  static toReplicaIndex(replicaIndexPb: ReplicaIndexPb): ReplicaIndex {
+    switch (replicaIndexPb) {
+      case ReplicaIndexPb.FIRST:
+        return ReplicaIndex.First;
+      case ReplicaIndexPb.SECOND:
+        return ReplicaIndex.Second;
+      case ReplicaIndexPb.THIRD:
+        return ReplicaIndex.Third;
+      default:
+        throw new NotImplementedError(
+          `Unsupported ReplicaIndex: ${replicaIndexPb}`,
+        );
+    }
+  }
 
   static toSdkContentFromContentPb(content?: ContentPb): any {
     if (!content) {
@@ -693,6 +732,69 @@ export class SdkGetAndTouchCommand implements ISdkCommand {
         SdkKeyValueCommandResult.toGetResultPb(
           getResult,
           this._contentAs as ContentAsPb,
+        ),
+      );
+    }
+    return SdkCommandResult.getTopLevelResult(
+      this._initiated,
+      sdkCommandResult,
+      start,
+      end,
+    );
+  }
+
+  hasStreamConfig(): boolean {
+    return false;
+  }
+
+  getStreamConfig(): undefined {
+    return undefined;
+  }
+}
+
+export class SdkGetReplicaCommand implements ISdkCommand {
+  private _collection: Collection;
+  private _docId: string;
+  private _strategy: GetReplicaStrategy;
+  private _initiated: Timestamp;
+  private _returnResult: boolean;
+  private _contentAs: ContentAsPb | undefined;
+  private _options: GetReplicaOptions | undefined;
+
+  constructor(
+    cb: Collection,
+    docId: string,
+    strategy: GetReplicaStrategy,
+    returnResult: boolean,
+    initiated: Timestamp,
+    contentAs?: ContentAsPb,
+    options?: GetReplicaOptions,
+  ) {
+    this._collection = cb;
+    this._docId = docId;
+    this._strategy = strategy;
+    this._initiated = initiated;
+    this._returnResult = returnResult;
+    this._contentAs = contentAs;
+    this._options = options;
+  }
+
+  async executeCommand(): Promise<ResultPb> {
+    const start = performance.now();
+    const getReplicaResult = await this._collection.getReplica(
+      this._docId,
+      this._strategy,
+      this._options,
+    );
+    const end = performance.now();
+
+    const sdkCommandResult = new SdkKeyValueCommandResultPb();
+    sdkCommandResult.setSuccess(getReplicaResult instanceof GetReplicaResult);
+    if (this._returnResult) {
+      sdkCommandResult.setGetReplicaResult(
+        SdkKeyValueCommandResult.toGetReplicaResultPb(
+          getReplicaResult,
+          this._contentAs,
         ),
       );
     }
@@ -2001,6 +2103,29 @@ export class SdkKeyValueCommandBuilder {
         cmd.getContentAs(),
         maybeAddParentSpan(
           SdkCommandKeyValueOptions.toSdkGetAnyReplicaOptions(cmd.getOptions()),
+          cmd.getOptions(),
+          spanOwner,
+        ),
+      );
+    } else if (command.hasGetReplica()) {
+      const cmd = command.getGetReplica() as GetReplicaPb;
+      const collection = cmd.hasLocation()
+        ? SdkCommand.getCollectionFromLocation(cmd, connection)
+        : SdkUtils.toCollection(
+            connection,
+            command.getCollection() as CollectionPb,
+          );
+      return new SdkGetReplicaCommand(
+        collection,
+        SdkCommand.getDocId(cmd, counters),
+        SdkCommand.toGetReplicaStrategy(
+          cmd.getStrategy() as GetReplicaStrategyPb,
+        ),
+        returnResult,
+        initiated,
+        cmd.getContentAs(),
+        maybeAddParentSpan(
+          SdkCommandKeyValueOptions.toSdkGetReplicaOptions(cmd.getOptions()),
           cmd.getOptions(),
           spanOwner,
         ),

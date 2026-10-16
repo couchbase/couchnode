@@ -79,6 +79,7 @@ parser:
     - core/error_context/key_value_status_code.hxx
     - core/impl/subdoc/opcode.hxx
     - core/impl/subdoc/command.hxx
+    - core/impl/replica_utils.hxx
     - couchbase/store_semantics.hxx
     - couchbase/persist_to.hxx
     - couchbase/replicate_to.hxx
@@ -167,6 +168,7 @@ parser:
     - couchbase::core::key_value_status_code
     - couchbase::core::impl::subdoc::command
     - couchbase::core::impl::subdoc::opcode
+    - couchbase::core::impl::replica_selection
     - couchbase::store_semantics
     - couchbase::persist_to
     - couchbase::replicate_to
@@ -199,6 +201,7 @@ parser:
   excluded_name_fragments:
     - is_compound_operation
     - replica_context
+    - resolves_own_route
 
   # Class templates instantiated once per listed template argument.  The key is
   # the bare (unqualified) request name as it appears in the header.

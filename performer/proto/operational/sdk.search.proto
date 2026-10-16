@@ -7,9 +7,11 @@ option go_package = "github.com/couchbaselabs/transactions-fit-performer/protoco
 option java_multiple_files = true;
 option ruby_package = "FIT::Protocol::SDK::Search";
 
+import "google/protobuf/timestamp.proto";
+import "google/protobuf/struct.proto";
+
 import "shared.content.proto";
 import "shared.basic.proto";
-import "google/protobuf/timestamp.proto";
 import "streams.top_level.proto";
 import "shared.transcoders.proto";
 
@@ -484,6 +486,20 @@ message MatchAllQuery {
 message MatchNoneQuery {
 }
 
+message CustomScoreQuery {
+  SearchQuery query = 1;
+  string source = 2;
+  repeated string fields = 3;
+  optional google.protobuf.Struct parameters = 4;
+}
+
+message CustomFilterQuery {
+  SearchQuery query = 1;
+  string source = 2;
+  repeated string fields = 3;
+  optional google.protobuf.Struct parameters = 4;
+}
+
 message SearchQuery {
   oneof query {
     MatchQuery match = 1;
@@ -507,5 +523,9 @@ message SearchQuery {
     PhraseQuery phrase = 17;
     MatchAllQuery match_all = 18;
     MatchNoneQuery match_none = 19;
+
+    // Support declared using SDK_SEARCH_CUSTOM_SCRIPT_QUERIES SDK cap.
+    CustomScoreQuery custom_score = 21;
+    CustomFilterQuery custom_filter = 22;
   }
 }

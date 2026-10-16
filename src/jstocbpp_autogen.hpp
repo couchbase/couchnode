@@ -2353,6 +2353,79 @@ struct js_to_cbpp_t<couchbase::core::operations::get_any_replica_request> {
 };
 
 template <>
+struct js_to_cbpp_t<couchbase::core::operations::get_replica_response> {
+    static inline couchbase::core::operations::get_replica_response
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::get_replica_response cppObj;
+        // ctx
+        js_to_cbpp<std::vector<std::byte>>(cppObj.value, jsObj.Get("value"));
+        js_to_cbpp<couchbase::cas>(cppObj.cas, jsObj.Get("cas"));
+        js_to_cbpp<std::uint32_t>(cppObj.flags, jsObj.Get("flags"));
+        // cpp_core_span
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::get_replica_response &cppObj,
+          std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span>
+              wrapperSpan = nullptr)
+    {
+        auto resObj = Napi::Object::New(env);
+        // ctx
+        resObj.Set("value",
+                   cbpp_to_js<std::vector<std::byte>>(env, cppObj.value));
+        resObj.Set("cas", cbpp_to_js<couchbase::cas>(env, cppObj.cas));
+        resObj.Set("flags", cbpp_to_js<std::uint32_t>(env, cppObj.flags));
+        resObj.Set("cpp_core_span", cbpp_wrapper_span_to_js(env, wrapperSpan));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::operations::get_replica_request> {
+    static inline couchbase::core::operations::get_replica_request from_js(
+        Napi::Value jsVal,
+        std::shared_ptr<couchbase::core::tracing::wrapper_sdk_span> wrapperSpan)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::operations::get_replica_request cppObj;
+        js_to_cbpp<couchbase::core::document_id>(cppObj.id, jsObj.Get("id"));
+        js_to_cbpp<std::optional<std::chrono::milliseconds>>(
+            cppObj.timeout, jsObj.Get("timeout"));
+        js_to_cbpp<std::uint16_t>(cppObj.partition, jsObj.Get("partition"));
+        js_to_cbpp<std::uint32_t>(cppObj.opaque, jsObj.Get("opaque"));
+        // retries
+        cppObj.parent_span = wrapperSpan;
+        js_to_cbpp<std::optional<couchbase::core::impl::replica_selection>>(
+            cppObj.selection, jsObj.Get("selection"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env,
+          const couchbase::core::operations::get_replica_request &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("id",
+                   cbpp_to_js<couchbase::core::document_id>(env, cppObj.id));
+        resObj.Set("timeout",
+                   cbpp_to_js<std::optional<std::chrono::milliseconds>>(
+                       env, cppObj.timeout));
+        resObj.Set("partition",
+                   cbpp_to_js<std::uint16_t>(env, cppObj.partition));
+        resObj.Set("opaque", cbpp_to_js<std::uint32_t>(env, cppObj.opaque));
+        // retries
+        // parent_span
+        resObj.Set(
+            "selection",
+            cbpp_to_js<std::optional<couchbase::core::impl::replica_selection>>(
+                env, cppObj.selection));
+        return resObj;
+    }
+};
+
+template <>
 struct js_to_cbpp_t<couchbase::core::operations::append_response> {
     static inline couchbase::core::operations::append_response
     from_js(Napi::Value jsVal)
@@ -11834,6 +11907,29 @@ struct js_to_cbpp_t<couchbase::core::impl::subdoc::command> {
         resObj.Set("flags_", cbpp_to_js<std::byte>(env, cppObj.flags_));
         resObj.Set("original_index_",
                    cbpp_to_js<std::size_t>(env, cppObj.original_index_));
+        return resObj;
+    }
+};
+
+template <>
+struct js_to_cbpp_t<couchbase::core::impl::replica_selection> {
+    static inline couchbase::core::impl::replica_selection
+    from_js(Napi::Value jsVal)
+    {
+        auto jsObj = jsVal.ToObject();
+        couchbase::core::impl::replica_selection cppObj;
+        js_to_cbpp<std::size_t>(cppObj.replica_index,
+                                jsObj.Get("replica_index"));
+        js_to_cbpp<bool>(cppObj.wrap, jsObj.Get("wrap"));
+        return cppObj;
+    }
+    static inline Napi::Value
+    to_js(Napi::Env env, const couchbase::core::impl::replica_selection &cppObj)
+    {
+        auto resObj = Napi::Object::New(env);
+        resObj.Set("replica_index",
+                   cbpp_to_js<std::size_t>(env, cppObj.replica_index));
+        resObj.Set("wrap", cbpp_to_js<bool>(env, cppObj.wrap));
         return resObj;
     }
 };

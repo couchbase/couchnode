@@ -716,6 +716,13 @@ void Constants::InitAutogen(Napi::Env env, Napi::Object exports)
                  couchbase::errc::key_value::mutation_token_outdated},
                 {"range_scan_completed",
                  couchbase::errc::key_value::range_scan_completed},
+                {"document_not_found_on_replica",
+                 couchbase::errc::key_value::document_not_found_on_replica},
+                {"replica_index_out_of_bounds",
+                 couchbase::errc::key_value::replica_index_out_of_bounds},
+                {"replica_index_currently_unavailable",
+                 couchbase::errc::key_value::
+                     replica_index_currently_unavailable},
             }));
 
     exports.Set(

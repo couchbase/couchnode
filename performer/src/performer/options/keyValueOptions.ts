@@ -22,6 +22,7 @@ import {
   GetAndTouchOptions as GetAndTouchOptionsPb,
   GetAnyReplicaOptions as GetAnyReplicaOptionsPb,
   GetOptions as GetOptionsPb,
+  GetReplicaOptions as GetReplicaOptionsPb,
   InsertOptions as InsertOptionsPb,
   ReplaceOptions as ReplaceOptionsPb,
   RemoveOptions as RemoveOptionsPb,
@@ -57,6 +58,7 @@ import {
   GetAndTouchOptions,
   GetAnyReplicaOptions,
   GetOptions,
+  GetReplicaOptions,
   // [if:4.2.7]
   LookupInAnyReplicaOptions,
   LookupInAllReplicasOptions,
@@ -271,6 +273,23 @@ export class SdkCommandKeyValueOptions {
       );
     }
     // [end]
+    return opts;
+  }
+
+  static toSdkGetReplicaOptions(
+    options?: GetReplicaOptionsPb,
+  ): GetReplicaOptions {
+    const opts: GetReplicaOptions = {};
+    if (!options) return opts;
+
+    if (options.hasTimeoutMsecs()) {
+      opts.timeout = options.getTimeoutMsecs();
+    }
+    if (options.hasTranscoder()) {
+      opts.transcoder = SdkUtils.toTranscoder(
+        options.getTranscoder() as TranscoderPb,
+      );
+    }
     return opts;
   }
 

@@ -9,6 +9,7 @@ import {
   GetAndTouchOptions,
   GetAnyReplicaOptions,
   GetOptions,
+  GetReplicaOptions,
   // [if:4.2.7]
   LookupInAnyReplicaOptions,
   LookupInAllReplicasOptions,
@@ -80,6 +81,7 @@ import {
   GetAndTouchOptions as GetAndTouchOptionsPb,
   GetAnyReplicaOptions as GetAnyReplicaOptionsPb,
   GetOptions as GetOptionsPb,
+  GetReplicaOptions as GetReplicaOptionsPb,
   InsertOptions as InsertOptionsPb,
   ReplaceOptions as ReplaceOptionsPb,
   RemoveOptions as RemoveOptionsPb,
@@ -147,6 +149,7 @@ export type CommandOptions =
   | GetAndTouchOptions
   | GetAnyReplicaOptions
   | GetOptions
+  | GetReplicaOptions
   // [if:4.2.7]
   | LookupInAllReplicasOptions
   | LookupInAnyReplicaOptions
@@ -205,6 +208,7 @@ export type CommandOptionsPb =
   | GetAndTouchOptionsPb
   | GetAnyReplicaOptionsPb
   | GetOptionsPb
+  | GetReplicaOptionsPb
   | InsertOptionsPb
   // [if:4.2.7]
   | LookupInAllReplicasOptionsPb

@@ -1002,6 +1002,131 @@ function genericTests(collFn) {
       })
     })
 
+    describe('#getReplica', function () {
+      const { GetReplicaStrategy, ReplicaIndex } = H.lib
+
+      it('should get from the first replica', async function () {
+        const res = await H.tryNTimes(
+          5,
+          1000,
+          collFn().getReplica.bind(collFn()),
+          replicaTestKey,
+          GetReplicaStrategy.fromIndex(ReplicaIndex.First)
+        )
+
+        assert.instanceOf(res, GetReplicaResult)
+        assert.isTrue(res.isReplica)
+        assert.isNotEmpty(res.cas)
+        assert.deepStrictEqual(res.content, testObjVal)
+      }).timeout(7500)
+
+      it('should get from the first replica with callback', function (done) {
+        H.tryNTimesWithCallback(
+          5,
+          1000,
+          collFn().getReplica.bind(collFn()),
+          replicaTestKey,
+          GetReplicaStrategy.fromIndex(ReplicaIndex.First),
+          (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.instanceOf(res, GetReplicaResult)
+              assert.isTrue(res.isReplica)
+              assert.deepStrictEqual(res.content, testObjVal)
+              done(null)
+            } catch (e) {
+              done(e)
+            }
+          }
+        )
+      }).timeout(7500)
+
+      it('should get from the first replica with options and callback', function (done) {
+        const tc = new DefaultTranscoder()
+        H.tryNTimesWithCallback(
+          5,
+          1000,
+          collFn().getReplica.bind(collFn()),
+          replicaTestKey,
+          GetReplicaStrategy.fromIndex(ReplicaIndex.First),
+          { transcoder: tc },
+          (err, res) => {
+            if (err) {
+              return done(err)
+            }
+            try {
+              assert.instanceOf(res, GetReplicaResult)
+              assert.isTrue(res.isReplica)
+              assert.deepStrictEqual(res.content, testObjVal)
+              done(null)
+            } catch (e) {
+              done(e)
+            }
+          }
+        )
+      }).timeout(7500)
+
+      it('should wrap an out of bounds index when wrap is set', async function () {
+        const res = await H.tryNTimes(
+          5,
+          1000,
+          collFn().getReplica.bind(collFn()),
+          replicaTestKey,
+          GetReplicaStrategy.fromIndex(ReplicaIndex.Third + 1, { wrap: true })
+        )
+
+        assert.isTrue(res.isReplica)
+        assert.deepStrictEqual(res.content, testObjVal)
+      }).timeout(7500)
+
+      it('should raise DocumentNotFoundOnReplicaError for a missing key', async function () {
+        let err
+        try {
+          await collFn().getReplica(
+            H.genTestKey(),
+            GetReplicaStrategy.fromIndex(ReplicaIndex.First)
+          )
+        } catch (e) {
+          err = e
+        }
+        assert.instanceOf(err, H.lib.DocumentNotFoundOnReplicaError)
+        assert.instanceOf(err, H.lib.DocumentNotFoundError)
+      })
+
+      it('should raise ReplicaIndexOutOfBoundsError for an index beyond the replica count', async function () {
+        // A bucket has at most three replicas, so this index is always out of bounds.
+        await H.throwsHelper(async () => {
+          await collFn().getReplica(
+            replicaTestKey,
+            GetReplicaStrategy.fromIndex(ReplicaIndex.Third + 1)
+          )
+        }, H.lib.ReplicaIndexOutOfBoundsError)
+      })
+
+      it('should reject a negative replica index', function () {
+        assert.throws(
+          () => GetReplicaStrategy.fromIndex(-1),
+          H.lib.InvalidArgumentError
+        )
+      })
+
+      it('should reject a wrap that is not a boolean', function () {
+        assert.throws(
+          () => GetReplicaStrategy.fromIndex(ReplicaIndex.First, { wrap: 1 }),
+          H.lib.InvalidArgumentError
+        )
+      })
+
+      it('should reject a strategy that was not built by GetReplicaStrategy', function () {
+        assert.throws(
+          () => collFn().getReplica(replicaTestKey, { replicaIndex: 0 }),
+          H.lib.InvalidArgumentError
+        )
+      })
+    })
+
     describe('#server-groups', function () {
       before(function () {
         H.skipIfMissingFeature(this, H.Features.ServerGroups)

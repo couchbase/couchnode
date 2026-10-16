@@ -88,6 +88,7 @@ public:
     Napi::Value jsUpsert(const Napi::CallbackInfo &info);
     Napi::Value jsUpsertWithLegacyDurability(const Napi::CallbackInfo &info);
     Napi::Value jsGetAnyReplica(const Napi::CallbackInfo &info);
+    Napi::Value jsGetReplica(const Napi::CallbackInfo &info);
     Napi::Value jsAppend(const Napi::CallbackInfo &info);
     Napi::Value jsAppendWithLegacyDurability(const Napi::CallbackInfo &info);
     Napi::Value jsQuery(const Napi::CallbackInfo &info);

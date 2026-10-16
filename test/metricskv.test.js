@@ -4,6 +4,7 @@ const assert = require('chai').assert
 const H = require('./harness')
 const { NoOpTestMeter, TestMeter } = require('./metrics/metertypes')
 const { createKeyValueValidator } = require('./metrics/validators')
+const { GetReplicaStrategy, ReplicaIndex } = require('../lib/collection')
 const { KeyValueOp } = require('../lib/observabilitytypes')
 const { MutateInSpec, LookupInSpec } = require('../lib/sdspecs')
 const { EncodingFailureError, DecodingFailureError } = require('../lib/errors')
@@ -202,6 +203,10 @@ function metricsTests(collFn, meterFn, collectionDetailsFn) {
         get: { op: KeyValueOp.Get },
         getAllReplicas: { op: KeyValueOp.GetAllReplicas },
         getAnyReplica: { op: KeyValueOp.GetAnyReplica },
+        getReplica: {
+          op: KeyValueOp.GetReplica,
+          args: [GetReplicaStrategy.fromIndex(ReplicaIndex.First)],
+        },
         getAndTouch: { op: KeyValueOp.GetAndTouch, args: [1] },
         touch: { op: KeyValueOp.Touch, args: [1] },
       }
@@ -244,7 +249,11 @@ function metricsTests(collFn, meterFn, collectionDetailsFn) {
       Object.keys(kvNonMutationOpMap).forEach((funcName) => {
         describe(`#${funcName}`, function () {
           beforeEach(function () {
-            if (funcName === 'getAllReplicas' || funcName === 'getAnyReplica') {
+            if (
+              funcName === 'getAllReplicas' ||
+              funcName === 'getAnyReplica' ||
+              funcName === 'getReplica'
+            ) {
               H.skipIfMissingFeature(this, H.Features.Replicas)
             }
             validator.reset()

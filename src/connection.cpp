@@ -61,6 +61,7 @@ void Connection::Init(Napi::Env env, Napi::Object exports)
             InstanceMethod<&Connection::jsUpsertWithLegacyDurability>(
                 "upsertWithLegacyDurability"),
             InstanceMethod<&Connection::jsGetAnyReplica>("getAnyReplica"),
+            InstanceMethod<&Connection::jsGetReplica>("getReplica"),
             InstanceMethod<&Connection::jsAppend>("append"),
             InstanceMethod<&Connection::jsAppendWithLegacyDurability>(
                 "appendWithLegacyDurability"),

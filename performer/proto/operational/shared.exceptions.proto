@@ -115,6 +115,15 @@ enum CouchbaseExceptionType {
   SDK_BUCKET_EXISTS_EXCEPTION = 605;
   SDK_USER_EXISTS_EXCEPTION = 606;
   SDK_BUCKET_NOT_FLUSHABLE_EXCEPTION = 607;
+
+  // Eventing
+  SDK_EVENTING_FUNCTION_NOT_FOUND_EXCEPTION = 608;
+  SDK_EVENTING_FUNCTION_NOT_DEPLOYED_EXCEPTION = 609;
+  SDK_EVENTING_FUNCTION_COMPILATION_FAILURE_EXCEPTION = 610;
+  SDK_EVENTING_FUNCTION_IDENTICAL_KEYSPACE_EXCEPTION = 611;
+  SDK_EVENTING_FUNCTION_NOT_BOOTSTRAPPED_EXCEPTION = 612;
+  SDK_EVENTING_FUNCTION_DEPLOYED_EXCEPTION = 613;
+  SDK_EVENTING_FUNCTION_PAUSED_EXCEPTION = 614;
 }
 
 // An exception derived from CouchbaseException
@@ -146,6 +155,21 @@ message Exception {
     CouchbaseExceptionEx couchbase = 1;
 
     ExceptionOther other = 2;
+
+    ExceptionSpecial special = 3;
   }
 }
 
+message ExceptionSpecial {
+  oneof special {
+    PlatformTimeoutEx timeout = 1;
+  }
+}
+
+message PlatformTimeoutEx {
+  // The simple name
+  string name = 1;
+
+  // Broadly this is the result of outputting the exception.  E.g. for Java `ex.toString()`.
+  string serialized = 2;
+}

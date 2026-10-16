@@ -29,6 +29,7 @@ import "sdk.query.proto";
 import "sdk.kv.lookup_in.proto";
 import "sdk.kv.mutate_in.proto";
 import "sdk.bucket.collection_manager.proto";
+import "sdk.scope.eventing_function_manager.proto";
 
 message ClusterLevelCommand {
   oneof command {
@@ -78,6 +79,8 @@ message ScopeLevelCommand {
     scope.search.index_manager.Command search_index_manager = 3;
 
     sdk.query.Command query = 4;
+
+    scope.eventing_function_manager.Command eventing_function_manager = 6;
 
     // scope.searchQuery() - original FTS API
     // Now deprecated as revision 10 of the RFC removes this (it was only implemented by one SDK).

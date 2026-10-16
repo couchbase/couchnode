@@ -10,29 +10,17 @@ option ruby_package = "FIT::Protocol::SDK::Cluster::EventingFunctionManager";
 option java_multiple_files = true;
 
 message Command {
-
   oneof command {
-
     GetFunctionRequest get_function = 1;
-
     GetAllFunctionsRequest get_all_functions = 2;
-
     DeployFunctionRequest deploy_function = 3;
-
     DropFunctionRequest drop_function = 4;
-
     FunctionsStatusRequest functions_status = 5;
-
     PauseFunctionRequest pause_function = 6;
-
     ResumeFunctionRequest resume_function = 7;
-
     UndeployFunctionRequest undeploy_function = 8;
-
     UpsertFunctionRequest upsert_function = 9;
-
   }
-
 }
 
 //Returns Result.eventing_function
@@ -238,11 +226,8 @@ message EventingFunctionUrlBinding {
 message EventingFunctionUrlAuth {
   oneof auth {
     EventingFunctionUrlAuthBasic basic_auth = 1;
-
     EventingFunctionUrlAuthBearer bearer_auth = 2;
-
     EventingFunctionUrlAuthDigest digest_auth = 3;
-
     EventingFunctionUrlNoAuth no_auth = 4;
   }
 }

@@ -628,6 +628,21 @@ export interface CppGetAnyReplicaRequest extends CppObservableRequest {
   read_preference: CppReadPreference
   // parent_span
 }
+export interface CppGetReplicaResponse extends CppObservableResponse {
+  // ctx
+  value: Buffer
+  cas: CppCas
+  flags: number
+}
+export interface CppGetReplicaRequest extends CppObservableRequest {
+  id: CppDocumentId
+  timeout?: CppMilliseconds
+  partition: number
+  opaque: number
+  // retries
+  // parent_span
+  selection?: CppImplReplicaSelection
+}
 export interface CppAppendResponse extends CppObservableResponse {
   // ctx
   cas: CppCas
@@ -2382,6 +2397,10 @@ export interface CppImplSubdocCommand {
   flags_: number
   original_index_: number
 }
+export interface CppImplReplicaSelection {
+  replica_index: number
+  wrap: boolean
+}
 export interface CppScanTerm {
   term: string
   exclusive: boolean
@@ -2499,6 +2518,10 @@ export interface CppConnectionAutogen {
   getAnyReplica(
     options: CppGetAnyReplicaRequest,
     callback: (err: CppError | null, result: CppGetAnyReplicaResponse) => void
+  ): void
+  getReplica(
+    options: CppGetReplicaRequest,
+    callback: (err: CppError | null, result: CppGetReplicaResponse) => void
   ): void
   append(
     options: CppAppendRequest,
@@ -3399,6 +3422,9 @@ export interface CppBindingAutogen {
     cannot_revive_living_document: CppErrcKeyValue
     mutation_token_outdated: CppErrcKeyValue
     range_scan_completed: CppErrcKeyValue
+    document_not_found_on_replica: CppErrcKeyValue
+    replica_index_out_of_bounds: CppErrcKeyValue
+    replica_index_currently_unavailable: CppErrcKeyValue
   }
   errc_query: {
     planning_failure: CppErrcQuery
@@ -3640,6 +3666,7 @@ export type CppObservableRequests =
   | CppUpsertRequest
   | CppUpsertWithLegacyDurabilityRequest
   | CppGetAnyReplicaRequest
+  | CppGetReplicaRequest
   | CppAppendRequest
   | CppAppendWithLegacyDurabilityRequest
   | CppQueryRequest

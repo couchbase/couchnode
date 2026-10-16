@@ -384,6 +384,43 @@ export class DocumentNotFoundError extends CouchbaseError {
 }
 
 /**
+ * Indicates that the replica selected by `Collection.getReplica` does
+ * not hold the referenced document.
+ *
+ * @category Error Handling
+ */
+export class DocumentNotFoundOnReplicaError extends DocumentNotFoundError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super(cause, context)
+    this.message = 'document not found on replica'
+  }
+}
+
+/**
+ * Indicates that `Collection.getReplica` was asked for a replica index
+ * beyond the replicas the bucket has.
+ *
+ * @category Error Handling
+ */
+export class ReplicaIndexOutOfBoundsError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('replica index out of bounds', cause, context)
+  }
+}
+
+/**
+ * Indicates that the replica selected by `Collection.getReplica` is
+ * currently unavailable.
+ *
+ * @category Error Handling
+ */
+export class ReplicaIndexCurrentlyUnavailableError extends CouchbaseError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super('replica index currently unavailable', cause, context)
+  }
+}
+
+/**
  * Indicates that the referenced document could not be retrieved.
  *
  * @category Error Handling
