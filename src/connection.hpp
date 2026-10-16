@@ -5,6 +5,8 @@
 #include <core/logger/logger.hxx>
 #include <core/tracing/wrapper_sdk_tracer.hxx>
 #include <core/utils/movable_function.hxx>
+#include <memory>
+#include <mutex>
 #include <napi.h>
 #include <utility>
 
@@ -25,9 +27,24 @@ class CallCookie
 public:
     CallCookie(Napi::Env env, Napi::Function jsCallback,
                const std::string &resourceName)
+        : _state(std::make_shared<State>())
     {
-        _ttsf =
-            CallCookieTTSF::New(env, jsCallback, resourceName, 0, 1, nullptr);
+        // Node destroys a thread-safe function when its environment is torn
+        // down, whatever references remain, and runs this finalizer first.
+        // The core can still answer or drop the operation afterwards, from
+        // its own thread, so the finalizer marks the handle as gone.
+        auto finalizeData = std::make_unique<std::shared_ptr<State>>(_state);
+        _ttsf = CallCookieTTSF::New(
+            env, jsCallback, resourceName, 0, 1, nullptr,
+            [](Napi::Env, std::shared_ptr<State> *state, std::nullptr_t *) {
+                {
+                    std::lock_guard<std::mutex> lock((*state)->mutex);
+                    (*state)->finalized = true;
+                }
+                delete state;
+            },
+            finalizeData.get());
+        finalizeData.release();
         _ttsf.Ref(env);
     }
 
@@ -36,7 +53,8 @@ public:
     // The thread-safe function wrapper copies its handle on a move, so take
     // it explicitly and leave the source with nothing to release.
     CallCookie(CallCookie &&o)
-        : _ttsf(std::exchange(o._ttsf, CallCookieTTSF()))
+        : _state(std::move(o._state))
+        , _ttsf(std::exchange(o._ttsf, CallCookieTTSF()))
     {
     }
 
@@ -44,26 +62,52 @@ public:
     // that is dropped cannot keep a reference on the event loop.
     ~CallCookie()
     {
-        if (static_cast<napi_threadsafe_function>(_ttsf) != nullptr) {
+        if (!_state) {
+            return;
+        }
+        std::lock_guard<std::mutex> lock(_state->mutex);
+        if (!_state->finalized &&
+            static_cast<napi_threadsafe_function>(_ttsf) != nullptr) {
             _ttsf.Release();
         }
     }
 
     void invoke(FwdFunc &&callback)
     {
-        auto *fn = new FwdFunc(std::move(callback));
-        auto status = _ttsf.BlockingCall(fn);
-        if (status != napi_ok) {
-            // BlockingCall only takes ownership of fn once the item is queued,
-            // so on failure it is still ours to free.
+        // Declared before the lock, so a callback that is not queued is
+        // destroyed after the lock is released.
+        auto fn = std::make_unique<FwdFunc>(std::move(callback));
+        auto ttsf = std::exchange(_ttsf, CallCookieTTSF());
+
+        // Held across the call and the release, so the finalizer cannot run
+        // between the check and the use.
+        std::lock_guard<std::mutex> lock(_state->mutex);
+        if (_state->finalized) {
+            return;
+        }
+
+        auto status = ttsf.BlockingCall(fn.get());
+        if (status == napi_ok) {
+            fn.release();
+        } else if (status != napi_closing) {
             CB_LOG_WARNING("Unable to queue callback for execution (status={})",
                            static_cast<int>(status));
-            delete fn;
         }
-        std::exchange(_ttsf, CallCookieTTSF()).Release();
+
+        // A thread-safe function that is closing has already dropped this
+        // thread's reference, during environment teardown.
+        if (status != napi_closing) {
+            ttsf.Release();
+        }
     }
 
 private:
+    struct State {
+        std::mutex mutex;
+        bool finalized = false;
+    };
+
+    std::shared_ptr<State> _state;
     CallCookieTTSF _ttsf;
 };
 

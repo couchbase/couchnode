@@ -41,7 +41,7 @@ defineSuite(
     // none, so there is nothing to prove under it.
     protocols: [TestProtocol.Classic],
   },
-  ({ test, known }) => {
+  ({ test }) => {
     test(
       'exits after terminating workers whose operations had all answered',
       async ({ env }) => {
@@ -57,7 +57,7 @@ defineSuite(
       TEST_TIMEOUT_MS
     )
 
-    test.skipIf(known('worker-terminate-cancel-after-env'))(
+    test(
       'exits after terminating workers with key-value operations in flight',
       async ({ env }) => {
         const { outcome } = await expectProcessExits<TerminateRoundsOutcome>(
