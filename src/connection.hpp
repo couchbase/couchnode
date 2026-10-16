@@ -6,6 +6,7 @@
 #include <core/tracing/wrapper_sdk_tracer.hxx>
 #include <core/utils/movable_function.hxx>
 #include <napi.h>
+#include <utility>
 
 namespace couchnode
 {
@@ -32,9 +33,20 @@ public:
 
     CallCookie(CallCookie &o) = delete;
 
+    // The thread-safe function wrapper copies its handle on a move, so take
+    // it explicitly and leave the source with nothing to release.
     CallCookie(CallCookie &&o)
-        : _ttsf(std::move(o._ttsf))
+        : _ttsf(std::exchange(o._ttsf, CallCookieTTSF()))
     {
+    }
+
+    // Release the thread-safe function if invoke() never ran, so a cookie
+    // that is dropped cannot keep a reference on the event loop.
+    ~CallCookie()
+    {
+        if (static_cast<napi_threadsafe_function>(_ttsf) != nullptr) {
+            _ttsf.Release();
+        }
     }
 
     void invoke(FwdFunc &&callback)
@@ -48,7 +60,7 @@ public:
                            static_cast<int>(status));
             delete fn;
         }
-        _ttsf.Release();
+        std::exchange(_ttsf, CallCookieTTSF()).Release();
     }
 
 private:
