@@ -39,6 +39,8 @@ export interface ExitFixtureOptions {
    * cluster free fixture cannot reach a cluster by accident.
    */
   readonly env?: TestEnv
+  /** Further variables for the child, such as the names of a leased keyspace. */
+  readonly vars?: Readonly<Record<string, string>>
 }
 
 export interface ExitFixtureResult<T = Record<string, unknown>> {
@@ -110,7 +112,7 @@ export async function expectProcessExits<T = Record<string, unknown>>(
     ['--require', 'ts-node/register/transpile-only', fixture],
     {
       cwd: REPO_ROOT,
-      env: childEnvironment(opts.env),
+      env: { ...childEnvironment(opts.env), ...opts.vars },
       stdio: ['ignore', 'pipe', 'pipe'],
     }
   )

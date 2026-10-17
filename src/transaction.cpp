@@ -19,18 +19,24 @@ namespace couchnode
 class RefCallCookie
 {
 public:
-    RefCallCookie(Napi::Env env, Napi::Function jsCallback,
-                  const std::string &resourceName)
-        : _impl(new CallCookie(env, jsCallback, resourceName))
+    RefCallCookie(const std::shared_ptr<Instance> &instance, Napi::Env env,
+                  Napi::Function jsCallback, const std::string &resourceName)
+        : _op(instance->beginTransactionOp())
+        , _impl(new CallCookie(env, jsCallback, resourceName))
     {
     }
 
     void invoke(FwdFunc &&callback)
     {
         _impl->invoke(std::forward<FwdFunc>(callback));
+        _op->complete();
     }
 
 private:
+    // Shared by every copy, so the operation stops counting as in flight once
+    // a copy is invoked, or once the last copy is destroyed. Declared first so
+    // a dropped cookie has queued its cancellation by then.
+    std::shared_ptr<TransactionOp> _op;
     std::shared_ptr<CallCookie> _impl;
 };
 
@@ -82,11 +88,13 @@ Transaction::Transaction(const Napi::CallbackInfo &info)
         throw Napi::Error::New(info.Env(),
                                "first parameter must be a Transactions object");
     }
-    auto &transactions = Transactions::Unwrap(txnsJsObj)->transactions();
+    auto transactions = Transactions::Unwrap(txnsJsObj);
+    _instance = transactions->instance();
+    _transactions = transactions->transactions();
 
     auto txnConfig = jsToCbpp<cbtxns::transaction_options>(configJsObj);
     _impl.reset();
-    _impl = cbcoretxns::transaction_context::create(transactions, txnConfig);
+    _impl = cbcoretxns::transaction_context::create(*_transactions, txnConfig);
 }
 
 Transaction::~Transaction()
@@ -96,8 +104,8 @@ Transaction::~Transaction()
 Napi::Value Transaction::jsNewAttempt(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
+    auto cookie = RefCallCookie(_instance, info.Env(), callbackJsFn,
+                                "txnNewAttemptCallback");
 
     try {
         _impl->new_attempt_context([this,
@@ -120,7 +128,8 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnGetCallback");
 
     try {
         _impl->get_optional(
@@ -158,7 +167,8 @@ Napi::Value Transaction::jsGetReplicaFromPreferredServerGroup(
     auto callbackJsFn = info[1].As<Napi::Function>();
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnGetCallback");
 
     try {
         _impl->get_replica_from_preferred_server_group(
@@ -198,8 +208,8 @@ Napi::Value Transaction::jsGetMulti(const Napi::CallbackInfo &info)
     auto mode =
         jsToCbpp<cbcoretxns::transaction_get_multi_mode>(optsJsObj.Get("mode"));
 
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnGetMultiCallback");
+    auto cookie = RefCallCookie(_instance, info.Env(), callbackJsFn,
+                                "txnGetMultiCallback");
 
     try {
         _impl->get_multi(
@@ -234,7 +244,7 @@ Napi::Value Transaction::jsGetMultiReplicasFromPreferredServerGroup(
         optsJsObj.Get("mode"));
 
     auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn,
+        RefCallCookie(_instance, info.Env(), callbackJsFn,
                       "txnGetMultiReplicasFromPreferredServerGroupCallback");
 
     try {
@@ -267,7 +277,8 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
     auto content =
         jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnInsertCallback");
 
     try {
         _impl->insert(
@@ -297,7 +308,8 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
     auto content =
         jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
+    auto cookie = RefCallCookie(_instance, info.Env(), callbackJsFn,
+                                "txnReplaceCallback");
 
     try {
         _impl->replace(
@@ -325,7 +337,8 @@ Napi::Value Transaction::jsRemove(const Napi::CallbackInfo &info)
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnRemoveCallback");
 
     try {
         _impl->remove(doc, [this, cookie](std::exception_ptr err) mutable {
@@ -349,7 +362,8 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
     auto statement = jsToCbpp<std::string>(statementJsStr);
     auto options = jsToCbpp<cbtxns::transaction_query_options>(optsJsObj);
 
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnQueryCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnQueryCallback");
 
     try {
         _impl->query(
@@ -383,7 +397,8 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
+    auto cookie =
+        RefCallCookie(_instance, info.Env(), callbackJsFn, "txnCommitCallback");
 
     try {
         _impl->finalize(
@@ -406,8 +421,8 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
 Napi::Value Transaction::jsRollback(const Napi::CallbackInfo &info)
 {
     auto callbackJsFn = info[0].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
+    auto cookie = RefCallCookie(_instance, info.Env(), callbackJsFn,
+                                "txnRollbackCallback");
 
     try {
         _impl->rollback([this, cookie](std::exception_ptr err) mutable {

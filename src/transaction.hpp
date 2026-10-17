@@ -1,5 +1,6 @@
 #pragma once
 #include "addondata.hpp"
+#include "instance.hpp"
 #include <core/transactions.hxx>
 #include <core/transactions/internal/transaction_context.hxx>
 #include <napi.h>
@@ -39,6 +40,13 @@ public:
     Napi::Value jsRollback(const Napi::CallbackInfo &info);
 
 private:
+    // Counts this transaction's operations in flight, so the connection's
+    // shutdown keeps the transactions objects until none is.
+    std::shared_ptr<Instance> _instance;
+    // The context holds only a reference to the core transactions object, so
+    // this keeps the instance that owns that object alive for as long as this
+    // transaction. Declared before the context so it is destroyed after it.
+    std::shared_ptr<cbcoretxns::transactions> _transactions;
     std::shared_ptr<cbcoretxns::transaction_context> _impl;
 };
 

@@ -1271,6 +1271,12 @@ export class Transactions {
   /**
    * Executes a transaction.
    *
+   * When the worker thread running a transaction is terminated, or the process
+   * exits, while one of its operations is in flight, that operation is
+   * cancelled. The outcome is then decided by lost transaction cleanup rather
+   * than by the caller, so a transaction past its commit point may still commit
+   * after `terminate()` has returned.
+   *
    * @param logicFn The transaction lambda to execute.
    * @param config Configuration operations for the transaction.
    */

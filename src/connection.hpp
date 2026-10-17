@@ -133,6 +133,11 @@ public:
         return _instance->_cluster;
     }
 
+    const std::shared_ptr<Instance> &instance() const
+    {
+        return _instance;
+    }
+
     std::pair<std::optional<std::string>, std::optional<std::string>>
     getClusterLabels();
 
