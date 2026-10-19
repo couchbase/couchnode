@@ -2,6 +2,7 @@ import { describe, expect } from 'vitest'
 import type { TestError } from 'vitest'
 
 import type { Collection } from '../../../../lib/collection'
+import { GetReplicaStrategy, ReplicaIndex } from '../../../../lib/collection'
 import type {
   CounterResult,
   ExistsResult,
@@ -26,7 +27,7 @@ import { awaitCallback } from '../../infra/callbacks'
 import { ServerFeature } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import type { CollectionLease } from '../../infra/leases/collection-lease'
-import { waitUntilReplicated } from '../../infra/replicas'
+import { skipWithoutReplicas, waitUntilReplicated } from '../../infra/replicas'
 import { CollectionStrategy } from '../../infra/requirements'
 import { defineSuite } from '../../infra/suite'
 import {
@@ -189,7 +190,7 @@ interface OpCase {
   readonly serverDurationAboveZero?: boolean
   /** Prepares what the successful call needs and returns its key. */
   readonly setup: (c: Collection, env: TestEnv) => Promise<string>
-  /** The read-every-replica operations wait here for the replicas. */
+  /** The replica reads wait here for the replicas. */
   readonly settle?: (
     c: Collection,
     env: TestEnv,
@@ -529,6 +530,24 @@ const GET_ANY_REPLICA: OpCase = {
   callback: (c, key) =>
     awaitCallback<GetReplicaResult>((cb) => c.getAnyReplica(key, cb)),
   withParent: (c, key, parentSpan) => c.getAnyReplica(key, { parentSpan }),
+  failSetup: missingKey,
+}
+
+const GET_REPLICA: OpCase = {
+  label: 'getReplica',
+  op: KeyValueOp.GetReplica,
+  setup: seededKey,
+  settle: settleReplicas,
+  call: (c, key) =>
+    c.getReplica(key, GetReplicaStrategy.fromIndex(ReplicaIndex.First)),
+  callback: (c, key) =>
+    awaitCallback<GetReplicaResult>((cb) =>
+      c.getReplica(key, GetReplicaStrategy.fromIndex(ReplicaIndex.First), cb)
+    ),
+  withParent: (c, key, parentSpan) =>
+    c.getReplica(key, GetReplicaStrategy.fromIndex(ReplicaIndex.First), {
+      parentSpan,
+    }),
   failSetup: missingKey,
 }
 
@@ -989,6 +1008,52 @@ for (const kind of TRACER_KINDS) {
               env,
               collectionLease,
             }) => runFailure(GET_ANY_REPLICA, env, collectionLease, kind))
+          })
+
+          describe('#getReplica', () => {
+            test('should perform getReplica', async ({
+              env,
+              collectionLease,
+              signal,
+              skip,
+            }) => {
+              await skipWithoutReplicas(env, collectionLease.bucketName, skip)
+              return runPerform(GET_REPLICA, env, collectionLease, kind, signal)
+            })
+            test('should perform getReplica via callback', async ({
+              env,
+              collectionLease,
+              signal,
+              skip,
+            }) => {
+              await skipWithoutReplicas(env, collectionLease.bucketName, skip)
+              return runViaCallback(
+                GET_REPLICA,
+                env,
+                collectionLease,
+                kind,
+                signal
+              )
+            })
+            test('should perform getReplica with parent span', async ({
+              env,
+              collectionLease,
+              signal,
+              skip,
+            }) => {
+              await skipWithoutReplicas(env, collectionLease.bucketName, skip)
+              return runWithParentSpan(
+                GET_REPLICA,
+                env,
+                collectionLease,
+                kind,
+                signal
+              )
+            })
+            test('should handle error in getReplica', ({
+              env,
+              collectionLease,
+            }) => runFailure(GET_REPLICA, env, collectionLease, kind))
           })
         })
 

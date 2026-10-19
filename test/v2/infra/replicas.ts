@@ -46,6 +46,32 @@ export function numReplicasOf(
   return pending
 }
 
+/** The bucket's replica count, capped at the number of KV nodes minus one. */
+export async function availableReplicasOf(
+  env: TestEnv,
+  bucketName: string
+): Promise<number> {
+  const configured = await numReplicasOf(env, bucketName)
+  const kvNodes = Object.values(env.consistency.nodeServices).filter(
+    (services) => services.includes('kv')
+  ).length
+  // A mock backend has no node list.
+  return kvNodes === 0 ? configured : Math.min(configured, kvNodes - 1)
+}
+
+/**
+ * Skips the test when no replica copy can exist. For reads of a specific
+ * replica, which have no active copy to fall back on.
+ */
+export async function skipWithoutReplicas(
+  env: TestEnv,
+  bucketName: string,
+  skip: (condition: boolean, note?: string) => void
+): Promise<void> {
+  const replicas = await availableReplicasOf(env, bucketName)
+  skip(replicas === 0, `bucket ${bucketName} has no replica copies`)
+}
+
 export interface ReplicationWaitOptions {
   readonly signal?: AbortSignal
   readonly deadlineMs?: number
@@ -62,7 +88,7 @@ export async function waitUntilReplicated(
   key: string,
   opts: ReplicationWaitOptions = {}
 ): Promise<void> {
-  const replicas = await numReplicasOf(env, bucketName)
+  const replicas = await availableReplicasOf(env, bucketName)
   if (replicas === 0) {
     return
   }

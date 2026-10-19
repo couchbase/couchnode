@@ -1,6 +1,10 @@
 import { describe, expect } from 'vitest'
 
-import { Collection } from '../../../../lib/collection'
+import {
+  Collection,
+  GetReplicaStrategy,
+  ReplicaIndex,
+} from '../../../../lib/collection'
 import {
   CounterResult,
   ExistsResult,
@@ -14,6 +18,7 @@ import {
   CasMismatchError,
   DocumentExistsError,
   DocumentNotFoundError,
+  DocumentNotFoundOnReplicaError,
   DocumentNotLockedError,
   DocumentUnretrievableError,
   DurabilityImpossibleError,
@@ -21,6 +26,7 @@ import {
   InvalidDurabilityLevel,
   InvalidDurabilityPersistToLevel,
   InvalidDurabilityReplicateToLevel,
+  ReplicaIndexOutOfBoundsError,
 } from '../../../../lib/errors'
 import { KeyValueErrorContext } from '../../../../lib/errorcontexts'
 import { DurabilityLevel, ReadPreference } from '../../../../lib/generaltypes'
@@ -45,7 +51,11 @@ import { awaitCallback, settleCallback, Settled } from '../../infra/callbacks'
 import { ServerFeature } from '../../infra/capabilities'
 import { DocBatch } from '../../infra/data/loader'
 import { TestEnv } from '../../infra/env'
-import { numReplicasOf, waitUntilReplicated } from '../../infra/replicas'
+import {
+  numReplicasOf,
+  skipWithoutReplicas,
+  waitUntilReplicated,
+} from '../../infra/replicas'
 import { CollectionStrategy } from '../../infra/requirements'
 import { pollWhile, sleep, tryNTimes } from '../../infra/retry'
 import { defineSuite } from '../../infra/suite'
@@ -1120,6 +1130,18 @@ defineSuite(
           )
         })
 
+      // Counts its decodes, so an options test fails if the read ignores the
+      // transcoder it was given. `DefaultTranscoder` alone cannot show that,
+      // since it decodes exactly like the collection's default.
+      class CountingTranscoder extends DefaultTranscoder {
+        decodes = 0
+
+        decode(bytes: Buffer, flags: number): unknown {
+          this.decodes++
+          return super.decode(bytes, flags)
+        }
+      }
+
       test('should perform basic get all replicas', async ({
         collection,
         env,
@@ -1171,7 +1193,7 @@ defineSuite(
         signal,
       }) => {
         const key = await seedReplicaKey(env, collection)
-        const tc = new DefaultTranscoder()
+        const tc = new CountingTranscoder()
         const res = await tryNTimes(
           5,
           1000,
@@ -1188,6 +1210,7 @@ defineSuite(
         expect(res[0].isReplica, 'isReplica').toBeTypeOf('boolean')
         expect(Object.keys(res[0].cas), 'replica cas').not.toHaveLength(0)
         expect(res[0].content, 'replica content').toEqual(testObjVal)
+        expect(tc.decodes, 'decodes by the given transcoder').toBeGreaterThan(0)
       })
 
       test('should perform basic get any replica', async ({
@@ -1221,7 +1244,7 @@ defineSuite(
         env,
       }) => {
         const key = await seedReplicaKey(env, collection)
-        const tc = new DefaultTranscoder()
+        const tc = new CountingTranscoder()
         const res = await awaitCallback<GetReplicaResult>((cb) =>
           collection.getAnyReplica(key, { transcoder: tc }, cb)
         )
@@ -1229,6 +1252,180 @@ defineSuite(
         expect(res, 'replica type').toBeInstanceOf(GetReplicaResult)
         expect(Object.keys(res.cas), 'replica cas').not.toHaveLength(0)
         expect(res.content, 'replica content').toEqual(testObjVal)
+        expect(tc.decodes, 'decodes by the given transcoder').toBeGreaterThan(0)
+      })
+
+      describe('#getReplica', () => {
+        const firstReplica = () =>
+          GetReplicaStrategy.fromIndex(ReplicaIndex.First)
+        const requireReplica = (
+          env: TestEnv,
+          collection: Collection,
+          skip: (condition: boolean, note?: string) => void
+        ) => skipWithoutReplicas(env, collection.scope.bucket.name, skip)
+
+        test('should get from the first replica', async ({
+          collection,
+          env,
+          signal,
+          skip,
+        }) => {
+          await requireReplica(env, collection, skip)
+          const key = await seedReplicaKey(env, collection)
+          const res = await tryNTimes(
+            5,
+            1000,
+            () => collection.getReplica(key, firstReplica()),
+            signal
+          )
+
+          expect(res, 'replica type').toBeInstanceOf(GetReplicaResult)
+          expect(res.isReplica, 'isReplica').toBe(true)
+          expect(Object.keys(res.cas), 'replica cas').not.toHaveLength(0)
+          expect(res.content, 'replica content').toEqual(testObjVal)
+        })
+
+        test('should get from the first replica with callback', async ({
+          collection,
+          env,
+          signal,
+          skip,
+        }) => {
+          await requireReplica(env, collection, skip)
+          const key = await seedReplicaKey(env, collection)
+          const res = await tryNTimes(
+            5,
+            1000,
+            () =>
+              awaitCallback<GetReplicaResult>((cb) =>
+                collection.getReplica(key, firstReplica(), cb)
+              ),
+            signal
+          )
+
+          expect(res, 'replica type').toBeInstanceOf(GetReplicaResult)
+          expect(res.isReplica, 'isReplica').toBe(true)
+          expect(res.content, 'replica content').toEqual(testObjVal)
+        })
+
+        test('should get from the first replica with options and callback', async ({
+          collection,
+          env,
+          signal,
+          skip,
+        }) => {
+          await requireReplica(env, collection, skip)
+          const key = await seedReplicaKey(env, collection)
+          const tc = new CountingTranscoder()
+          const res = await tryNTimes(
+            5,
+            1000,
+            () =>
+              awaitCallback<GetReplicaResult>((cb) =>
+                collection.getReplica(
+                  key,
+                  firstReplica(),
+                  { transcoder: tc },
+                  cb
+                )
+              ),
+            signal
+          )
+
+          expect(res, 'replica type').toBeInstanceOf(GetReplicaResult)
+          expect(res.isReplica, 'isReplica').toBe(true)
+          expect(res.content, 'replica content').toEqual(testObjVal)
+          expect(tc.decodes, 'decodes by the given transcoder').toBeGreaterThan(
+            0
+          )
+        })
+
+        test('should wrap an out of bounds index when wrap is set', async ({
+          collection,
+          env,
+          signal,
+          skip,
+        }) => {
+          await requireReplica(env, collection, skip)
+          const key = await seedReplicaKey(env, collection)
+          const res = await tryNTimes(
+            5,
+            1000,
+            () =>
+              collection.getReplica(
+                key,
+                GetReplicaStrategy.fromIndex(ReplicaIndex.Third + 1, {
+                  wrap: true,
+                })
+              ),
+            signal
+          )
+
+          expect(res.isReplica, 'isReplica').toBe(true)
+          expect(res.content, 'replica content').toEqual(testObjVal)
+        })
+
+        test('should raise DocumentNotFoundOnReplicaError for a missing key', async ({
+          collection,
+          env,
+          skip,
+        }) => {
+          await requireReplica(env, collection, skip)
+          const key = env.key()
+          const err = await expectCouchbaseError(
+            () => collection.getReplica(key, firstReplica()),
+            DocumentNotFoundOnReplicaError,
+            env.ctx({ op: 'getReplica', key, extra: 'missing key' })
+          )
+          expect(err, 'also a DocumentNotFoundError').toBeInstanceOf(
+            DocumentNotFoundError
+          )
+        })
+
+        test('should raise ReplicaIndexOutOfBoundsError for an index beyond the replica count', async ({
+          collection,
+          env,
+        }) => {
+          // A bucket has at most three replicas, so this index is always out
+          // of bounds.
+          const key = await seedReplicaKey(env, collection)
+          await expectCouchbaseError(
+            () =>
+              collection.getReplica(
+                key,
+                GetReplicaStrategy.fromIndex(ReplicaIndex.Third + 1)
+              ),
+            ReplicaIndexOutOfBoundsError,
+            env.ctx({ op: 'getReplica', key, extra: 'index past Third' })
+          )
+        })
+
+        describe('#GetReplicaStrategy.fromIndex', () => {
+          test('should reject a negative replica index', () => {
+            expect(() =>
+              // @ts-expect-error -1 is not a ReplicaIndex member
+              GetReplicaStrategy.fromIndex(-1)
+            ).toThrow(InvalidArgumentError)
+          })
+
+          test('should reject a wrap that is not a boolean', () => {
+            expect(() =>
+              // @ts-expect-error wrap is typed boolean
+              GetReplicaStrategy.fromIndex(ReplicaIndex.First, { wrap: 1 })
+            ).toThrow(InvalidArgumentError)
+          })
+        })
+
+        test('should reject a strategy that was not built by GetReplicaStrategy', ({
+          collection,
+          env,
+        }) => {
+          // `GetReplicaStrategy` declares no instance members, so the compiler
+          // accepts any object here and only the runtime check rejects it.
+          expect(() =>
+            collection.getReplica(env.key(), { replicaIndex: 0 })
+          ).toThrow(InvalidArgumentError)
+        })
       })
 
       group('#server-groups', [ServerFeature.ServerGroups], () => {
