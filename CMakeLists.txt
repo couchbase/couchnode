@@ -203,6 +203,11 @@ file(GLOB SOURCE_FILES "src/*.cpp")
 add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES} ${CMAKE_JS_SRC})
 target_compile_definitions(${PROJECT_NAME} PRIVATE COUCHBASE_CXX_CLIENT_IGNORE_CORE_DEPRECATIONS)
 add_definitions(-DNAPI_VERSION=6)
+# Build node-addon-api with C++ exceptions, and have every entry point turn any
+# C++ exception that escapes it into a thrown JS error. Without the second, only
+# a Napi::Error is translated, and any other exception aborts the process.
+add_definitions(-DNODE_ADDON_API_CPP_EXCEPTIONS)
+add_definitions(-DNODE_ADDON_API_CPP_EXCEPTIONS_ALL)
 # A callback that reaches JS while a worker is terminating cannot throw. Without
 # this, node-addon-api aborts the process building the error instead.
 add_definitions(-DNODE_API_SWALLOW_UNTHROWABLE_EXCEPTIONS)

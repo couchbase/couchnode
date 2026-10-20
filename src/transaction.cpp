@@ -34,6 +34,19 @@ private:
     std::shared_ptr<CallCookie> _impl;
 };
 
+// The core throws, rather than calling the handler, when an operation cannot
+// start at all, for example with no attempt in progress. Each entry point
+// reports that through the operation's callback, so the caller gets the same
+// typed error as for any other failure and the callback runs exactly once. The
+// callback queue is unbounded, so invoking from the JS thread cannot block.
+static void failOp(RefCallCookie &cookie, std::exception_ptr err)
+{
+    cookie.invoke(
+        [err = std::move(err)](Napi::Env env, Napi::Function callback) mutable {
+            callback.Call({cbpp_to_js(env, err)});
+        });
+}
+
 void Transaction::Init(Napi::Env env, Napi::Object exports)
 {
     Napi::Function func = DefineClass(
@@ -86,13 +99,17 @@ Napi::Value Transaction::jsNewAttempt(const Napi::CallbackInfo &info)
     auto cookie =
         RefCallCookie(info.Env(), callbackJsFn, "txnNewAttemptCallback");
 
-    _impl->new_attempt_context(
-        [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
+    try {
+        _impl->new_attempt_context([this,
+                                    cookie](std::exception_ptr err) mutable {
             cookie.invoke([err = std::move(err)](
                               Napi::Env env, Napi::Function callback) mutable {
                 callback.Call({cbpp_to_js(env, err)});
             });
         });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -101,30 +118,35 @@ Napi::Value Transaction::jsGet(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
-
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
-    _impl->get_optional(
-        docId,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<cbcoretxns::transaction_get_result> res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                // BUG(JSCBC-1024): We should revert to using direct get
-                // operations once the underlying issue has been resolved.
-                if (!err && !res.has_value()) {
-                    callback.Call({cbpp_to_js(
-                        env,
-                        couchbase::errc::make_error_code(
-                            couchbase::errc::key_value::document_not_found))});
-                    return;
-                }
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
 
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    try {
+        _impl->get_optional(
+            docId,
+            [this, cookie](
+                std::exception_ptr err,
+                std::optional<cbcoretxns::transaction_get_result> res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    // BUG(JSCBC-1024): We should revert to using direct get
+                    // operations once the underlying issue has been resolved.
+                    if (!err && !res.has_value()) {
+                        callback.Call(
+                            {cbpp_to_js(env, couchbase::errc::make_error_code(
+                                                 couchbase::errc::key_value::
+                                                     document_not_found))});
+                        return;
+                    }
+
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -134,30 +156,35 @@ Napi::Value Transaction::jsGetReplicaFromPreferredServerGroup(
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
-
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
 
-    _impl->get_replica_from_preferred_server_group(
-        docId,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<cbcoretxns::transaction_get_result> res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                // BUG(JSCBC-1024): We should revert to using direct get
-                // operations once the underlying issue has been resolved.
-                if (!err && !res.has_value()) {
-                    callback.Call(
-                        {cbpp_to_js(env, couchbase::errc::make_error_code(
-                                             couchbase::errc::key_value::
-                                                 document_irretrievable))});
-                    return;
-                }
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnGetCallback");
 
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    try {
+        _impl->get_replica_from_preferred_server_group(
+            docId,
+            [this, cookie](
+                std::exception_ptr err,
+                std::optional<cbcoretxns::transaction_get_result> res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    // BUG(JSCBC-1024): We should revert to using direct get
+                    // operations once the underlying issue has been resolved.
+                    if (!err && !res.has_value()) {
+                        callback.Call(
+                            {cbpp_to_js(env, couchbase::errc::make_error_code(
+                                                 couchbase::errc::key_value::
+                                                     document_irretrievable))});
+                        return;
+                    }
+
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -166,25 +193,30 @@ Napi::Value Transaction::jsGetMulti(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn, "txnGetMultiCallback");
-
     auto docIds = jsToCbpp<std::vector<couchbase::core::document_id>>(
         optsJsObj.Get("ids"));
     auto mode =
         jsToCbpp<cbcoretxns::transaction_get_multi_mode>(optsJsObj.Get("mode"));
 
-    _impl->get_multi(
-        docIds, mode,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<cbcoretxns::transaction_get_multi_result>
-                res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn, "txnGetMultiCallback");
+
+    try {
+        _impl->get_multi(
+            docIds, mode,
+            [this,
+             cookie](std::exception_ptr err,
+                     std::optional<cbcoretxns::transaction_get_multi_result>
+                         res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -194,10 +226,6 @@ Napi::Value Transaction::jsGetMultiReplicasFromPreferredServerGroup(
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie =
-        RefCallCookie(info.Env(), callbackJsFn,
-                      "txnGetMultiReplicasFromPreferredServerGroupCallback");
-
     auto docIds = jsToCbpp<std::vector<couchbase::core::document_id>>(
         optsJsObj.Get("ids"));
     auto mode = jsToCbpp<
@@ -205,19 +233,28 @@ Napi::Value Transaction::jsGetMultiReplicasFromPreferredServerGroup(
             transaction_get_multi_replicas_from_preferred_server_group_mode>(
         optsJsObj.Get("mode"));
 
-    _impl->get_multi_replicas_from_preferred_server_group(
-        docIds, mode,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<
-                cbcoretxns::
-                    transaction_get_multi_replicas_from_preferred_server_group_result>
-                res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    auto cookie =
+        RefCallCookie(info.Env(), callbackJsFn,
+                      "txnGetMultiReplicasFromPreferredServerGroupCallback");
+
+    try {
+        _impl->get_multi_replicas_from_preferred_server_group(
+            docIds, mode,
+            [this, cookie](
+                std::exception_ptr err,
+                std::optional<
+                    cbcoretxns::
+                        transaction_get_multi_replicas_from_preferred_server_group_result>
+                    res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -226,22 +263,27 @@ Napi::Value Transaction::jsInsert(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
-
     auto docId = jsToCbpp<couchbase::core::document_id>(optsJsObj.Get("id"));
     auto content =
         jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
-    _impl->insert(
-        docId, content,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<cbcoretxns::transaction_get_result> res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnInsertCallback");
+
+    try {
+        _impl->insert(
+            docId, content,
+            [this, cookie](
+                std::exception_ptr err,
+                std::optional<cbcoretxns::transaction_get_result> res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -250,23 +292,28 @@ Napi::Value Transaction::jsReplace(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
-
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
     auto content =
         jsToCbpp<couchbase::codec::encoded_value>(optsJsObj.Get("content"));
 
-    _impl->replace(
-        doc, content,
-        [this, cookie = std::move(cookie)](
-            std::exception_ptr err,
-            std::optional<cbcoretxns::transaction_get_result> res) mutable {
-            cookie.invoke([err = std::move(err), res = std::move(res)](
-                              Napi::Env env, Napi::Function callback) mutable {
-                callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnReplaceCallback");
+
+    try {
+        _impl->replace(
+            doc, content,
+            [this, cookie](
+                std::exception_ptr err,
+                std::optional<cbcoretxns::transaction_get_result> res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
             });
-        });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -275,18 +322,21 @@ Napi::Value Transaction::jsRemove(const Napi::CallbackInfo &info)
 {
     auto optsJsObj = info[0].As<Napi::Object>();
     auto callbackJsFn = info[1].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
-
     auto doc =
         jsToCbpp<cbcoretxns::transaction_get_result>(optsJsObj.Get("doc"));
 
-    _impl->remove(doc, [this, cookie = std::move(cookie)](
-                           std::exception_ptr err) mutable {
-        cookie.invoke([err = std::move(err)](Napi::Env env,
-                                             Napi::Function callback) mutable {
-            callback.Call({cbpp_to_js(env, err)});
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnRemoveCallback");
+
+    try {
+        _impl->remove(doc, [this, cookie](std::exception_ptr err) mutable {
+            cookie.invoke([err = std::move(err)](
+                              Napi::Env env, Napi::Function callback) mutable {
+                callback.Call({cbpp_to_js(env, err)});
+            });
         });
-    });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -296,31 +346,36 @@ Napi::Value Transaction::jsQuery(const Napi::CallbackInfo &info)
     auto statementJsStr = info[0].As<Napi::String>();
     auto optsJsObj = info[1].As<Napi::Object>();
     auto callbackJsFn = info[2].As<Napi::Function>();
-    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnQueryCallback");
-
     auto statement = jsToCbpp<std::string>(statementJsStr);
     auto options = jsToCbpp<cbtxns::transaction_query_options>(optsJsObj);
 
-    _impl->query(statement, options,
-                 [this, cookie = std::move(cookie)](
-                     std::exception_ptr err,
+    auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnQueryCallback");
+
+    try {
+        _impl->query(
+            statement, options,
+            [this,
+             cookie](std::exception_ptr err,
                      std::optional<couchbase::core::operations::query_response>
                          resp) mutable {
-                     cookie.invoke(
-                         [err = std::move(err), resp = std::move(resp)](
-                             Napi::Env env, Napi::Function callback) mutable {
-                             Napi::Value jsErr, jsRes;
-                             try {
-                                 jsErr = cbpp_to_js(env, err);
-                                 jsRes = cbpp_to_js(env, resp);
-                             } catch (const Napi::Error &e) {
-                                 jsErr = e.Value();
-                                 jsRes = env.Null();
-                             }
+                cookie.invoke(
+                    [err = std::move(err), resp = std::move(resp)](
+                        Napi::Env env, Napi::Function callback) mutable {
+                        Napi::Value jsErr, jsRes;
+                        try {
+                            jsErr = cbpp_to_js(env, err);
+                            jsRes = cbpp_to_js(env, resp);
+                        } catch (const Napi::Error &e) {
+                            jsErr = e.Value();
+                            jsRes = env.Null();
+                        }
 
-                             callback.Call({jsErr, jsRes});
-                         });
-                 });
+                        callback.Call({jsErr, jsRes});
+                    });
+            });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -330,14 +385,20 @@ Napi::Value Transaction::jsCommit(const Napi::CallbackInfo &info)
     auto callbackJsFn = info[0].As<Napi::Function>();
     auto cookie = RefCallCookie(info.Env(), callbackJsFn, "txnCommitCallback");
 
-    _impl->finalize([this, cookie = std::move(cookie)](
-                        std::optional<cbcoretxns::transaction_exception> err,
-                        std::optional<cbtxns::transaction_result> res) mutable {
-        cookie.invoke([err = std::move(err), res = std::move(res)](
-                          Napi::Env env, Napi::Function callback) mutable {
-            callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
-        });
-    });
+    try {
+        _impl->finalize(
+            [this,
+             cookie](std::optional<cbcoretxns::transaction_exception> err,
+                     std::optional<cbtxns::transaction_result> res) mutable {
+                cookie.invoke([err = std::move(err), res = std::move(res)](
+                                  Napi::Env env,
+                                  Napi::Function callback) mutable {
+                    callback.Call({cbpp_to_js(env, err), cbpp_to_js(env, res)});
+                });
+            });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
@@ -348,13 +409,16 @@ Napi::Value Transaction::jsRollback(const Napi::CallbackInfo &info)
     auto cookie =
         RefCallCookie(info.Env(), callbackJsFn, "txnRollbackCallback");
 
-    _impl->rollback(
-        [this, cookie = std::move(cookie)](std::exception_ptr err) mutable {
+    try {
+        _impl->rollback([this, cookie](std::exception_ptr err) mutable {
             cookie.invoke([err = std::move(err)](
                               Napi::Env env, Napi::Function callback) mutable {
                 callback.Call({cbpp_to_js(env, err)});
             });
         });
+    } catch (...) {
+        failOp(cookie, std::current_exception());
+    }
 
     return info.Env().Null();
 }
