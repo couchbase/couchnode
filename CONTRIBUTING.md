@@ -27,6 +27,34 @@ Ensure the feature you are adding does not already exist, and think about how th
 
 Ensure the bug you are fixing is actually a bug (and not a usage) error, and that it has not been fixed in a more recent version. Please read the [release notes](https://docs.couchbase.com/nodejs-sdk/current/project-docs/sdk-release-notes.html) as well as the [issue tracker](https://jira.issues.couchbase.com/projects/JSCBC/issues/) to see a list of open and resolved issues.
 
+### Running the tests
+
+The tests live under `test/` and run under [Vitest](https://vitest.dev). They are split into four projects:
+
+* `unit` needs no server at all.
+* `integration` needs a cluster or the mock, and runs its files in parallel.
+* `exclusive` holds the suites that create and drop buckets, and runs them one at a time.
+* `periodic` holds the slow eventing function suites, and runs only when asked for.
+
+| command | runs |
+|---|---|
+| `npm test` | `unit`, `integration` and `exclusive` |
+| `npm run test-fast` | `unit` and `integration` |
+| `npm run test:unit` | `unit` |
+| `npm run test:periodic` | `periodic` |
+| `npm run typecheck:test` | type checks the tests, which Vitest itself does not |
+| `npm run cover` | `npm test`, with code coverage |
+
+Each `make` target in the `Makefile` wraps one of these with the settings CI uses.
+
+With no `CNCSTR` set, the suite starts a mock server and skips what the mock cannot do. To run against a cluster, set:
+
+* `CNCSTR`: the connection string, e.g. `couchbase://localhost`
+* `CNUSER` and `CNPASS`: the credentials
+* `CNBUCKET`: the bucket to use, if not `default`
+
+`CNTIER` (`fast`, `slow` or `nightly`, default `fast`) chooses how many of the slower tests run. `CNJUNIT=<path>` also writes a JUnit report, in which each skipped test carries its reason.
+
 ### Code Review
 
 #### Signing up on Gerrit

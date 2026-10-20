@@ -29,15 +29,13 @@ config.json
 /build/
 /node_modules/
 # Vitest writes a cache to node_modules/.vite beside each config it loads,
-# including the self-test fixtures under test/v2, so this rule is unanchored.
+# including the self-test fixtures under test/, so this rule is unanchored.
 node_modules/
 /docs/
-/test/CouchbaseMock.jar
 /builderror.log
 /configcache.txt
 /coverage/
 /benchmarks/
-/.nyc_output/
 /prebuilds/
 /deps/couchbase-cxx-cache
 *.tar.gz

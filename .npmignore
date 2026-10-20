@@ -29,12 +29,10 @@ config.json
 /build/
 /node_modules/
 /docs/
-/test/CouchbaseMock.jar
 /builderror.log
 /configcache.txt
 /coverage/
 /benchmarks/
-/.nyc_output/
 /prebuilds/
 /prebuildsDebug/
 *.tar.gz
@@ -47,7 +45,6 @@ config.json
 .editorconfig
 .eslintrc.js
 .gitignore
-.istanbul.yml
 .prettierrc
 Makefile
 README.md

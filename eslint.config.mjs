@@ -1,7 +1,6 @@
 import js from '@eslint/js'
 import tseslint from 'typescript-eslint'
 import pluginN from 'eslint-plugin-n'
-import pluginMocha from 'eslint-plugin-mocha'
 import pluginJsdoc from 'eslint-plugin-jsdoc'
 import prettierConfig from 'eslint-config-prettier'
 import globals from 'globals'
@@ -61,14 +60,12 @@ export default [
       globals: {
         ...globals.node,
         ...globals.es2021,
-        ...globals.mocha,
       },
     },
 
     plugins: {
       '@typescript-eslint': tseslint.plugin,
       n: pluginN,
-      mocha: pluginMocha,
       jsdoc: pluginJsdoc,
     },
 

@@ -147,14 +147,17 @@ gerrit server. For more details see
 
 To build the client, follow the steps outlined on the [BUILDING page](https://github.com/couchbase/couchnode/blob/main/BUILDING.md)
 
-To execute our test suite, run `make test` from the root directory.
+To execute our test suite, run `make test` from the root directory. With no
+`CNCSTR` set, the suite runs against a mock server it starts itself. To run it
+against a cluster instead, set `CNCSTR` to its connection string, and `CNUSER`
+and `CNPASS` to its credentials.
 
 To execute our code coverage, run `make cover` from the root directory.
 
-In addition to the full test suite and full code coverage, you may additionally
-execute a subset of the tests which excludes slow-running tests for quick
-verifications. These can be run through `make fasttest` and `make fastcover`
-respectively.
+`make unittest` runs only the tests that need no server, and `make fasttest`
+leaves out the slow-running tests for quick verifications. See
+[CONTRIBUTING.md](https://github.com/couchbase/couchnode/blob/master/CONTRIBUTING.md)
+for the rest.
 
 Finally, to build the API reference for the project, run `make docs` from the
 root directory, and a docs folder will be created with the api reference.
