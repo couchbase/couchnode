@@ -3966,6 +3966,12 @@ export interface CppConnection extends CppConnectionAutogen {
 
   shutdown(callback: (err: CppError | null) => void): void
 
+  /**
+   * A test seam, never called by the SDK. Blocks the connection's IO thread
+   * for `ms` milliseconds, standing in for a handler that does not return.
+   */
+  _stallIo(ms: number): void
+
   openBucket(bucketName: string, callback: (err: CppError | null) => void): void
 
   diagnostics(
