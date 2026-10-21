@@ -3972,6 +3972,13 @@ export interface CppConnection extends CppConnectionAutogen {
    */
   _stallIo(ms: number): void
 
+  /**
+   * A test seam, never called by the SDK. Drops `callback` on the
+   * connection's IO thread without calling it, standing in for an operation
+   * whose handler is destroyed without being called.
+   */
+  _dropCallback(callback: (err: CppError | null) => void): void
+
   openBucket(bucketName: string, callback: (err: CppError | null) => void): void
 
   diagnostics(
