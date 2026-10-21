@@ -4,7 +4,7 @@
   },
   "description": "The official Couchbase Node.js Client Library.",
   "engines": {
-    "node": ">=16"
+    "node": "^20.17.0 || >=22.9.0"
   },
   "homepage": "http://www.couchbase.com/communities/nodejs",
   "keywords": [
