@@ -20,7 +20,7 @@ import {
  * pull `child_process`, `net` and `fs` into every worker. The selftest fails if
  * the two diverge.
  */
-export const MEASURED_AGAINST = 'v0.0.1-74'
+export const MEASURED_AGAINST = 'v0.0.1-81'
 
 export interface MockLimitation {
   /** The backends this defect belongs to. Never `none`; see `gateLimitations`. */
@@ -92,15 +92,6 @@ export const MOCK_LIMITATIONS = Object.freeze({
       'The mock answers management requests locally and fast enough that no ' +
       'deadline this side of zero can be missed, so a suite asserting that an ' +
       'unreachably short timeout is honoured has nothing to observe.',
-    observedIn: MEASURED_AGAINST,
-  }),
-  'gocaves-accepts-any-credentials': Object.freeze({
-    backends: Object.freeze(['gocaves'] as const),
-    note:
-      'the mock does not authenticate. A connection made with a username it ' +
-      'has never heard of is accepted like any other, so a test asserting that ' +
-      'wrong credentials raise `AuthenticationFailureError` has no rejection ' +
-      'to observe.',
     observedIn: MEASURED_AGAINST,
   }),
   'gocaves-query-transactions': Object.freeze({

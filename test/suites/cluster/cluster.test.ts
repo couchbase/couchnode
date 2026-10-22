@@ -124,7 +124,7 @@ defineSuite(
     collection: CollectionStrategy.DefaultCollection,
     features: [ServerFeature.KeyValue],
   },
-  ({ test, limited }) => {
+  ({ test }) => {
     test('should queue operations until connected', async ({ env }) => {
       // Nothing is awaited between the connect and the insert, which is what
       // makes this a test of the queue rather than of a settled connection.
@@ -186,17 +186,14 @@ defineSuite(
       await cluster.close()
     })
 
-    test.skipIf(limited('gocaves-accepts-any-credentials'))(
-      'should error with AuthenticationFailureError',
-      async ({ env }) => {
-        await expectThrows(
-          () => env.openCluster({ username: 'wrongUsername' }),
-          AuthenticationFailureError,
-          undefined,
-          env.ctx({ op: 'connect', extra: 'username=wrongUsername' })
-        )
-      }
-    )
+    test('should error with AuthenticationFailureError', async ({ env }) => {
+      await expectThrows(
+        () => env.openCluster({ username: 'wrongUsername' }),
+        AuthenticationFailureError,
+        undefined,
+        env.ctx({ op: 'connect', extra: 'username=wrongUsername' })
+      )
+    })
 
     test('should use wanDevelopment config profile', async ({ env }) => {
       const cluster = await env.openCluster(

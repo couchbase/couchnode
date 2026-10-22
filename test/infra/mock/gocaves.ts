@@ -38,7 +38,7 @@ import { killChild } from './child'
  * describe this tag, and `limitations.ts` is held to it, so a bump forces a
  * re-check of both.
  */
-export const GOCAVES_VERSION = 'v0.0.1-74'
+export const GOCAVES_VERSION = 'v0.0.1-81'
 
 const GOCAVES_URL_BASE =
   'https://github.com/couchbaselabs/gocaves/releases/download'
@@ -64,7 +64,7 @@ export interface GoCavesOptions {
   readonly binaryPath?: string
   /** `CNCAVESURL`. The release download base, without the version. */
   readonly urlBase?: string
-  /** `CNCAVESVER`. The release tag, e.g. `v0.0.1-74`. */
+  /** `CNCAVESVER`. The release tag, e.g. `v0.0.1-81`. */
   readonly version?: string
 }
 
