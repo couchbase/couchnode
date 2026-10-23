@@ -1,5 +1,11 @@
 import { Bucket } from './bucket'
-import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
+import {
+  CompoundTimeout,
+  NodeCallback,
+  PromiseHelper,
+  callbackOf,
+  optionsOf,
+} from './utilities'
 import { DesignDocumentNamespace } from './viewtypes'
 import {
   CppManagementViewsDesignDocument,
@@ -688,13 +694,8 @@ export class ViewIndexManager {
     options?: PublishDesignDocumentOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       ViewIndexMgmtOp.ViewIndexPublish,

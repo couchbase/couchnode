@@ -9,7 +9,13 @@ import {
   QueryIndexMgmtOp,
 } from './observabilitytypes'
 import { RequestSpan } from './tracing'
-import { CompoundTimeout, NodeCallback, PromiseHelper } from './utilities'
+import {
+  CompoundTimeout,
+  NodeCallback,
+  PromiseHelper,
+  callbackOf,
+  optionsOf,
+} from './utilities'
 
 /**
  * Contains a specific index configuration for the query service.
@@ -704,13 +710,8 @@ export class CollectionQueryIndexManager {
     options?: CreateQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -749,13 +750,8 @@ export class CollectionQueryIndexManager {
     options?: CreatePrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -794,13 +790,8 @@ export class CollectionQueryIndexManager {
     options?: DropQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -836,13 +827,8 @@ export class CollectionQueryIndexManager {
     options?: DropPrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -878,13 +864,8 @@ export class CollectionQueryIndexManager {
     options?: GetAllQueryIndexesOptions,
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -917,13 +898,8 @@ export class CollectionQueryIndexManager {
     options?: BuildQueryIndexOptions,
     callback?: NodeCallback<string[]>
   ): Promise<string[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -960,13 +936,8 @@ export class CollectionQueryIndexManager {
     options?: WatchQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     _checkCollectionQueryIndexManagerOptions(options)
 
@@ -1024,13 +995,8 @@ export class QueryIndexManager {
     options?: CreateQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexCreate,
@@ -1069,13 +1035,8 @@ export class QueryIndexManager {
     options?: CreatePrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexCreate,
@@ -1114,13 +1075,8 @@ export class QueryIndexManager {
     options?: DropQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexDrop,
@@ -1156,13 +1112,8 @@ export class QueryIndexManager {
     options?: DropPrimaryQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexDrop,
@@ -1198,13 +1149,8 @@ export class QueryIndexManager {
     options?: GetAllQueryIndexesOptions,
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexGetAll,
@@ -1237,13 +1183,8 @@ export class QueryIndexManager {
     options?: BuildQueryIndexOptions,
     callback?: NodeCallback<string[]>
   ): Promise<string[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexBuildDeferred,
@@ -1280,13 +1221,8 @@ export class QueryIndexManager {
     options?: WatchQueryIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       QueryIndexMgmtOp.QueryIndexWatchIndexes,

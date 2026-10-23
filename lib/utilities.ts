@@ -94,6 +94,39 @@ export class PromiseHelper {
 }
 
 /**
+ * Shared by every operation called without options. Frozen, so a write to it
+ * throws rather than leaking into the next caller.
+ */
+const EMPTY_OPTIONS = Object.freeze({})
+
+/**
+ * Resolves the callback of an operation that accepts one in the options
+ * position, as in `get(key, callback)`.
+ *
+ * @internal
+ */
+export function callbackOf<T>(
+  options: unknown,
+  callback?: NodeCallback<T>
+): NodeCallback<T> | undefined {
+  return typeof options === 'function'
+    ? (options as NodeCallback<T>)
+    : callback
+}
+
+/**
+ * Resolves the options of an operation, substituting an empty options object
+ * when none were given or a callback took their place.
+ *
+ * @internal
+ */
+export function optionsOf<Opts>(options: Opts | undefined): Opts {
+  return !options || typeof options === 'function'
+    ? (EMPTY_OPTIONS as Opts)
+    : options
+}
+
+/**
  * @internal
  */
 export class CompoundTimeout {

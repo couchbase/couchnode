@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
-import { NodeCallback, PromiseHelper } from '../../../lib/utilities'
+import {
+  NodeCallback,
+  PromiseHelper,
+  callbackOf,
+  optionsOf,
+} from '../../../lib/utilities'
 import { watchRejections } from '../../infra/rejections'
 
 interface Seen<T> {
@@ -249,6 +254,53 @@ describe('#utilities', () => {
         expect(seen.success).toBe(1)
         expect(seen.error).toBe(1)
       })
+    })
+  })
+
+  // The prologue every operation opens with: a callback may sit in the
+  // options position, and missing options read as empty.
+  describe('#prologue', () => {
+    const cb: NodeCallback<string> = () => undefined
+    const other: NodeCallback<string> = () => undefined
+
+    it('should take the callback from the options position', () => {
+      expect(callbackOf(cb, undefined)).toBe(cb)
+      expect(callbackOf(cb, other)).toBe(cb)
+    })
+
+    it('should keep the callback argument when options are not a function', () => {
+      expect(callbackOf({ timeout: 1 }, other)).toBe(other)
+      expect(callbackOf(undefined, other)).toBe(other)
+      expect(callbackOf(undefined, undefined)).toBeUndefined()
+    })
+
+    it('should pass given options through untouched', () => {
+      const options = { timeout: 1 }
+      expect(optionsOf(options)).toBe(options)
+    })
+
+    it('should substitute empty options for missing ones', () => {
+      for (const missing of [undefined, null]) {
+        const options = optionsOf<{ timeout?: number }>(
+          missing as unknown as undefined
+        )
+        expect(options).toEqual({})
+        expect(options.timeout).toBeUndefined()
+      }
+    })
+
+    it('should substitute empty options when a callback took their place', () => {
+      expect(optionsOf(cb as unknown as { timeout?: number })).toEqual({})
+    })
+
+    it('should share one frozen empty options object', () => {
+      const a = optionsOf<{ timeout?: number }>(undefined)
+      const b = optionsOf<{ timeout?: number }>(undefined)
+      expect(a).toBe(b)
+      expect(Object.isFrozen(a)).toBe(true)
+      expect(() => {
+        a.timeout = 1
+      }).toThrow(TypeError)
     })
   })
 })

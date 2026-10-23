@@ -13,7 +13,7 @@ import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { UserMgmtOp, ObservabilityInstruments } from './observabilitytypes'
 import { RequestSpan } from './tracing'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 
 /**
  * Contains information about an origin for a role.
@@ -712,13 +712,8 @@ export class UserManager {
     options?: GetUserOptions,
     callback?: NodeCallback<UserAndMetadata>
   ): Promise<UserAndMetadata> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.UserGet,
@@ -765,13 +760,8 @@ export class UserManager {
     options?: GetAllUsersOptions,
     callback?: NodeCallback<UserAndMetadata[]>
   ): Promise<UserAndMetadata[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.UserGetAll,
@@ -819,13 +809,8 @@ export class UserManager {
     options?: UpsertUserOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.UserUpsert,
@@ -872,13 +857,8 @@ export class UserManager {
     options?: ChangePasswordOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.ChangePassword,
@@ -918,13 +898,8 @@ export class UserManager {
     options?: DropUserOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.UserDrop,
@@ -969,13 +944,8 @@ export class UserManager {
     options?: GetRolesOptions,
     callback?: NodeCallback<Role[]>
   ): Promise<Role[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.RoleGetAll,
@@ -1016,13 +986,8 @@ export class UserManager {
     options?: GetGroupOptions,
     callback?: NodeCallback<Group>
   ): Promise<Group> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.GroupGet,
@@ -1060,13 +1025,8 @@ export class UserManager {
     options?: GetAllGroupsOptions,
     callback?: NodeCallback<Group[]>
   ): Promise<Group[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.GroupGetAll,
@@ -1107,13 +1067,8 @@ export class UserManager {
     options?: UpsertGroupOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.GroupUpsert,
@@ -1153,13 +1108,8 @@ export class UserManager {
     options?: DropGroupOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       UserMgmtOp.GroupDrop,

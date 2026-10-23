@@ -23,6 +23,8 @@ import {
   NodeCallback,
   nsServerStrToDuraLevel,
   PromiseHelper,
+  callbackOf,
+  optionsOf,
 } from './utilities'
 
 /**
@@ -643,13 +645,8 @@ export class BucketManager {
     options?: CreateBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketCreate,
@@ -697,13 +694,8 @@ export class BucketManager {
     options?: UpdateBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketUpdate,
@@ -750,13 +742,8 @@ export class BucketManager {
     options?: DropBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketDrop,
@@ -798,13 +785,8 @@ export class BucketManager {
     options?: GetBucketOptions,
     callback?: NodeCallback<BucketSettings>
   ): Promise<BucketSettings> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketGet,
@@ -846,13 +828,8 @@ export class BucketManager {
     options?: GetAllBucketsOptions,
     callback?: NodeCallback<BucketSettings[]>
   ): Promise<BucketSettings[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketGetAll,
@@ -897,13 +874,8 @@ export class BucketManager {
     options?: FlushBucketOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       BucketMgmtOp.BucketFlush,

@@ -10,7 +10,7 @@ import {
   ObservabilityInstruments,
 } from './observabilitytypes'
 import { RequestSpan } from './tracing'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 
 /**
  * Provides options for configuring a collection.
@@ -329,13 +329,8 @@ export class CollectionManager {
     options?: GetAllScopesOptions,
     callback?: NodeCallback<ScopeSpec[]>
   ): Promise<ScopeSpec[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       CollectionMgmtOp.ScopeGetAll,
@@ -511,13 +506,8 @@ export class CollectionManager {
     options?: DropCollectionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       CollectionMgmtOp.CollectionDrop,
@@ -570,13 +560,8 @@ export class CollectionManager {
     options?: UpdateCollectionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       CollectionMgmtOp.CollectionUpdate,
@@ -626,13 +611,8 @@ export class CollectionManager {
     options?: CreateScopeOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       CollectionMgmtOp.ScopeCreate,
@@ -679,13 +659,8 @@ export class CollectionManager {
     options?: DropScopeOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       CollectionMgmtOp.ScopeDrop,

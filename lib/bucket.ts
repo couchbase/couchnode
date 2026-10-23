@@ -8,7 +8,7 @@ import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
 import { Scope } from './scope'
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 import { ViewExecutor } from './viewexecutor'
 import { ViewIndexManager } from './viewindexmanager'
 import {
@@ -142,13 +142,8 @@ export class Bucket {
     ViewRow<TValue, TKey>,
     ViewMetaData
   > {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new ViewExecutor(this)
 
@@ -171,13 +166,8 @@ export class Bucket {
     options?: PingOptions,
     callback?: NodeCallback<PingResult>
   ): Promise<PingResult> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new PingExecutor(this._cluster)
 
@@ -204,13 +194,8 @@ export class Bucket {
     options?: WaitUntilReadyOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new WaitUntilReadyExecutor(this._cluster, this.name)
 

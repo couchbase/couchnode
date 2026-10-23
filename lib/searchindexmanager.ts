@@ -1,5 +1,5 @@
 import { Cluster } from './cluster'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 import { CppManagementSearchIndex } from './binding'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
@@ -391,13 +391,8 @@ export class SearchIndexManager {
     options?: GetSearchIndexOptions,
     callback?: NodeCallback<SearchIndex>
   ): Promise<SearchIndex> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexGet,
@@ -435,13 +430,8 @@ export class SearchIndexManager {
     options?: GetAllSearchIndexesOptions,
     callback?: NodeCallback<SearchIndex[]>
   ): Promise<SearchIndex[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexGetAll,
@@ -484,13 +474,8 @@ export class SearchIndexManager {
     options?: UpsertSearchIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexUpsert,
@@ -530,13 +515,8 @@ export class SearchIndexManager {
     options?: DropSearchIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexDrop,
@@ -576,13 +556,8 @@ export class SearchIndexManager {
     options?: GetSearchIndexedDocumentsCountOptions,
     callback?: NodeCallback<number>
   ): Promise<number> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexGetDocumentsCount,
@@ -625,13 +600,8 @@ export class SearchIndexManager {
     options?: PauseSearchIngestOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexPauseIngest,
@@ -674,13 +644,8 @@ export class SearchIndexManager {
     options?: ResumeSearchIngestOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexResumeIngest,
@@ -723,13 +688,8 @@ export class SearchIndexManager {
     options?: AllowSearchQueryingOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexAllowQuerying,
@@ -772,13 +732,8 @@ export class SearchIndexManager {
     options?: DisallowSearchQueryingOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexDisallowQuerying,
@@ -821,13 +776,8 @@ export class SearchIndexManager {
     options?: FreezeSearchPlanOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexFreezePlan,
@@ -870,13 +820,8 @@ export class SearchIndexManager {
     options?: UnfreezeSearchPlanOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexUnfreezePlan,
@@ -921,13 +866,8 @@ export class SearchIndexManager {
     options?: AnalyzeSearchDocumentOptions,
     callback?: NodeCallback<any>
   ): Promise<any> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       SearchIndexMgmtOp.SearchIndexAnalyzeDocument,

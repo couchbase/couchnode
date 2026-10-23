@@ -21,7 +21,7 @@ import {
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 import { ScopeEventingFunctionManager } from './scopeeventingfunctionmanager'
 
 /**
@@ -132,13 +132,8 @@ export class Scope {
     options?: QueryOptions,
     callback?: NodeCallback<QueryResult<TRow>>
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const bucket = this.bucket
     const exec = new QueryExecutor(this.cluster)
@@ -166,13 +161,8 @@ export class Scope {
     options?: AnalyticsQueryOptions,
     callback?: NodeCallback<AnalyticsResult<TRow>>
   ): StreamableRowPromise<AnalyticsResult<TRow>, TRow, AnalyticsMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const bucket = this.bucket
     const exec = new AnalyticsExecutor(this.cluster)
@@ -202,13 +192,8 @@ export class Scope {
     options?: SearchQueryOptions,
     callback?: NodeCallback<SearchResult>
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new SearchExecutor(this.cluster, this._bucket.name, this._name)
 

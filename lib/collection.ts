@@ -65,7 +65,14 @@ import {
 } from './streamablepromises'
 import { RequestSpan } from './tracing'
 import { Transcoder } from './transcoders'
-import { parseExpiry, NodeCallback, PromiseHelper, CasInput } from './utilities'
+import {
+  parseExpiry,
+  NodeCallback,
+  PromiseHelper,
+  CasInput,
+  callbackOf,
+  optionsOf,
+} from './utilities'
 
 /**
  * @category Key-Value
@@ -896,13 +903,8 @@ export class Collection {
     options?: GetOptions,
     callback?: NodeCallback<GetResult>
   ): Promise<GetResult> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1066,13 +1068,8 @@ export class Collection {
     options?: ExistsOptions,
     callback?: NodeCallback<ExistsResult>
   ): Promise<ExistsResult> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1242,13 +1239,8 @@ export class Collection {
     options?: GetAnyReplicaOptions,
     callback?: NodeCallback<GetReplicaResult>
   ): Promise<GetReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
       : new ObservableRequestHandler(
@@ -1282,13 +1274,8 @@ export class Collection {
     options?: GetReplicaOptions,
     callback?: NodeCallback<GetReplicaResult>
   ): Promise<GetReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1365,13 +1352,8 @@ export class Collection {
     options?: GetAllReplicasOptions,
     callback?: NodeCallback<GetReplicaResult[]>
   ): Promise<GetReplicaResult[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
       : new ObservableRequestHandler(
@@ -1401,13 +1383,8 @@ export class Collection {
     options?: InsertOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1497,13 +1474,8 @@ export class Collection {
     options?: UpsertOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1594,13 +1566,8 @@ export class Collection {
     options?: ReplaceOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1690,13 +1657,8 @@ export class Collection {
     options?: RemoveOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1784,13 +1746,8 @@ export class Collection {
     options?: GetAndTouchOptions,
     callback?: NodeCallback<GetResult>
   ): Promise<GetResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1856,13 +1813,8 @@ export class Collection {
     options?: TouchOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1920,13 +1872,8 @@ export class Collection {
     options?: GetAndLockOptions,
     callback?: NodeCallback<GetResult>
   ): Promise<GetResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -1987,13 +1934,8 @@ export class Collection {
     options?: UnlockOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -2150,13 +2092,8 @@ export class Collection {
     options?: ScanOptions,
     callback?: NodeCallback<ScanResult[]>
   ): Promise<ScanResult[]> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const transcoder = options.transcoder || this.transcoder
     const timeout = options.timeout || this._kvScanTimeout
@@ -2210,13 +2147,8 @@ export class Collection {
     options?: LookupInOptions,
     callback?: NodeCallback<LookupInResult>
   ): Promise<LookupInResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -2474,13 +2406,8 @@ export class Collection {
     options?: LookupInAnyReplicaOptions,
     callback?: NodeCallback<LookupInReplicaResult>
   ): Promise<LookupInReplicaResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
       : new ObservableRequestHandler(
@@ -2521,13 +2448,8 @@ export class Collection {
     options?: LookupInAllReplicasOptions,
     callback?: NodeCallback<LookupInReplicaResult[]>
   ): Promise<LookupInReplicaResult[]> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
       : new ObservableRequestHandler(
@@ -2558,13 +2480,8 @@ export class Collection {
     options?: MutateInOptions,
     callback?: NodeCallback<MutateInResult>
   ): Promise<MutateInResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -2740,13 +2657,8 @@ export class Collection {
     options?: IncrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -2831,13 +2743,8 @@ export class Collection {
     options?: DecrementOptions,
     callback?: NodeCallback<CounterResult>
   ): Promise<CounterResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -2922,13 +2829,8 @@ export class Collection {
     options?: AppendOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null
@@ -3011,13 +2913,8 @@ export class Collection {
     options?: PrependOptions,
     callback?: NodeCallback<MutationResult>
   ): Promise<MutationResult> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
       ? null

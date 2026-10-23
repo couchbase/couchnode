@@ -15,7 +15,7 @@ import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import { AnalyticsMgmtOp, ObservabilityInstruments } from './observabilitytypes'
 import { RequestSpan } from './tracing'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 
 /**
  * Represents the type of an analytics link.
@@ -1231,13 +1231,8 @@ export class AnalyticsIndexManager {
     options?: CreateAnalyticsDataverseOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsDataverseCreate,
@@ -1281,13 +1276,8 @@ export class AnalyticsIndexManager {
     options?: DropAnalyticsDataverseOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsDataverseDrop,
@@ -1333,13 +1323,8 @@ export class AnalyticsIndexManager {
     options?: CreateAnalyticsDatasetOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsDatasetCreate,
@@ -1387,13 +1372,8 @@ export class AnalyticsIndexManager {
     options?: DropAnalyticsDatasetOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsDatasetDrop,
@@ -1437,13 +1417,8 @@ export class AnalyticsIndexManager {
     options?: GetAllAnalyticsDatasetsOptions,
     callback?: NodeCallback<AnalyticsDataset[]>
   ): Promise<AnalyticsDataset[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsDatasetGetAll,
@@ -1498,13 +1473,8 @@ export class AnalyticsIndexManager {
     options?: CreateAnalyticsIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[3]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsIndexCreate,
@@ -1554,13 +1524,8 @@ export class AnalyticsIndexManager {
     options?: DropAnalyticsIndexOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsIndexDrop,
@@ -1605,13 +1570,8 @@ export class AnalyticsIndexManager {
     options?: GetAllAnalyticsIndexesOptions,
     callback?: NodeCallback<AnalyticsIndex[]>
   ): Promise<AnalyticsIndex[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsIndexGetAll,
@@ -1698,13 +1658,8 @@ export class AnalyticsIndexManager {
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkConnect,
@@ -1736,13 +1691,8 @@ export class AnalyticsIndexManager {
     options?: ConnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkConnect,
@@ -1825,13 +1775,8 @@ export class AnalyticsIndexManager {
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkDisconnect,
       this.observabilityInstruments,
@@ -1856,13 +1801,8 @@ export class AnalyticsIndexManager {
     options?: DisconnectAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkDisconnect,
@@ -1905,13 +1845,8 @@ export class AnalyticsIndexManager {
     options?: GetPendingAnalyticsMutationsOptions,
     callback?: NodeCallback<{ [k: string]: { [k: string]: number } }>
   ): Promise<{ [k: string]: { [k: string]: number } }> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsGetPendingMutations,
@@ -1953,13 +1888,8 @@ export class AnalyticsIndexManager {
     options?: CreateAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkCreate,
@@ -2056,13 +1986,8 @@ export class AnalyticsIndexManager {
     options?: ReplaceAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkReplace,
@@ -2161,13 +2086,8 @@ export class AnalyticsIndexManager {
     options?: DropAnalyticsLinkOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkDrop,
@@ -2206,13 +2126,8 @@ export class AnalyticsIndexManager {
     options?: GetAllAnalyticsLinksOptions,
     callback?: NodeCallback<AnalyticsLink[]>
   ): Promise<AnalyticsLink[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       AnalyticsMgmtOp.AnalyticsLinkGetAll,

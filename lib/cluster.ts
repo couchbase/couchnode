@@ -57,7 +57,7 @@ import { RequestTracer } from './tracing'
 import { Transactions, TransactionsConfig } from './transactions'
 import { Transcoder, DefaultTranscoder } from './transcoders'
 import { UserManager } from './usermanager'
-import { PromiseHelper, NodeCallback } from './utilities'
+import { PromiseHelper, NodeCallback, callbackOf, optionsOf } from './utilities'
 import { generateClientString } from './utilities_internal'
 import { inspect } from 'util'
 /**
@@ -858,13 +858,8 @@ export class Cluster {
     options?: QueryOptions,
     callback?: NodeCallback<QueryResult<TRow>>
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new QueryExecutor(this)
 
@@ -887,13 +882,8 @@ export class Cluster {
     options?: AnalyticsQueryOptions,
     callback?: NodeCallback<AnalyticsResult<TRow>>
   ): StreamableRowPromise<AnalyticsResult<TRow>, TRow, AnalyticsMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new AnalyticsExecutor(this)
 
@@ -918,13 +908,8 @@ export class Cluster {
     options?: SearchQueryOptions,
     callback?: NodeCallback<SearchResult>
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new SearchExecutor(this)
 
@@ -949,13 +934,8 @@ export class Cluster {
     options?: SearchQueryOptions,
     callback?: NodeCallback<SearchResult>
   ): StreamableRowPromise<SearchResult, SearchRow, SearchMetaData> {
-    if (options instanceof Function) {
-      callback = arguments[2]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new SearchExecutor(this)
 
@@ -978,13 +958,8 @@ export class Cluster {
     options?: DiagnosticsOptions,
     callback?: NodeCallback<DiagnosticsResult>
   ): Promise<DiagnosticsResult> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new DiagnoticsExecutor(this)
 
@@ -1004,13 +979,8 @@ export class Cluster {
     options?: PingOptions,
     callback?: NodeCallback<PingResult>
   ): Promise<PingResult> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new PingExecutor(this)
 
@@ -1031,13 +1001,8 @@ export class Cluster {
     options?: WaitUntilReadyOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const exec = new WaitUntilReadyExecutor(this)
 

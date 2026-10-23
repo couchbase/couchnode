@@ -1,5 +1,5 @@
 import { Cluster } from './cluster'
-import { NodeCallback, PromiseHelper } from './utilities'
+import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
 import { CppManagementEventingFunction } from './binding'
 import {
   DeployFunctionOptions,
@@ -61,13 +61,8 @@ export class ScopeEventingFunctionManager {
     options?: UpsertFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingUpsertFunction,
@@ -114,13 +109,8 @@ export class ScopeEventingFunctionManager {
     options?: DropFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingDropFunction,
@@ -165,13 +155,8 @@ export class ScopeEventingFunctionManager {
     options?: GetAllFunctionsOptions,
     callback?: NodeCallback<EventingFunction[]>
   ): Promise<EventingFunction[]> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingGetAllFunctions,
@@ -221,13 +206,8 @@ export class ScopeEventingFunctionManager {
     options?: GetFunctionOptions,
     callback?: NodeCallback<EventingFunction>
   ): Promise<EventingFunction> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingGetFunction,
@@ -276,13 +256,8 @@ export class ScopeEventingFunctionManager {
     options?: DeployFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingDeployFunction,
@@ -329,13 +304,8 @@ export class ScopeEventingFunctionManager {
     options?: DeployFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingUndeployFunction,
@@ -382,13 +352,8 @@ export class ScopeEventingFunctionManager {
     options?: PauseFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingPauseFunction,
@@ -435,13 +400,8 @@ export class ScopeEventingFunctionManager {
     options?: ResumeFunctionOptions,
     callback?: NodeCallback<void>
   ): Promise<void> {
-    if (options instanceof Function) {
-      callback = arguments[1]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingResumeFunction,
@@ -486,13 +446,8 @@ export class ScopeEventingFunctionManager {
     options?: FunctionsStatusOptions,
     callback?: NodeCallback<EventingState>
   ): Promise<EventingState> {
-    if (options instanceof Function) {
-      callback = arguments[0]
-      options = undefined
-    }
-    if (!options) {
-      options = {}
-    }
+    callback = callbackOf(options, callback)
+    options = optionsOf(options)
 
     const obsReqHandler = new ObservableRequestHandler(
       EventingFunctionMgmtOp.EventingGetStatus,
