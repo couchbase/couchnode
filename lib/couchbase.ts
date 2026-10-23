@@ -9,6 +9,7 @@ import { NodeCallback } from './utilities'
  * @param connStr The connection string to use to connect to the cluster.
  * @param options Optional parameters for this operation.
  * @param callback A node-style callback to be invoked after execution.
+ *   Deprecated: await the returned promise instead.
  * @category Core
  */
 export function connect(

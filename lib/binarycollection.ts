@@ -220,6 +220,7 @@ export class BinaryCollection {
    * for values above `Number.MAX_SAFE_INTEGER` (2^53 - 1).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   increment(
     key: string,
@@ -239,6 +240,7 @@ export class BinaryCollection {
    * for values above `Number.MAX_SAFE_INTEGER` (2^53 - 1).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   decrement(
     key: string,
@@ -256,6 +258,7 @@ export class BinaryCollection {
    * @param value The value to adjoin to the end of the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   append(
     key: string,
@@ -273,6 +276,7 @@ export class BinaryCollection {
    * @param value The value to adjoin to the beginning of the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   prepend(
     key: string,

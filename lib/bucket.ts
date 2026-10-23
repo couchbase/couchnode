@@ -131,6 +131,7 @@ export class Bucket {
    * @param viewName The name of the view to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   viewQuery<TValue = any, TKey = any>(
     designDoc: string,
@@ -161,6 +162,7 @@ export class Bucket {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   ping(
     options?: PingOptions,
@@ -188,6 +190,7 @@ export class Bucket {
    * @param timeout The time in milliseconds to wait for the bucket to become ready.
    * @param options Optional parameters.
    * @param callback A callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   waitUntilReady(
     timeout: number,

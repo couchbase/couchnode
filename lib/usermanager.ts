@@ -706,6 +706,7 @@ export class UserManager {
    * @param username The username of the user to fetch.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getUser(
     username: string,
@@ -755,6 +756,7 @@ export class UserManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllUsers(
     options?: GetAllUsersOptions,
@@ -803,6 +805,7 @@ export class UserManager {
    * @param user The user to update.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsertUser(
     user: IUser,
@@ -851,6 +854,7 @@ export class UserManager {
    * @param newPassword The new password to be applied.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   changePassword(
     newPassword: string,
@@ -892,6 +896,7 @@ export class UserManager {
    * @param username The username of the user to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropUser(
     username: string,
@@ -939,6 +944,7 @@ export class UserManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getRoles(
     options?: GetRolesOptions,
@@ -980,6 +986,7 @@ export class UserManager {
    * @param groupName The name of the group to retrieve.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getGroup(
     groupName: string,
@@ -1020,6 +1027,7 @@ export class UserManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllGroups(
     options?: GetAllGroupsOptions,
@@ -1061,6 +1069,7 @@ export class UserManager {
    * @param group The group to update.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsertGroup(
     group: IGroup,
@@ -1102,6 +1111,7 @@ export class UserManager {
    * @param groupName The name of the group to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropGroup(
     groupName: string,

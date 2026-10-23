@@ -55,6 +55,7 @@ export class ScopeEventingFunctionManager {
    * @param functionDefinition The description of the eventing function to upsert.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsertFunction(
     functionDefinition: IEventingFunction,
@@ -103,6 +104,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to delete.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropFunction(
     name: string,
@@ -150,6 +152,7 @@ export class ScopeEventingFunctionManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllFunctions(
     options?: GetAllFunctionsOptions,
@@ -200,6 +203,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to fetch.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getFunction(
     name: string,
@@ -250,6 +254,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to deploy.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   deployFunction(
     name: string,
@@ -298,6 +303,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to undeploy.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   undeployFunction(
     name: string,
@@ -346,6 +352,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to pause.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   pauseFunction(
     name: string,
@@ -394,6 +401,7 @@ export class ScopeEventingFunctionManager {
    * @param name The name of the eventing function to resume.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   resumeFunction(
     name: string,
@@ -441,6 +449,7 @@ export class ScopeEventingFunctionManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   functionsStatus(
     options?: FunctionsStatusOptions,

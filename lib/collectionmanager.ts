@@ -324,6 +324,7 @@ export class CollectionManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllScopes(
     options?: GetAllScopesOptions,
@@ -371,6 +372,7 @@ export class CollectionManager {
    * @param collectionSpec Specifies the settings for the new collection.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated Use the other overload instead.
    */
   createCollection(
@@ -381,6 +383,12 @@ export class CollectionManager {
 
   /**
    * Creates a collection in a scope.
+   *
+   * @param collectionName The name of the collection.
+   * @param scopeName The name of the scope containing this collection.
+   * @param options Optional parameters for this operation.
+   * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createCollection(
     collectionName: string,
@@ -397,6 +405,7 @@ export class CollectionManager {
    * @param settings The settings to use on creating the collection.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createCollection(
     collectionName: string,
@@ -499,6 +508,7 @@ export class CollectionManager {
    * @param scopeName The name of the scope containing the collection to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropCollection(
     collectionName: string,
@@ -552,6 +562,7 @@ export class CollectionManager {
    * @param settings The settings to update on the collection.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   updateCollection(
     collectionName: string,
@@ -605,6 +616,7 @@ export class CollectionManager {
    * @param scopeName The name of the new scope to create.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createScope(
     scopeName: string,
@@ -653,6 +665,7 @@ export class CollectionManager {
    * @param scopeName The name of the scope to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropScope(
     scopeName: string,

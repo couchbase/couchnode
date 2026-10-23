@@ -385,6 +385,7 @@ export class SearchIndexManager {
    * @param indexName The index to retrieve.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getIndex(
     indexName: string,
@@ -425,6 +426,7 @@ export class SearchIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllIndexes(
     options?: GetAllSearchIndexesOptions,
@@ -468,6 +470,7 @@ export class SearchIndexManager {
    * @param indexDefinition The index to update.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsertIndex(
     indexDefinition: ISearchIndex,
@@ -509,6 +512,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropIndex(
     indexName: string,
@@ -550,6 +554,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to return the count for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getIndexedDocumentsCount(
     indexName: string,
@@ -594,6 +599,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to pause.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   pauseIngest(
     indexName: string,
@@ -638,6 +644,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to resume.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   resumeIngest(
     indexName: string,
@@ -682,6 +689,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to enable querying for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   allowQuerying(
     indexName: string,
@@ -726,6 +734,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to disable querying for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   disallowQuerying(
     indexName: string,
@@ -770,6 +779,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to freeze the plan of.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   freezePlan(
     indexName: string,
@@ -814,6 +824,7 @@ export class SearchIndexManager {
    * @param indexName The name of the index to freeze the plan of.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   unfreezePlan(
     indexName: string,
@@ -859,6 +870,7 @@ export class SearchIndexManager {
    * @param document The document to analyze.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   analyzeDocument(
     indexName: string,

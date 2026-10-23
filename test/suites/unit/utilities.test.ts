@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   NodeCallback,
@@ -254,6 +254,65 @@ describe('#utilities', () => {
         expect(seen.success).toBe(1)
         expect(seen.error).toBe(1)
       })
+    })
+  })
+
+  // The deprecation warning fires once per process, so each test loads its
+  // own copy of the module; the tests above have already tripped the shared
+  // one.
+  describe('#callbackdeprecation', () => {
+    async function freshHelper(): Promise<typeof PromiseHelper> {
+      vi.resetModules()
+      return (await import('../../../lib/utilities')).PromiseHelper
+    }
+
+    async function captureWarnings(
+      body: () => Promise<void>
+    ): Promise<Error[]> {
+      const warnings: Error[] = []
+      const listener = (w: Error) => warnings.push(w)
+      process.on('warning', listener)
+      try {
+        await body()
+        // emitWarning delivers on the next tick.
+        await new Promise((resolve) => setImmediate(resolve))
+      } finally {
+        process.off('warning', listener)
+      }
+      return warnings.filter(
+        (w) => (w as NodeJS.ErrnoException).code === 'CBJS_DEP_CALLBACK'
+      )
+    }
+
+    it('should not warn when no callback is given', async () => {
+      const helper = await freshHelper()
+      const warnings = await captureWarnings(async () => {
+        await helper.wrap<string>((cb) => cb(null, 'Success!'))
+        await helper.wrapAsync(() => Promise.resolve('Success!'))
+      })
+      expect(warnings).toHaveLength(0)
+    })
+
+    it('should warn once across every callback call', async () => {
+      const helper = await freshHelper()
+      const { callback } = recorder<string>()
+      const warnings = await captureWarnings(async () => {
+        await helper.wrap<string>((cb) => cb(null, 'Success!'), callback)
+        await helper.wrap<string>((cb) => cb(null, 'Success!'), callback)
+        await helper.wrapAsync(() => Promise.resolve('Success!'), callback)
+      })
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0].name).toBe('DeprecationWarning')
+      expect(warnings[0].message).toContain('await')
+    })
+
+    it('should warn from wrapAsync alone', async () => {
+      const helper = await freshHelper()
+      const { callback } = recorder<string>()
+      const warnings = await captureWarnings(async () => {
+        await helper.wrapAsync(() => Promise.resolve('Success!'), callback)
+      })
+      expect(warnings).toHaveLength(1)
     })
   })
 

@@ -39,6 +39,7 @@ export class CouchbaseList {
    * Returns the entire list of items in this list.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAll(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -64,6 +65,7 @@ export class CouchbaseList {
    *
    * @param rowCallback A callback invoked for each item in the list.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   forEach(
     rowCallback: (value: any, index: number, array: CouchbaseList) => void,
@@ -106,6 +108,7 @@ export class CouchbaseList {
    *
    * @param index The index to retrieve.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAt(index: number, callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -141,6 +144,7 @@ export class CouchbaseList {
    *
    * @param index The index to remove.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   removeAt(index: number, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -169,6 +173,7 @@ export class CouchbaseList {
    *
    * @param value The value to search for.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   indexOf(value: any, callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -201,6 +206,7 @@ export class CouchbaseList {
    * Returns the number of items in the list.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -230,6 +236,7 @@ export class CouchbaseList {
    *
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   push(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -261,6 +268,7 @@ export class CouchbaseList {
    *
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   unshift(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -322,6 +330,7 @@ export class CouchbaseMap {
    * Returns an object representing all items in the map.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAll(
     callback?: NodeCallback<{ [key: string]: any }>
@@ -349,6 +358,7 @@ export class CouchbaseMap {
    *
    * @param rowCallback A callback invoked for each item in the list.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   forEach(
     rowCallback: (value: any, key: string, map: CouchbaseMap) => void,
@@ -396,6 +406,7 @@ export class CouchbaseMap {
    * @param item The key in the map to set.
    * @param value The new value to set.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   set(item: string, value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -427,6 +438,7 @@ export class CouchbaseMap {
    *
    * @param item The key in the map to retrieve.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   get(item: string, callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -462,6 +474,7 @@ export class CouchbaseMap {
    *
    * @param item The key in the map to remove.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   remove(item: string, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -488,6 +501,7 @@ export class CouchbaseMap {
    *
    * @param item The key in the map to search for.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   exists(item: string, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -518,6 +532,7 @@ export class CouchbaseMap {
    * Returns a list of all the keys which exist in the map.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   keys(callback?: NodeCallback<string[]>): Promise<string[]> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -542,6 +557,7 @@ export class CouchbaseMap {
    * Returns a list of all the values which exist in the map.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   values(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -566,6 +582,7 @@ export class CouchbaseMap {
    * Returns the number of items that exist in the map.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -622,6 +639,7 @@ export class CouchbaseQueue {
    * Returns the number of items in the queue.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -650,6 +668,7 @@ export class CouchbaseQueue {
    *
    * @param value The value to add.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   push(value: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -680,6 +699,7 @@ export class CouchbaseQueue {
    * Removes an item from the front of the queue.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   pop(callback?: NodeCallback<any>): Promise<any> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -763,6 +783,7 @@ export class CouchbaseSet {
    *
    * @param item The item to add.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   add(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -801,6 +822,7 @@ export class CouchbaseSet {
    *
    * @param item The value to search for.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   contains(item: any, callback?: NodeCallback<boolean>): Promise<boolean> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -832,6 +854,7 @@ export class CouchbaseSet {
    *
    * @param item The value to remove.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   remove(item: any, callback?: NodeCallback<void>): Promise<void> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -884,6 +907,7 @@ export class CouchbaseSet {
    * Returns a list of all values in the set.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   values(callback?: NodeCallback<any[]>): Promise<any[]> {
     const obsReqHandler = new ObservableRequestHandler(
@@ -908,6 +932,7 @@ export class CouchbaseSet {
    * Returns the number of elements in this set.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   size(callback?: NodeCallback<number>): Promise<number> {
     const obsReqHandler = new ObservableRequestHandler(

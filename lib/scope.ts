@@ -126,6 +126,7 @@ export class Scope {
    * @param statement The N1QL statement to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   query<TRow = any>(
     statement: string,
@@ -155,6 +156,7 @@ export class Scope {
    * @param statement The analytics statement to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   analyticsQuery<TRow = any>(
     statement: string,
@@ -185,6 +187,7 @@ export class Scope {
    * @param request The SearchRequest describing the search to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   search(
     indexName: string,

@@ -1225,6 +1225,7 @@ export class AnalyticsIndexManager {
    * @param dataverseName The name of the dataverse to create.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createDataverse(
     dataverseName: string,
@@ -1270,6 +1271,7 @@ export class AnalyticsIndexManager {
    * @param dataverseName The name of the dataverse to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropDataverse(
     dataverseName: string,
@@ -1316,6 +1318,7 @@ export class AnalyticsIndexManager {
    * @param datasetName The name of the new dataset.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createDataset(
     bucketName: string,
@@ -1366,6 +1369,7 @@ export class AnalyticsIndexManager {
    * @param datasetName The name of the dataset to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropDataset(
     datasetName: string,
@@ -1412,6 +1416,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllDatasets(
     options?: GetAllAnalyticsDatasetsOptions,
@@ -1465,6 +1470,7 @@ export class AnalyticsIndexManager {
    * @param fields A map of fields that the index should contain.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createIndex(
     datasetName: string,
@@ -1517,6 +1523,7 @@ export class AnalyticsIndexManager {
    * @param indexName The name of the index to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropIndex(
     datasetName: string,
@@ -1565,6 +1572,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllIndexes(
     options?: GetAllAnalyticsIndexesOptions,
@@ -1617,6 +1625,7 @@ export class AnalyticsIndexManager {
    * @param linkStr The name of the link to connect.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated Use the other overload instead.
    */
   connectLink(
@@ -1629,6 +1638,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   connectLink(
     options?: ConnectAnalyticsLinkOptions,
@@ -1734,6 +1744,7 @@ export class AnalyticsIndexManager {
    * @param linkStr The name of the link to disconnect.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated Use the other overload instead.
    */
   disconnectLink(
@@ -1746,6 +1757,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   disconnectLink(
     options?: DisconnectAnalyticsLinkOptions,
@@ -1840,6 +1852,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getPendingMutations(
     options?: GetPendingAnalyticsMutationsOptions,
@@ -1882,6 +1895,7 @@ export class AnalyticsIndexManager {
    * @param link The settings for the link to create.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createLink(
     link: IAnalyticsLink,
@@ -1980,6 +1994,7 @@ export class AnalyticsIndexManager {
    * @param link The settings for the updated link.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   replaceLink(
     link: IAnalyticsLink,
@@ -2079,6 +2094,7 @@ export class AnalyticsIndexManager {
    * @param dataverseName The dataverse containing the link to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropLink(
     linkName: string,
@@ -2121,6 +2137,7 @@ export class AnalyticsIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllLinks(
     options?: GetAllAnalyticsLinksOptions,

@@ -639,6 +639,7 @@ export class BucketManager {
    * @param settings The settings to use for the new bucket.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createBucket(
     settings: ICreateBucketSettings,
@@ -688,6 +689,7 @@ export class BucketManager {
    *  required; any setting which is omitted is left unchanged.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   updateBucket(
     settings: Partial<IBucketSettings> & Pick<IBucketSettings, 'name'>,
@@ -736,6 +738,7 @@ export class BucketManager {
    * @param bucketName The name of the bucket to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropBucket(
     bucketName: string,
@@ -779,6 +782,7 @@ export class BucketManager {
    * @param bucketName The name of the bucket to fetch settings for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getBucket(
     bucketName: string,
@@ -823,6 +827,7 @@ export class BucketManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllBuckets(
     options?: GetAllBucketsOptions,
@@ -868,6 +873,7 @@ export class BucketManager {
    * @param bucketName The name of the bucket to flush.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   flushBucket(
     bucketName: string,

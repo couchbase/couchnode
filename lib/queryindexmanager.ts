@@ -703,6 +703,7 @@ export class CollectionQueryIndexManager {
    * @param keys The keys which this index should cover.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createIndex(
     indexName: string,
@@ -745,6 +746,7 @@ export class CollectionQueryIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createPrimaryIndex(
     options?: CreatePrimaryQueryIndexOptions,
@@ -784,6 +786,7 @@ export class CollectionQueryIndexManager {
    * @param indexName The name of the index to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropIndex(
     indexName: string,
@@ -822,6 +825,7 @@ export class CollectionQueryIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropPrimaryIndex(
     options?: DropPrimaryQueryIndexOptions,
@@ -859,6 +863,7 @@ export class CollectionQueryIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllIndexes(
     options?: GetAllQueryIndexesOptions,
@@ -893,6 +898,7 @@ export class CollectionQueryIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   buildDeferredIndexes(
     options?: BuildQueryIndexOptions,
@@ -929,6 +935,7 @@ export class CollectionQueryIndexManager {
    * @param timeout The maximum time to wait for the index, expressed in milliseconds.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   watchIndexes(
     indexNames: string[],
@@ -987,6 +994,7 @@ export class QueryIndexManager {
    * @param keys The keys which this index should cover.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createIndex(
     bucketName: string,
@@ -1029,6 +1037,7 @@ export class QueryIndexManager {
    * @param bucketName The name of the bucket this index is for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   createPrimaryIndex(
     bucketName: string,
@@ -1068,6 +1077,7 @@ export class QueryIndexManager {
    * @param indexName The name of the index to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropIndex(
     bucketName: string,
@@ -1106,6 +1116,7 @@ export class QueryIndexManager {
    * @param bucketName The name of the bucket containing the primary index to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropPrimaryIndex(
     bucketName: string,
@@ -1143,6 +1154,7 @@ export class QueryIndexManager {
    * @param bucketName The name of the bucket to fetch indexes for.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllIndexes(
     bucketName: string,
@@ -1177,6 +1189,7 @@ export class QueryIndexManager {
    * @param bucketName The name of the bucket to perform the build on.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   buildDeferredIndexes(
     bucketName: string,
@@ -1213,6 +1226,7 @@ export class QueryIndexManager {
    * @param timeout The maximum time to wait for the index, expressed in milliseconds.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   watchIndexes(
     bucketName: string,

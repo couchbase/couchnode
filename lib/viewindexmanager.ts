@@ -322,6 +322,7 @@ export class ViewIndexManager {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated
    */
   getAllDesignDocuments(
@@ -335,6 +336,7 @@ export class ViewIndexManager {
    * @param namespace The DesignDocument namespace.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllDesignDocuments(
     namespace: DesignDocumentNamespace,
@@ -408,6 +410,7 @@ export class ViewIndexManager {
    * @param designDocName The name of the design document to fetch.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated
    */
   getDesignDocument(
@@ -423,6 +426,7 @@ export class ViewIndexManager {
    * @param namespace The DesignDocument namespace.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getDesignDocument(
     designDocName: string,
@@ -502,6 +506,7 @@ export class ViewIndexManager {
    * @param designDoc The DesignDocument to upsert.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated
    */
   upsertDesignDocument(
@@ -517,6 +522,7 @@ export class ViewIndexManager {
    * @param namespace The DesignDocument namespace.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsertDesignDocument(
     designDoc: DesignDocument,
@@ -593,6 +599,7 @@ export class ViewIndexManager {
    * @param designDocName The name of the design document to drop.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    * @deprecated
    */
   dropDesignDocument(
@@ -608,6 +615,7 @@ export class ViewIndexManager {
    * @param namespace The DesignDocument namespace.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   dropDesignDocument(
     designDocName: string,
@@ -688,6 +696,7 @@ export class ViewIndexManager {
    * @param designDocName The name of the design document to publish.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   publishDesignDocument(
     designDocName: string,

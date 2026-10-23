@@ -37,6 +37,28 @@ export interface NodeCallback<T> {
   (err: Error | null, result: T | null): void
 }
 
+let callbackDeprecationWarned = false
+
+/**
+ * Warns once per process, not per call, that node-style callbacks are
+ * deprecated, so a codebase built on callbacks is not flooded.
+ *
+ * @internal
+ */
+function warnCallbackDeprecated(): void {
+  if (callbackDeprecationWarned) {
+    return
+  }
+  callbackDeprecationWarned = true
+  process.emitWarning(
+    'Node-style callbacks are deprecated and will be removed in the next ' +
+      'major version. Every operation returns a Promise; use await or ' +
+      '.then(). Run with --trace-deprecation to locate the call.',
+    'DeprecationWarning',
+    'CBJS_DEP_CALLBACK'
+  )
+}
+
 /**
  * @internal
  */
@@ -54,6 +76,7 @@ export class PromiseHelper {
     // return this promise as is rather than from an async function, which
     // would wrap it in a new promise that nothing handles.
     if (callback) {
+      warnCallbackDeprecated()
       const prom = fn()
       prom.then(
         (res) => callback(null, res),
@@ -72,6 +95,12 @@ export class PromiseHelper {
     fn: (callback: NodeCallback<T>) => void,
     callback?: NodeCallback<T> | null
   ): Promise<T> {
+    // Before the operation starts, so a --throw-deprecation throw leaves no
+    // promise behind unhandled.
+    if (callback) {
+      warnCallbackDeprecated()
+    }
+
     const prom: Promise<T> = new Promise((resolve, reject) => {
       fn((err, res) => {
         if (err) {

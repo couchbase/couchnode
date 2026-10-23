@@ -852,6 +852,7 @@ export class Cluster {
    * @param statement The N1QL statement to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   query<TRow = any>(
     statement: string,
@@ -876,6 +877,7 @@ export class Cluster {
    * @param statement The analytics statement to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   analyticsQuery<TRow = any>(
     statement: string,
@@ -901,6 +903,7 @@ export class Cluster {
    * @param query The SearchQuery describing the query to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   searchQuery(
     indexName: string,
@@ -927,6 +930,7 @@ export class Cluster {
    * @param request The SearchRequest describing the search to execute.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   search(
     indexName: string,
@@ -953,6 +957,7 @@ export class Cluster {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   diagnostics(
     options?: DiagnosticsOptions,
@@ -974,6 +979,7 @@ export class Cluster {
    *
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   ping(
     options?: PingOptions,
@@ -995,6 +1001,7 @@ export class Cluster {
    * @param timeout The time in milliseconds to wait for the cluster to become ready.
    * @param options Optional parameters for this operation.
    * @param callback A callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   waitUntilReady(
     timeout: number,
@@ -1018,6 +1025,7 @@ export class Cluster {
    * Shuts down this cluster object.  Cleaning up all resources associated with it.
    *
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   close(callback?: NodeCallback<void>): Promise<void> {
     return PromiseHelper.wrapAsync(async () => {

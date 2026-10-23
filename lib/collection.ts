@@ -897,6 +897,7 @@ export class Collection {
    * @param key The document key to retrieve.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   get(
     key: string,
@@ -1062,6 +1063,7 @@ export class Collection {
    * @param key The document key to check for existence.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   exists(
     key: string,
@@ -1233,6 +1235,7 @@ export class Collection {
    * @param key The document key to retrieve.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAnyReplica(
     key: string,
@@ -1267,6 +1270,7 @@ export class Collection {
    * @param strategy Selects the replica to read from.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getReplica(
     key: string,
@@ -1346,6 +1350,7 @@ export class Collection {
    * @param key The document key to retrieve.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAllReplicas(
     key: string,
@@ -1376,6 +1381,7 @@ export class Collection {
    * @param value The value of the document to insert.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   insert(
     key: string,
@@ -1467,6 +1473,7 @@ export class Collection {
    * @param value The new value for the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   upsert(
     key: string,
@@ -1559,6 +1566,7 @@ export class Collection {
    * @param value The new value for the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   replace(
     key: string,
@@ -1651,6 +1659,7 @@ export class Collection {
    * @param key The document key to remove.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   remove(
     key: string,
@@ -1739,6 +1748,7 @@ export class Collection {
    *   **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAndTouch(
     key: string,
@@ -1806,6 +1816,7 @@ export class Collection {
    *   **IMPORTANT:** To use a Unix timestamp for expiry, construct a Date from it ( new Date(UNIX_TIMESTAMP * 1000) ).
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   touch(
     key: string,
@@ -1865,6 +1876,7 @@ export class Collection {
    * @param lockTime The amount of time to lock the document for, specified in seconds.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   getAndLock(
     key: string,
@@ -1927,6 +1939,7 @@ export class Collection {
    * @param cas The CAS of the document, used to validate lock ownership.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   unlock(
     key: string,
@@ -2086,6 +2099,7 @@ export class Collection {
    * @param scanType The type of scan to execute.
    * @param options Optional parameters for the scan operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   scan(
     scanType: RangeScan | SamplingScan | PrefixScan,
@@ -2140,6 +2154,7 @@ export class Collection {
    * @param specs A list of specs describing the data to fetch from the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   lookupIn(
     key: string,
@@ -2399,6 +2414,7 @@ export class Collection {
    * @param specs A list of specs describing the data to fetch from the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   lookupInAnyReplica(
     key: string,
@@ -2441,6 +2457,7 @@ export class Collection {
    * @param specs A list of specs describing the data to fetch from the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   lookupInAllReplicas(
     key: string,
@@ -2473,6 +2490,7 @@ export class Collection {
    * @param specs A list of specs describing the operations to perform on the document.
    * @param options Optional parameters for this operation.
    * @param callback A node-style callback to be invoked after execution.
+   *   Deprecated: await the returned promise instead.
    */
   mutateIn(
     key: string,
