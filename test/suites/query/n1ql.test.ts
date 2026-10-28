@@ -5,7 +5,6 @@ import {
   AmbiguousTimeoutError,
   IndexExistsError,
   IndexNotFoundError,
-  InternalServerFailureError,
   InvalidArgumentError,
   RequestCanceledError,
   UnambiguousTimeoutError,
@@ -55,58 +54,6 @@ const DEFERRED_BUILD_TIMEOUT_MS = 60_000
 const DEFERRED_INDEX_COUNT = 3
 const WATCH_TIMEOUT_MS = 2000
 const DEFERRED_WATCH_TIMEOUT_MS = 6000
-
-/** How long a repeated drop may answer in the form the core does not map. */
-const REPEAT_DROP_DEADLINE_MS = 15_000
-const REPEAT_DROP_INTERVAL_MS = 500
-
-/**
- * Whether `err` is GSI error 5000 saying the index does not exist, which a
- * drop repeated while the previous drop is still applying can receive. The
- * core maps a 5000 to a missing index only when its message says "not found",
- * so this one surfaces as `InternalServerFailureError` (CXXCBC-1059).
- */
-function isUnmappedIndexMissing(
-  err: unknown
-): err is InternalServerFailureError {
-  return (
-    err instanceof InternalServerFailureError &&
-    /does not exist/i.test(JSON.stringify(err.context ?? {}))
-  )
-}
-
-/**
- * Drops an index that is already gone, polling through the unmapped "does not
- * exist" form until the deadline. Resolves on success and rethrows anything
- * else, so the caller's `expectThrows` sees any other outcome for what it is.
- */
-async function dropAlreadyDropped(drop: () => Promise<void>): Promise<void> {
-  let failure: unknown
-  await pollUntil(
-    'a repeated drop to report the index missing',
-    async (poll) => {
-      try {
-        await drop()
-        return true
-      } catch (err) {
-        if (isUnmappedIndexMissing(err)) {
-          const said = JSON.stringify(err.context)
-          poll.note(`the index service said ${said}`)
-          return undefined
-        }
-        failure = err
-        return true
-      }
-    },
-    {
-      deadlineMs: REPEAT_DROP_DEADLINE_MS,
-      intervalMs: REPEAT_DROP_INTERVAL_MS,
-    }
-  )
-  if (failure !== undefined) {
-    throw failure
-  }
-}
 
 const READ_INDEX_KEYS = ['testUid'] as const
 
@@ -697,15 +644,13 @@ async function runDropMissingSecondaryIndex(
   const target = makeTarget(cluster, lease)
   await expectThrows(
     () =>
-      dropAlreadyDropped(() =>
-        cluster
-          .queryIndexes()
-          .dropIndex(
-            lease.bucketName,
-            namesFor(env, block, target.keyspace).secondary,
-            target.indexOptions
-          )
-      ),
+      cluster
+        .queryIndexes()
+        .dropIndex(
+          lease.bucketName,
+          namesFor(env, block, target.keyspace).secondary,
+          target.indexOptions
+        ),
     IndexNotFoundError,
     undefined,
     env.ctx(queryCtx(lease, 'dropIndex', 'already dropped'))
@@ -736,12 +681,10 @@ async function runDropMissingPrimaryIndex(
   const target = makeTarget(cluster, lease)
   await expectThrows(
     () =>
-      dropAlreadyDropped(() =>
-        cluster.queryIndexes().dropPrimaryIndex(lease.bucketName, {
-          name: namesFor(env, block, target.keyspace).primary,
-          ...target.indexOptions,
-        })
-      ),
+      cluster.queryIndexes().dropPrimaryIndex(lease.bucketName, {
+        name: namesFor(env, block, target.keyspace).primary,
+        ...target.indexOptions,
+      }),
     IndexNotFoundError,
     undefined,
     env.ctx(queryCtx(lease, 'dropPrimaryIndex', 'already dropped'))
@@ -940,13 +883,11 @@ async function runCollectionDropMissingSecondaryIndex(
 ): Promise<void> {
   await expectThrows(
     () =>
-      dropAlreadyDropped(() =>
-        lease.collection
-          .queryIndexes()
-          .dropIndex(
-            namesFor(env, COLLECTION_BLOCK, keyspaceOf(lease)).secondary
-          )
-      ),
+      lease.collection
+        .queryIndexes()
+        .dropIndex(
+          namesFor(env, COLLECTION_BLOCK, keyspaceOf(lease)).secondary
+        ),
     IndexNotFoundError,
     undefined,
     env.ctx(queryCtx(lease, 'dropIndex', 'already dropped'))
@@ -968,11 +909,9 @@ async function runCollectionDropMissingPrimaryIndex(
 ): Promise<void> {
   await expectThrows(
     () =>
-      dropAlreadyDropped(() =>
-        lease.collection.queryIndexes().dropPrimaryIndex({
-          name: namesFor(env, COLLECTION_BLOCK, keyspaceOf(lease)).primary,
-        })
-      ),
+      lease.collection.queryIndexes().dropPrimaryIndex({
+        name: namesFor(env, COLLECTION_BLOCK, keyspaceOf(lease)).primary,
+      }),
     IndexNotFoundError,
     undefined,
     env.ctx(queryCtx(lease, 'dropPrimaryIndex', 'already dropped'))
@@ -1484,8 +1423,7 @@ defineSuite('N1QL', { features: [ServerFeature.Query] }, ({ test }) => {
     )
 
     // close() can cancel an in-flight prepared query or let it finish on a new
-    // connection. Once the core includes CXXCBC-1032 it always cancels, and
-    // the completed branch can go.
+    // connection, so either outcome passes.
     test(
       'should end an in-flight prepared query when the cluster is closed',
       { timeout: STREAMING_TIMEOUT_MS },

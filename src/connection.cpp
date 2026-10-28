@@ -656,8 +656,7 @@ Napi::Value Connection::jsQueryStream(const Napi::CallbackInfo &info)
     // Prepared statements rely on the buffered path for their retry and
     // prepared-statement caching, so the SDK routes them to query() instead.
     if (!request.adhoc) {
-        throw Napi::Error::New(env,
-                               "queryStream only supports adhoc queries");
+        throw Napi::Error::New(env, "queryStream only supports adhoc queries");
     }
 
     auto cookie = CallCookie(env, callbackJsFn, "cbQueryStream");
@@ -667,58 +666,52 @@ Napi::Value Connection::jsQueryStream(const Napi::CallbackInfo &info)
                                               std::optional<std::string>{});
 
     this->_instance->_cluster.query_stream(
-        request,
-        [cookie = std::move(cookie), wrapper_span,
-         clusterLabels = std::move(clusterLabels)](
-            couchbase::core::query_stream stream,
-            couchbase::core::error_context::query ctx) mutable {
-            cookie.invoke(
-                [stream = std::move(stream), ctx = std::move(ctx),
-                 wrapper_span, clusterLabels = std::move(clusterLabels)](
-                    Napi::Env env, Napi::Function callback) mutable {
-                    Napi::Value jsErr, jsRes;
-                    try {
-                        if (auto retries = get_cbpp_retries(ctx);
-                            retries > 0 && wrapper_span) {
-                            wrapper_span->add_tag("retries", retries);
-                        }
-                        if (wrapper_span) {
-                            if (clusterLabels.first.has_value()) {
-                                wrapper_span->add_tag(
-                                    "cluster_name",
-                                    clusterLabels.first.value());
-                            }
-                            if (clusterLabels.second.has_value()) {
-                                wrapper_span->add_tag(
-                                    "cluster_uuid",
-                                    clusterLabels.second.value());
-                            }
-                        }
-                        if (ctx.ec) {
-                            jsErr = cbpp_to_js(env, ctx, wrapper_span);
-                            jsRes = env.Null();
-                        } else {
-                            jsErr = env.Null();
-                            QueryStreamPayload payload{std::move(stream),
-                                                       std::move(ctx),
-                                                       wrapper_span};
-                            auto ext =
-                                Napi::External<QueryStreamPayload>::New(
-                                    env, &payload);
-                            jsRes =
-                                QueryStreamIterator::constructor(env).New(
-                                    {ext});
-                        }
-                    } catch (const Napi::Error &e) {
-                        Napi::Value err = e.Value();
-                        Napi::Object errObj = err.As<Napi::Object>();
-                        errObj.Set("cpp_core_span",
-                                   cbpp_wrapper_span_to_js(env, wrapper_span));
-                        jsErr = errObj;
-                        jsRes = env.Null();
+        request, [cookie = std::move(cookie), wrapper_span,
+                  clusterLabels = std::move(clusterLabels)](
+                     couchbase::core::query_stream stream,
+                     couchbase::core::error_context::query ctx) mutable {
+            cookie.invoke([stream = std::move(stream), ctx = std::move(ctx),
+                           wrapper_span,
+                           clusterLabels = std::move(clusterLabels)](
+                              Napi::Env env, Napi::Function callback) mutable {
+                Napi::Value jsErr, jsRes;
+                try {
+                    if (auto retries = get_cbpp_retries(ctx);
+                        retries > 0 && wrapper_span) {
+                        wrapper_span->add_tag("retries", retries);
                     }
-                    callback.Call({jsErr, jsRes});
-                });
+                    if (wrapper_span) {
+                        if (clusterLabels.first.has_value()) {
+                            wrapper_span->add_tag("cluster_name",
+                                                  clusterLabels.first.value());
+                        }
+                        if (clusterLabels.second.has_value()) {
+                            wrapper_span->add_tag("cluster_uuid",
+                                                  clusterLabels.second.value());
+                        }
+                    }
+                    if (ctx.ec) {
+                        jsErr = cbpp_to_js(env, ctx, wrapper_span);
+                        jsRes = env.Null();
+                    } else {
+                        jsErr = env.Null();
+                        QueryStreamPayload payload{
+                            std::move(stream), std::move(ctx), wrapper_span};
+                        auto ext = Napi::External<QueryStreamPayload>::New(
+                            env, &payload);
+                        jsRes =
+                            QueryStreamIterator::constructor(env).New({ext});
+                    }
+                } catch (const Napi::Error &e) {
+                    Napi::Value err = e.Value();
+                    Napi::Object errObj = err.As<Napi::Object>();
+                    errObj.Set("cpp_core_span",
+                               cbpp_wrapper_span_to_js(env, wrapper_span));
+                    jsErr = errObj;
+                    jsRes = env.Null();
+                }
+                callback.Call({jsErr, jsRes});
+            });
         });
 
     return env.Null();
