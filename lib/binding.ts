@@ -4238,6 +4238,7 @@ export interface CppBinding extends CppBindingAutogen {
   cbppMetadata: string
   enableProtocolLogger: (filename: string) => void
   shutdownLogger: () => void
+  isLogRedactionEnabled: () => boolean
 
   Connection: {
     new (): CppConnection

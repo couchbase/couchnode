@@ -92,6 +92,31 @@ Output:
 [Couchbase] Connection established!
 ```
 
+# Log Redaction
+
+Set `logRedaction` to wrap sensitive values in the SDK's log output in redaction tags, so that a log redaction tool can strip or hash them afterwards. The SDK does not remove anything itself.
+
+```TypeScript
+const cluster = await connect('couchbase://localhost', {
+  username: 'Administrator',
+  password: 'password',
+  logger: createConsoleLogger(LogLevel.INFO),
+  logRedaction: true,
+})
+```
+
+The `log_redaction=true` connection string option does the same; `logRedaction` overrides it when both are given. Three tags are used:
+
+| Tag | Category | Examples |
+|---|---|---|
+| `<ud>` | user data | document keys and values, usernames, query statements |
+| `<md>` | metadata | bucket, scope, collection and index names |
+| `<sd>` | system data | hostnames, IP addresses, ports |
+
+A serialized report, such as the threshold logging and metrics reports, is tagged as a whole at the strictest category it may contain.
+
+Redaction applies to the whole process. Once any cluster enables it, it stays enabled for the life of the process, so `logRedaction: false` on a later connection does not turn it off.
+
 # Custom Logger Integration
 
 The SDK uses a simple logging interface that makes it easy to integrate with popular logging libraries.

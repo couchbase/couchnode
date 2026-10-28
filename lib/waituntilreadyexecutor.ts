@@ -10,6 +10,7 @@ import {
 } from './diagnosticstypes'
 import { InvalidArgumentError, UnambiguousTimeoutError } from './errors'
 import { ServiceType } from './generaltypes'
+import { systemData, userData } from './redaction'
 import { CompoundTimeout } from './utilities'
 
 const ALL_SERVICE_TYPES = Object.values(ServiceType)
@@ -75,7 +76,7 @@ export class WaitUntilReadyExecutor {
       for (const ep of endpoints) {
         if (ep.state === PingState.Error && ep.error) {
           this._cluster.logger.warn(
-            `waitUntilReady: ping error on service ${serviceType}, remote ${ep.remote}: ${ep.error}`
+            `waitUntilReady: ping error on service ${serviceType}, remote ${systemData(ep.remote)}: ${userData(ep.error)}`
           )
         }
       }

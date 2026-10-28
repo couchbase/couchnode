@@ -7,6 +7,7 @@ import { MeterError } from './errors'
 import { CouchbaseLogger } from './logger'
 import { Meter, ValueRecorder } from './metrics'
 import { OpAttributeName, ServiceName } from './observabilitytypes'
+import { metaData } from './redaction'
 
 /**
  * Represents the percentile values for a set of recorded metrics.
@@ -144,7 +145,8 @@ class LoggingMeterReporter {
   report(): void {
     const report = this._loggingMeter.createReport()
     if (report) {
-      this._logger.info(JSON.stringify(report))
+      // Service and operation names make the whole report metadata.
+      this._logger.info(metaData(JSON.stringify(report)))
     }
   }
 

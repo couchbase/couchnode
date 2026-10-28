@@ -16,6 +16,7 @@ import {
   millisToHiResTime,
   timeInputToHiResTime,
 } from './observabilityutilities'
+import { systemData } from './redaction'
 import { RequestSpan, RequestTracer } from './tracing'
 
 /* eslint-disable jsdoc/require-jsdoc */
@@ -265,7 +266,8 @@ class ThresholdLoggingReporter {
       return report
     } else {
       if (Object.keys(report).length > 0) {
-        this._logger.info(JSON.stringify(report))
+        // Socket addresses make the whole report system data.
+        this._logger.info(systemData(JSON.stringify(report)))
       }
     }
   }

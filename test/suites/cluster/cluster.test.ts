@@ -8,6 +8,7 @@ import { Cluster } from '../../../lib/cluster'
 import type { Collection } from '../../../lib/collection'
 import { knownProfiles } from '../../../lib/configProfile'
 import type { ConnectOptions } from '../../../lib/cluster'
+import { ConnSpec } from '../../../lib/connspec'
 import { AuthenticationFailureError } from '../../../lib/errors'
 import { lcbVersion } from '../../../lib/couchbase'
 import { LoggingMeter } from '../../../lib/loggingmeter'
@@ -53,19 +54,37 @@ interface ConnStub {
  * `_connect` makes, hence the cast to `CppConnection`.
  */
 async function withStubbedConnection(
-  options: ConnectOptions
+  options: ConnectOptions,
+  connStr = UNCONNECTED,
+  onConnect?: (connStr: string) => void
 ): Promise<Cluster> {
-  const cluster = new Cluster(UNCONNECTED, options)
+  const cluster = new Cluster(connStr, options)
   const stub: ConnStub = {
     openBucket: () => undefined,
-    connect: (_connStr, _auth, _dns, _telemetry, _tracing, _orphan, callback) =>
-      callback(),
+    connect: (sent, _auth, _dns, _telemetry, _tracing, _orphan, callback) => {
+      onConnect?.(sent)
+      callback()
+    },
     shutdown: (callback) => callback(),
     getClusterLabels: () => ({ clusterName: 'test', clusterUUID: 'uuid' }),
   }
   cluster['_conn'] = stub as unknown as CppConnection
   await cluster['_connect']()
   return cluster
+}
+
+/** The options of the connection string `_connect` sends to the connection. */
+async function connStrOptionsSent(
+  options: ConnectOptions,
+  connStr = UNCONNECTED
+): Promise<ConnSpec['options']> {
+  let sent: string | undefined
+  const cluster = await withStubbedConnection(options, connStr, (s) => {
+    sent = s
+  })
+  await cluster.close()
+  expect(sent, 'the connection string sent to the connection').toBeDefined()
+  return ConnSpec.parse(sent as string).options
 }
 
 /** The timeouts `wanDevelopment` sets, in milliseconds. */
@@ -342,5 +361,37 @@ describe('#Cluster', () => {
       'the default meter'
     ).toBeInstanceOf(LoggingMeter)
     await cluster.close()
+  })
+
+  describe('#logRedaction', () => {
+    const auth = { username: 'test', password: 'pass' }
+
+    it('passes logRedaction in the connection string as log_redaction', async () => {
+      const options = await connStrOptionsSent({ ...auth, logRedaction: true })
+      expect(options.log_redaction, 'log_redaction').toBe('true')
+    })
+
+    it('overrides log_redaction in the connection string', async () => {
+      const options = await connStrOptionsSent(
+        { ...auth, logRedaction: false },
+        `${UNCONNECTED}?log_redaction=true`
+      )
+      expect(options.log_redaction, 'log_redaction').toBe('false')
+    })
+
+    it('leaves log_redaction in the connection string when unset', async () => {
+      const options = await connStrOptionsSent(
+        auth,
+        `${UNCONNECTED}?log_redaction=true`
+      )
+      expect(options.log_redaction, 'log_redaction').toBe('true')
+    })
+
+    it('adds no log_redaction when unset', async () => {
+      const options = await connStrOptionsSent(auth)
+      expect(options, 'connection string options').not.toHaveProperty(
+        'log_redaction'
+      )
+    })
   })
 })

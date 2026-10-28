@@ -8,6 +8,7 @@
 #include "transaction.hpp"
 #include "transactions.hpp"
 #include <core/logger/configuration.hxx>
+#include <core/logger/logger.hxx>
 #include <core/meta/version.hxx>
 #include <napi.h>
 
@@ -35,6 +36,12 @@ Napi::Value shutdown_logger(const Napi::CallbackInfo &info)
         return Napi::Error::New(info.Env(), "Unexpected C++ error").Value();
     }
     return info.Env().Null();
+}
+
+Napi::Value is_log_redaction_enabled(const Napi::CallbackInfo &info)
+{
+    return Napi::Boolean::New(
+        info.Env(), couchbase::core::logger::is_log_redaction_enabled());
 }
 
 Napi::Object Init(Napi::Env env, Napi::Object exports)
@@ -96,6 +103,8 @@ Napi::Object Init(Napi::Env env, Napi::Object exports)
                 Napi::Function::New<enable_protocol_logger>(env));
     exports.Set(Napi::String::New(env, "shutdownLogger"),
                 Napi::Function::New<shutdown_logger>(env));
+    exports.Set(Napi::String::New(env, "isLogRedactionEnabled"),
+                Napi::Function::New<is_log_redaction_enabled>(env));
     return exports;
 }
 

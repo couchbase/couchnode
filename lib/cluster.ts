@@ -405,6 +405,15 @@ export interface ConnectOptions {
    * Provides an implementation of the {@link Logger} interface to be used by the SDK.
    */
   logger?: Logger
+
+  /**
+   * Wraps sensitive values in the SDK's log output in redaction tags (`<ud>`, `<md>` and `<sd>`),
+   * so that a log redaction tool can strip or hash them. The SDK does not remove anything itself.
+   *
+   * Overrides the `log_redaction` connection string option. Redaction applies to the whole
+   * process, and once any cluster enables it, it stays enabled.
+   */
+  logRedaction?: boolean
 }
 
 /**
@@ -435,6 +444,7 @@ export class Cluster {
   private _openBuckets: string[]
   private _dnsConfig: DnsConfig | null
   private _preferredServerGroup: string | undefined
+  private _logRedaction: boolean | undefined
   private _appTelemetryConfig: AppTelemetryConfig | null
   private _tracer: RequestTracer | undefined
   private _observabilityInstruments: ObservabilityInstruments | undefined
@@ -616,6 +626,8 @@ export class Cluster {
     if (options.preferredServerGroup) {
       this._preferredServerGroup = options.preferredServerGroup
     }
+
+    this._logRedaction = options.logRedaction
 
     if (options.transactions) {
       this._txnConfig = options.transactions
@@ -1213,6 +1225,9 @@ export class Cluster {
       }
       if (this._preferredServerGroup) {
         dsnObj.options['server_group'] = this._preferredServerGroup
+      }
+      if (this._logRedaction !== undefined) {
+        dsnObj.options['log_redaction'] = this._logRedaction ? 'true' : 'false'
       }
 
       const connStr = dsnObj.toString()
