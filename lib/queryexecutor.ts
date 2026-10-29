@@ -29,6 +29,65 @@ import { StreamableRowPromise } from './streamablepromises'
 /**
  * @internal
  *
+ * Listens for the abort of the AbortSignal given in a query's options for as
+ * long as the query is in flight.  The query ends as soon as the signal
+ * aborts, so a native callback which arrives afterwards only releases what it
+ * holds.
+ */
+export class QueryAbort {
+  private _signal: AbortSignal | undefined
+  private _aborted: boolean
+  private _listener: () => void
+
+  /**
+   * @internal
+   */
+  constructor(
+    signal: AbortSignal | undefined,
+    onAbort: (err: RequestCanceledError) => void
+  ) {
+    this._signal = signal
+    this._aborted = false
+    this._listener = () => {
+      this._aborted = true
+      onAbort(QueryAbort.error(signal as AbortSignal))
+    }
+    signal?.addEventListener('abort', this._listener, { once: true })
+  }
+
+  /**
+   * @internal
+   *
+   * Whether the signal aborted the query, which has then already ended.
+   */
+  get aborted(): boolean {
+    return this._aborted
+  }
+
+  /**
+   * @internal
+   *
+   * Stops listening, so that a signal shared by many queries does not
+   * accumulate a listener for each one.
+   */
+  release(): void {
+    this._signal?.removeEventListener('abort', this._listener)
+  }
+
+  /**
+   * @internal
+   */
+  static error(signal: AbortSignal): RequestCanceledError {
+    const reason = signal.reason
+    return new RequestCanceledError(
+      reason instanceof Error ? reason : new Error(String(reason))
+    )
+  }
+}
+
+/**
+ * @internal
+ *
  * Tracks a live native query stream so that the cluster can cancel it and
  * wait for it to settle before tearing the connection down.  Once close() has
  * started, nothing may post new work to the io context, so every stream must
@@ -48,15 +107,21 @@ export class OpenQueryStream {
   readonly ended: Promise<void>
 
   private _cluster: Cluster
+  private _abort: QueryAbort | undefined
   private _finished: boolean
   private _resolveEnded!: () => void
 
   /**
    * @internal
    */
-  constructor(cluster: Cluster, iterator: CppQueryStreamIterator) {
+  constructor(
+    cluster: Cluster,
+    iterator: CppQueryStreamIterator,
+    abort?: QueryAbort
+  ) {
     this._cluster = cluster
     this.iterator = iterator
+    this._abort = abort
     this._finished = false
     this.ended = new Promise((resolve) => {
       this._resolveEnded = resolve
@@ -69,6 +134,16 @@ export class OpenQueryStream {
    */
   get closing(): boolean {
     return this._cluster.closing
+  }
+
+  /**
+   * @internal
+   *
+   * Whether the query's AbortSignal has cancelled the stream and ended the
+   * query.
+   */
+  get aborted(): boolean {
+    return this._abort?.aborted ?? false
   }
 
   /**
@@ -86,6 +161,7 @@ export class OpenQueryStream {
       return
     }
     this._finished = true
+    this._abort?.release()
     this._cluster.openQueryStreams.delete(this)
     this._resolveEnded()
   }
@@ -324,6 +400,13 @@ export class QueryExecutor {
   ): void {
     stream.iterator.next((cppErr, resp) => {
       QueryExecutor._rethrowListenerErrors(() => {
+        // The abort cancelled the stream while this callback was pending,
+        // and has already ended the query.
+        if (stream.aborted) {
+          stream.finish()
+          return
+        }
+
         // The stream is finished before anything is emitted, so that a
         // throwing listener cannot leave close() waiting on it.
         if (cppErr) {
@@ -341,9 +424,22 @@ export class QueryExecutor {
           try {
             emitter.emit('row', JSON.parse(resp.row))
           } catch (err) {
+            // A row listener can abort the signal and then throw, and the
+            // abort has already cancelled the stream and ended the query.
+            if (stream.aborted) {
+              stream.finish()
+              return
+            }
             stream.cancel()
             stream.finish()
             QueryExecutor._endWithError(emitter, err as Error, obsReqHandler)
+            return
+          }
+
+          // A row listener can abort the signal, which cancels the stream and
+          // ends the query before the listener returns.
+          if (stream.aborted) {
+            stream.finish()
             return
           }
 
@@ -408,17 +504,34 @@ export class QueryExecutor {
    */
   static executePromise<TRow = any>(
     queryPromise: Promise<[Error | null, CppQueryResponse]>,
-    obsReqHandler: ObservableRequestHandler
+    obsReqHandler: ObservableRequestHandler,
+    signal?: AbortSignal
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
     const emitter = QueryExecutor._newQueryEmitter<TRow>()
 
+    // A buffered request cannot be cancelled, so an abort ends the query here
+    // and its response is discarded when it arrives.
+    const abort = new QueryAbort(signal, (err) => {
+      QueryExecutor._rethrowListenerErrors(() => {
+        QueryExecutor._endWithError(emitter, err, obsReqHandler)
+      })
+    })
+
     queryPromise.then(
       ([err, resp]) => {
+        abort.release()
+        if (abort.aborted) {
+          return
+        }
         QueryExecutor._rethrowListenerErrors(() => {
           QueryExecutor._processQueryResponse(emitter, err, resp, obsReqHandler)
         })
       },
       (err) => {
+        abort.release()
+        if (abort.aborted) {
+          return
+        }
         QueryExecutor._rethrowListenerErrors(() => {
           QueryExecutor._endWithError(emitter, err, obsReqHandler)
         })
@@ -433,14 +546,29 @@ export class QueryExecutor {
    */
   _streamQuery<TRow = any>(
     request: CppQueryRequest,
-    obsReqHandler: ObservableRequestHandler
+    obsReqHandler: ObservableRequestHandler,
+    signal?: AbortSignal
   ): StreamableRowPromise<QueryResult<TRow>, TRow, QueryMetaData> {
     const emitter = QueryExecutor._newQueryEmitter<TRow>()
+
+    // Until the headers arrive there is no stream to cancel, so an abort in
+    // that window ends the query and the stream is cancelled once it exists.
+    let stream: OpenQueryStream | undefined
+    const abort = new QueryAbort(signal, (err) => {
+      stream?.cancel()
+      QueryExecutor._rethrowListenerErrors(() => {
+        QueryExecutor._endWithError(emitter, err, obsReqHandler)
+      })
+    })
 
     try {
       this._cluster.conn.queryStream(request, (cppErr, iterator) => {
         QueryExecutor._rethrowListenerErrors(() => {
           if (cppErr) {
+            abort.release()
+            if (abort.aborted) {
+              return
+            }
             obsReqHandler.processCoreSpan(cppErr.cpp_core_span)
             QueryExecutor._endWithError(
               emitter,
@@ -450,10 +578,17 @@ export class QueryExecutor {
             return
           }
 
-          const stream = new OpenQueryStream(
+          stream = new OpenQueryStream(
             this._cluster,
-            iterator as CppQueryStreamIterator
+            iterator as CppQueryStreamIterator,
+            abort
           )
+
+          if (stream.aborted) {
+            stream.cancel()
+            stream.finish()
+            return
+          }
 
           // The headers can arrive after close() has started, in which case
           // no further rows may be pulled.
@@ -472,6 +607,7 @@ export class QueryExecutor {
         })
       })
     } catch (err) {
+      abort.release()
       return QueryExecutor._failedQuery(err as Error, obsReqHandler)
     }
 
@@ -511,6 +647,12 @@ export class QueryExecutor {
       return QueryExecutor._failedQuery(err as Error, obsReqHandler)
     }
 
+    // A signal which has already aborted never fires its abort event.
+    const signal = options.signal
+    if (signal?.aborted) {
+      return QueryExecutor._failedQuery(QueryAbort.error(signal), obsReqHandler)
+    }
+
     // The core only streams adhoc queries; prepared statements rely on the
     // buffered path for their retry and prepared-statement caching.
     if (!request.adhoc) {
@@ -520,10 +662,11 @@ export class QueryExecutor {
           request,
           obsReqHandler
         ),
-        obsReqHandler
+        obsReqHandler,
+        signal
       )
     }
 
-    return this._streamQuery(request, obsReqHandler)
+    return this._streamQuery(request, obsReqHandler, signal)
   }
 }

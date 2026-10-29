@@ -392,4 +392,16 @@ export interface QueryOptions {
    * Specifies the parent span for this specific operation.
    */
   parentSpan?: RequestSpan
+
+  /**
+   * An AbortSignal which cancels the query when it aborts.  The query then
+   * fails with a `RequestCanceledError` whose cause is the signal's
+   * reason, and emits no further rows.
+   *
+   * An adhoc query is cancelled by closing its connection to the query
+   * service, which normally stops the query on the server too.  A query with
+   * `adhoc: false` is not interrupted: it runs to completion and its result is
+   * discarded.
+   */
+  signal?: AbortSignal
 }

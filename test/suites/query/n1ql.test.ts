@@ -1386,6 +1386,42 @@ async function shutdownDuringQuery(
   return { rows, error }
 }
 
+/**
+ * Starts a large query and aborts its signal part way through: once rows are
+ * arriving (`'streaming'`), or as soon as the request has been sent
+ * (`'querying'`).
+ */
+async function abortDuringQuery(
+  cluster: Cluster,
+  adhoc: boolean,
+  abortOn: 'streaming' | 'querying',
+  reason: Error
+): Promise<{ rows: number; errors: unknown[]; ends: number }> {
+  const controller = new AbortController()
+  const seen = { rows: 0, errors: [] as unknown[], ends: 0 }
+
+  await new Promise<void>((resolve) => {
+    cluster
+      .query(STREAMING_STATEMENT, { adhoc, signal: controller.signal })
+      .on('row', () => {
+        if (seen.rows++ === 0 && abortOn === 'streaming') {
+          controller.abort(reason)
+        }
+      })
+      .on('error', (err: unknown) => seen.errors.push(err))
+      .on('end', () => {
+        seen.ends++
+        // Give a duplicate terminal event the chance to show up.
+        setTimeout(resolve, 100)
+      })
+    if (abortOn === 'querying') {
+      setImmediate(() => controller.abort(reason))
+    }
+  })
+
+  return seen
+}
+
 /** Every event a query emits, in order, with errors recorded as themselves. */
 function collectEvents(
   query: StreamableRowPromise<QueryResult, unknown, QueryMetaData>,
@@ -1438,7 +1474,40 @@ defineSuite('N1QL', { features: [ServerFeature.Query] }, ({ test }) => {
       }
     )
 
+    test(
+      'should cancel a streaming adhoc query when its signal aborts',
+      { timeout: STREAMING_TIMEOUT_MS },
+      async ({ cluster }) => {
+        const reason = new Error('stop')
+        const res = await abortDuringQuery(cluster, true, 'streaming', reason)
+        expect(res.errors).toHaveLength(1)
+        expect(res.errors[0]).toBeInstanceOf(RequestCanceledError)
+        expect((res.errors[0] as RequestCanceledError).cause).toBe(reason)
+        expect(res.ends).toBe(1)
+        expect(res.rows).toBeGreaterThan(0)
+        expect(res.rows).toBeLessThan(STREAMING_ROW_COUNT)
+      }
+    )
+
     for (const adhoc of [true, false]) {
+      test(
+        `should end an in-flight query when its signal aborts (adhoc: ${adhoc})`,
+        { timeout: STREAMING_TIMEOUT_MS },
+        async ({ cluster }) => {
+          const reason = new Error('stop')
+          const res = await abortDuringQuery(cluster, adhoc, 'querying', reason)
+          expect(res.errors).toHaveLength(1)
+          expect(res.errors[0]).toBeInstanceOf(RequestCanceledError)
+          expect((res.errors[0] as RequestCanceledError).cause).toBe(reason)
+          expect(res.ends).toBe(1)
+          expect(res.rows).toBe(0)
+
+          // The connection survives the abort.
+          const after = await cluster.query('SELECT RAW 1')
+          expect(after.rows).toStrictEqual([1])
+        }
+      )
+
       test(`should reject an unserializable parameter (adhoc: ${adhoc})`, async ({
         cluster,
       }) => {
