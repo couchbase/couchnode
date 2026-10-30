@@ -1,0 +1,43 @@
+# The couchbase2 protocol's schema, and the options its types are generated and loaded with.
+# Changing anything here means regenerating:
+#
+#   npm run gen:protos
+#
+# sources   each is a repository at a pinned commit.  `tree` takes every .proto under that
+#           directory; `files` takes exactly the listed ones.  `digest` is a sha256 over the
+#           taken paths and contents (`core.protos.digest`), which every download is checked
+#           against.  Protostellar is at the commit the C++ and Python SDKs pin, so all three
+#           speak one schema, and its digest is the one the Python SDK's protos.yaml records.
+#           The other two supply what the schema and the client import besides itself:
+#           google.rpc.Status and its error details, and the gRPC health service.
+#
+# loader    the @grpc/proto-loader options.  `proto-loader-gen-types` is run with them, and they
+#           are written into the generated tree for the run time load to use, so the declared
+#           types and the loaded objects cannot disagree.
+
+sources:
+  protostellar:
+    repository: https://github.com/couchbase/protostellar
+    commit: 36d4d9aba03a388f7edb05290f1093d9497b1005
+    tree: couchbase
+    digest: b5f4770c37f42c6ebbf3f5f327f21911d6d39c60636c3b9c0e3af678adadadf6
+  googleapis:
+    repository: https://github.com/googleapis/googleapis
+    commit: cfc42c251e2148d608fb2fe67b2348129e640f7c
+    files:
+      - google/rpc/error_details.proto
+      - google/rpc/status.proto
+    digest: fcc1aa8be1d8f1e1311a7924b67078c4fdcd99232b00d4f3e5cea4256edcc4c3
+  grpc-proto:
+    repository: https://github.com/grpc/grpc-proto
+    commit: 813330824839bfdd3abc52f41807095c0de2ec19
+    files:
+      - grpc/health/v1/health.proto
+    digest: 7250dcebc2d7cc89508f10cf79e97e64ed451018d90740551e07097239431f75
+
+loader:
+  keepCase: true
+  longs: String
+  enums: String
+  defaults: true
+  oneofs: true

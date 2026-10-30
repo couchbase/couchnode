@@ -38,6 +38,7 @@ export default [
       'deps/**',
       'scripts/**',
       'tools/**',
+      'lib/couchbase2/generated/**',
     ],
   },
 

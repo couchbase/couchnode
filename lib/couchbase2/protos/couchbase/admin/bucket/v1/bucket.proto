@@ -1,0 +1,185 @@
+// Bucket Admin Service
+//
+// Provides bucket lifecycle management for a Couchbase cluster, including
+// creating, updating, deleting, listing, and flushing buckets. Bucket
+// configuration includes type, memory quota, replicas, eviction, compression,
+// storage backend, conflict resolution, and history retention settings.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/admin_bucket_v1;admin_bucket_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Admin::Bucket::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Admin\\Bucket\\V1";
+option java_package = "com.couchbase.client.protostellar.admin.bucket.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Admin.Bucket.V1";
+
+package couchbase.admin.bucket.v1;
+
+import "couchbase/kv/v1/kv.proto";
+
+// BucketAdminService provides CRUD operations for Couchbase buckets.
+service BucketAdminService {
+  // ListBuckets returns all buckets in the cluster with their configurations.
+  rpc ListBuckets(ListBucketsRequest) returns (ListBucketsResponse) {}
+
+  // CreateBucket creates a new bucket with the specified configuration.
+  rpc CreateBucket(CreateBucketRequest) returns (CreateBucketResponse) {}
+
+  // UpdateBucket modifies the configuration of an existing bucket.
+  // Only mutable properties can be changed (e.g., ram_quota, replicas).
+  rpc UpdateBucket(UpdateBucketRequest) returns (UpdateBucketResponse) {}
+
+  // DeleteBucket permanently removes a bucket and all its data.
+  rpc DeleteBucket(DeleteBucketRequest) returns (DeleteBucketResponse) {}
+
+  // FlushBucket removes all documents from a bucket while preserving its
+  // configuration. Requires flush_enabled to be true on the bucket.
+  rpc FlushBucket(FlushBucketRequest) returns (FlushBucketResponse) {}
+}
+
+// BucketType specifies the storage type of the bucket.
+enum BucketType {
+  // Couchbase bucket — persistent, supports replicas and DCP.
+  BUCKET_TYPE_COUCHBASE = 0;
+
+  // Ephemeral bucket — in-memory only, no persistence.
+  BUCKET_TYPE_EPHEMERAL = 1;
+}
+
+// EvictionMode controls how items are ejected when memory is full.
+enum EvictionMode {
+  // Eject everything (metadata + value) from memory.
+  EVICTION_MODE_FULL = 0;
+
+  // Eject the least recently used items first (ephemeral buckets only).
+  EVICTION_MODE_NOT_RECENTLY_USED = 1;
+
+  // Eject only the value, keeping metadata in memory.
+  EVICTION_MODE_VALUE_ONLY = 2;
+
+  // No eviction — reject writes when memory is full (ephemeral buckets only).
+  EVICTION_MODE_NONE = 3;
+}
+
+// CompressionMode controls document compression behavior.
+enum CompressionMode {
+  // Compression is disabled.
+  COMPRESSION_MODE_OFF = 0;
+
+  // Accept compressed data but do not actively compress.
+  COMPRESSION_MODE_PASSIVE = 1;
+
+  // Actively compress data during compaction.
+  COMPRESSION_MODE_ACTIVE = 2;
+}
+
+// StorageBackend specifies the on-disk storage engine.
+enum StorageBackend {
+  // Couchstore — the traditional storage engine.
+  STORAGE_BACKEND_COUCHSTORE = 0;
+
+  // Magma — high-performance storage engine for large datasets.
+  STORAGE_BACKEND_MAGMA = 1;
+}
+
+// ConflictResolutionType specifies how conflicts are resolved during
+// cross-datacenter replication (XDCR).
+enum ConflictResolutionType {
+  // Resolve by highest timestamp (last-write-wins).
+  CONFLICT_RESOLUTION_TYPE_TIMESTAMP = 0;
+
+  // Resolve by highest sequence number.
+  CONFLICT_RESOLUTION_TYPE_SEQUENCE_NUMBER = 1;
+
+  // Use custom conflict resolution logic.
+  CONFLICT_RESOLUTION_TYPE_CUSTOM = 2;
+}
+
+// ListBucketsRequest requests all buckets in the cluster.
+message ListBucketsRequest {}
+
+// ListBucketsResponse contains the list of all buckets and their
+// configurations.
+message ListBucketsResponse {
+  // Bucket describes a single bucket's configuration.
+  message Bucket {
+    string bucket_name = 1;
+    bool flush_enabled = 2;
+    uint64 ram_quota_mb = 3;
+    uint32 num_replicas = 4;
+    bool replica_indexes = 5;
+    BucketType bucket_type = 6;
+    EvictionMode eviction_mode = 7;
+    uint32 max_expiry_secs = 8;
+    CompressionMode compression_mode = 9;
+    optional couchbase.kv.v1.DurabilityLevel minimum_durability_level = 10;
+    optional StorageBackend storage_backend = 11;
+    ConflictResolutionType conflict_resolution_type = 12;
+
+    // Whether new collections default to having history retention enabled.
+    optional bool history_retention_collection_default = 13;
+
+    // Maximum size in bytes for retained history.
+    optional uint64 history_retention_bytes = 14;
+
+    // Maximum duration in seconds for history retention.
+    optional uint32 history_retention_duration_secs = 15;
+  }
+
+  repeated Bucket buckets = 1;
+}
+
+// CreateBucketRequest creates a new bucket. Only bucket_name and bucket_type
+// are required; all other fields have server-side defaults.
+message CreateBucketRequest {
+  string bucket_name = 1;
+  BucketType bucket_type = 2;
+  optional uint64 ram_quota_mb = 3;
+  optional uint32 num_replicas = 4;
+  optional bool flush_enabled = 5;
+  optional bool replica_indexes = 6;
+  optional EvictionMode eviction_mode = 7;
+  optional uint32 max_expiry_secs = 8;
+  optional CompressionMode compression_mode = 9;
+  optional couchbase.kv.v1.DurabilityLevel minimum_durability_level = 10;
+  optional StorageBackend storage_backend = 11;
+  optional ConflictResolutionType conflict_resolution_type = 12;
+  optional bool history_retention_collection_default = 13;
+  optional uint64 history_retention_bytes = 14;
+  optional uint32 history_retention_duration_secs = 15;
+}
+
+// CreateBucketResponse returns the UUID assigned to the new bucket.
+message CreateBucketResponse { string bucket_uuid = 1; }
+
+// UpdateBucketRequest modifies mutable properties of an existing bucket.
+// Immutable properties (bucket_type, storage_backend, conflict_resolution_type)
+// cannot be changed after creation.
+message UpdateBucketRequest {
+  string bucket_name = 1;
+  optional uint64 ram_quota_mb = 2;
+  optional uint32 num_replicas = 3;
+  optional bool flush_enabled = 4;
+  optional EvictionMode eviction_mode = 5;
+  optional uint32 max_expiry_secs = 6;
+  optional CompressionMode compression_mode = 7;
+  optional couchbase.kv.v1.DurabilityLevel minimum_durability_level = 8;
+  optional bool history_retention_collection_default = 10;
+  optional uint64 history_retention_bytes = 11;
+  optional uint32 history_retention_duration_secs = 12;
+}
+
+// UpdateBucketResponse is empty on success.
+message UpdateBucketResponse {}
+
+// DeleteBucketRequest permanently deletes a bucket.
+message DeleteBucketRequest { string bucket_name = 1; }
+
+// DeleteBucketResponse is empty on success.
+message DeleteBucketResponse {}
+
+// FlushBucketRequest removes all data from a bucket.
+message FlushBucketRequest { string bucket_name = 1; }
+
+// FlushBucketResponse is empty on success.
+message FlushBucketResponse {}

@@ -1,0 +1,80 @@
+// Routing Service (v2)
+//
+// Provides cluster topology and routing information via a long-lived
+// server-streamed connection. Clients use this to discover which
+// services are available, how many servers serve each service, and
+// the vbucket distribution for data routing.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/routing_v2;routing_v2";
+option ruby_package = "Couchbase::Protostellar::Generated::Routing::V2";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Routing\\V2";
+option java_package = "com.couchbase.client.protostellar.routing.v2";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Routing.V2";
+
+package couchbase.routing.v2;
+
+// RoutingService provides cluster topology updates as a server-streamed
+// response. The stream emits a new WatchRoutingResponse whenever the
+// cluster topology changes.
+service RoutingService {
+  // WatchRouting opens a long-lived stream that delivers routing
+  // configuration updates. If bucket_name is specified, the response
+  // includes vbucket routing for that specific bucket.
+  rpc WatchRouting(WatchRoutingRequest) returns (stream WatchRoutingResponse) {}
+}
+
+// WatchRoutingRequest specifies the scope of routing information requested.
+message WatchRoutingRequest {
+  // When specified, include vbucket routing data for this bucket.
+  // When omitted, only service-level routing is returned.
+  optional string bucket_name = 1;
+}
+
+// ServerRouting describes the number of servers available for a service,
+// split by network locality.
+message ServerRouting {
+  // Number of servers in the local (same-datacenter) group.
+  uint32 num_local_servers = 1;
+
+  // Number of servers in the remote (other-datacenter) group.
+  uint32 num_group_servers = 2;
+}
+
+// VbucketRouting describes the distribution of vbuckets across servers.
+// Used for KV data operations to determine which server handles a given key.
+message VbucketRouting {
+  // Total number of vbuckets for this bucket.
+  uint32 num_vbuckets = 1;
+
+  // Mapping of vbucket IDs to local server indices.
+  repeated uint32 local_vbuckets = 2;
+
+  // Mapping of vbucket IDs to group (remote) server indices.
+  repeated uint32 group_vbuckets = 3;
+}
+
+// WatchRoutingResponse contains the current cluster routing configuration.
+// Each field is optional — only populated when the corresponding service
+// is available in the cluster.
+message WatchRoutingResponse {
+  // Routing for the KV (data) service.
+  optional ServerRouting server_routing = 1;
+
+  // Routing for the Views service.
+  optional ServerRouting views_routing = 2;
+
+  // Routing for the Query (N1QL) service.
+  optional ServerRouting query_routing = 3;
+
+  // Routing for the Search (FTS) service.
+  optional ServerRouting search_routing = 4;
+
+  // Routing for the Analytics (CBAS) service.
+  optional ServerRouting analytics_routing = 5;
+
+  // Vbucket distribution for the KV data service. Only present when
+  // a bucket_name was specified in the request.
+  optional VbucketRouting vbucket_data_routing = 6;
+}

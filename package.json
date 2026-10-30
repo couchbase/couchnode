@@ -20,6 +20,8 @@
   "license": "Apache-2.0",
   "name": "couchbase",
   "dependencies": {
+    "@grpc/grpc-js": "^1.14.6",
+    "@grpc/proto-loader": "^0.8.1",
     "cmake-js": "^8.0.0",
     "detect-libc": "^2.1.2",
     "hdr-histogram-js": "^3.0.1",
@@ -70,10 +72,10 @@
   },
   "scripts": {
     "install": "node ./scripts/install.js",
-    "build": "cmake-js build && tsc",
-    "rebuild": "cmake-js rebuild && tsc",
+    "build": "cmake-js build && tsc && node ./scripts/copyProtos.js",
+    "rebuild": "cmake-js rebuild && tsc && node ./scripts/copyProtos.js",
     "prebuild": "node ./scripts/buildPrebuild.js",
-    "prepare": "node ./scripts/updateVersion.js && tsc",
+    "prepare": "node ./scripts/updateVersion.js && tsc && node ./scripts/copyProtos.js",
     "help-prune": "node ./scripts/prune.js",
     "build-docs": "typedoc",
     "test": "vitest run --config test/vitest.config.mts --project '!periodic'",
@@ -89,6 +91,8 @@
     "gen:bindings": "python3 -m tools.autogen bindings generate",
     "gen:bindings:check": "python3 -m tools.autogen bindings generate --check",
     "gen:bindings:tidy": "python3 -m tools.autogen bindings tidy",
+    "gen:protos": "python3 -m tools.autogen protos generate",
+    "gen:protos:check": "python3 -m tools.autogen protos generate --check",
     "check-deps": "ncu"
   },
   "binary": {
@@ -107,6 +111,8 @@
     "scripts/*.js",
     "src/*.{c,h}pp",
     "dist/*.{t,j}s",
+    "dist/couchbase2/**/*.{t,j}s",
+    "dist/couchbase2/protos/**/*.proto",
     "tools/*.{py,js}",
     "deps/couchbase-cxx-client/CMakeLists.txt",
     "deps/couchbase-cxx-client/LICENSE.txt",

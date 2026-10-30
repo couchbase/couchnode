@@ -1,0 +1,214 @@
+// Query Admin Service
+//
+// Provides N1QL / GSI index management for a Couchbase cluster.
+// Supports listing, creating (primary and secondary), dropping,
+// building deferred indexes, and waiting for indexes to come online.
+// All operations are scoped to bucket/scope/collection.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/admin_query_v1;admin_query_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Admin::Query::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Admin\\Query\\V1";
+option java_package = "com.couchbase.client.protostellar.admin.query.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Admin.Query.V1";
+
+package couchbase.admin.query.v1;
+
+// QueryAdminService provides N1QL index lifecycle management.
+service QueryAdminService {
+  // GetAllIndexes returns all indexes matching the optional scope filter.
+  rpc GetAllIndexes(GetAllIndexesRequest) returns (GetAllIndexesResponse) {}
+
+  // CreatePrimaryIndex creates a primary index on a collection.
+  // A primary index indexes all document keys.
+  rpc CreatePrimaryIndex(CreatePrimaryIndexRequest)
+      returns (CreatePrimaryIndexResponse) {}
+
+  // CreateIndex creates a secondary index on specific document fields.
+  rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse) {}
+
+  // DropPrimaryIndex removes a primary index.
+  rpc DropPrimaryIndex(DropPrimaryIndexRequest)
+      returns (DropPrimaryIndexResponse) {}
+
+  // DropIndex removes a named secondary index.
+  rpc DropIndex(DropIndexRequest) returns (DropIndexResponse) {}
+
+  // BuildDeferredIndexes triggers the build of all indexes that were created
+  // with deferred=true. Returns the list of indexes that will be built.
+  rpc BuildDeferredIndexes(BuildDeferredIndexesRequest)
+      returns (BuildDeferredIndexesResponse) {}
+
+  // WaitForIndexOnline blocks until the specified index reaches ONLINE state.
+  rpc WaitForIndexOnline(WaitForIndexOnlineRequest)
+      returns (WaitForIndexOnlineResponse) {}
+}
+
+// IndexType specifies the underlying index technology.
+enum IndexType {
+  // A MapReduce view-based index.
+  INDEX_TYPE_VIEW = 0;
+
+  // A Global Secondary Index (GSI).
+  INDEX_TYPE_GSI = 1;
+}
+
+// IndexState represents the current lifecycle state of an index.
+enum IndexState {
+  // The index was created with deferred=true and has not been built yet.
+  INDEX_STATE_DEFERRED = 0;
+
+  // The index is currently being built.
+  INDEX_STATE_BUILDING = 1;
+
+  // The index build is pending (queued).
+  INDEX_STATE_PENDING = 2;
+
+  // The index is online and ready for queries.
+  INDEX_STATE_ONLINE = 3;
+
+  // The index is offline.
+  INDEX_STATE_OFFLINE = 4;
+
+  // The index is in an abridged state.
+  INDEX_STATE_ABRIDGED = 5;
+
+  // The index build is scheduled but not yet started.
+  INDEX_STATE_SCHEDULED = 6;
+}
+
+// GetAllIndexesRequest lists indexes, optionally filtered by scope.
+message GetAllIndexesRequest {
+  optional string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+}
+
+// GetAllIndexesResponse contains all matching indexes.
+message GetAllIndexesResponse {
+  // Index describes a single N1QL index.
+  message Index {
+    string bucket_name = 1;
+    string scope_name = 2;
+    string collection_name = 3;
+    string name = 4;
+    bool is_primary = 5;
+    IndexType type = 6;
+    IndexState state = 7;
+
+    // The indexed field expressions.
+    repeated string fields = 8;
+
+    // The WHERE clause condition, if any.
+    optional string condition = 9;
+
+    // The PARTITION BY expression, if any.
+    optional string partition = 10;
+  }
+
+  repeated Index indexes = 1;
+}
+
+// CreatePrimaryIndexRequest creates a primary index.
+message CreatePrimaryIndexRequest {
+  string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+
+  // Optional custom name for the primary index.
+  optional string name = 4;
+
+  // Number of index replicas.
+  optional int32 num_replicas = 5;
+
+  // When true, create the index in deferred state (must be built later).
+  optional bool deferred = 6;
+
+  // When true, do not error if the index already exists.
+  optional bool ignore_if_exists = 7;
+}
+
+// CreatePrimaryIndexResponse is empty on success.
+message CreatePrimaryIndexResponse {}
+
+// CreateIndexRequest creates a secondary index on specified fields.
+message CreateIndexRequest {
+  string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  string name = 4;
+  optional int32 num_replicas = 5;
+
+  // The field expressions to index.
+  repeated string fields = 6;
+
+  // When true, create the index in deferred state.
+  optional bool deferred = 7;
+
+  // When true, do not error if the index already exists.
+  optional bool ignore_if_exists = 8;
+}
+
+// CreateIndexResponse is empty on success.
+message CreateIndexResponse {}
+
+// DropPrimaryIndexRequest drops a primary index.
+message DropPrimaryIndexRequest {
+  string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  optional string name = 4;
+
+  // When true, do not error if the index does not exist.
+  optional bool ignore_if_missing = 5;
+}
+
+// DropPrimaryIndexResponse is empty on success.
+message DropPrimaryIndexResponse {}
+
+// DropIndexRequest drops a named secondary index.
+message DropIndexRequest {
+  string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+  string name = 4;
+
+  // When true, do not error if the index does not exist.
+  optional bool ignore_if_missing = 5;
+}
+
+// DropIndexResponse is empty on success.
+message DropIndexResponse {}
+
+// BuildDeferredIndexesRequest triggers the build of all deferred indexes
+// in the specified scope.
+message BuildDeferredIndexesRequest {
+  string bucket_name = 1;
+  optional string scope_name = 2;
+  optional string collection_name = 3;
+}
+
+// BuildDeferredIndexesResponse returns the indexes that will be built.
+message BuildDeferredIndexesResponse {
+  // Index identifies an index that is being built.
+  message Index {
+    string bucket_name = 1;
+    optional string scope_name = 2;
+    optional string collection_name = 3;
+    string name = 4;
+  }
+
+  repeated Index indexes = 1;
+}
+
+// WaitForIndexOnlineRequest blocks until the named index is online.
+message WaitForIndexOnlineRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string name = 4;
+}
+
+// WaitForIndexOnlineResponse is empty on success (the index is online).
+message WaitForIndexOnlineResponse {}

@@ -1,0 +1,255 @@
+// Search Admin Service
+//
+// Provides full-text search (FTS) index lifecycle management and control
+// operations. Supports CRUD for search indexes, document analysis,
+// document count, and operational controls (pause/resume ingest,
+// allow/disallow querying, freeze/unfreeze plan).
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/admin_search_v1;admin_search_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Admin::Search::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Admin\\Search\\V1";
+option java_package = "com.couchbase.client.protostellar.admin.search.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Admin.Search.V1";
+
+package couchbase.admin.search.v1;
+
+// SearchAdminService provides search index management and control.
+service SearchAdminService {
+  // GetIndex retrieves a single search index by name.
+  rpc GetIndex(GetIndexRequest) returns (GetIndexResponse) {}
+
+  // ListIndexes returns all search indexes, optionally scoped.
+  rpc ListIndexes(ListIndexesRequest) returns (ListIndexesResponse) {}
+
+  // CreateIndex creates a new search index.
+  rpc CreateIndex(CreateIndexRequest) returns (CreateIndexResponse) {}
+
+  // UpdateIndex updates an existing search index definition.
+  rpc UpdateIndex(UpdateIndexRequest) returns (UpdateIndexResponse) {}
+
+  // DeleteIndex deletes a search index.
+  rpc DeleteIndex(DeleteIndexRequest) returns (DeleteIndexResponse) {}
+
+  // AnalyzeDocument analyzes a document against an index definition,
+  // returning the tokens that would be indexed.
+  rpc AnalyzeDocument(AnalyzeDocumentRequest)
+      returns (AnalyzeDocumentResponse) {}
+
+  // GetIndexedDocumentsCount returns the number of documents indexed
+  // by a specific search index.
+  rpc GetIndexedDocumentsCount(GetIndexedDocumentsCountRequest)
+      returns (GetIndexedDocumentsCountResponse) {}
+
+  // PauseIndexIngest pauses document ingestion for an index.
+  rpc PauseIndexIngest(PauseIndexIngestRequest)
+      returns (PauseIndexIngestResponse) {}
+
+  // ResumeIndexIngest resumes document ingestion for a paused index.
+  rpc ResumeIndexIngest(ResumeIndexIngestRequest)
+      returns (ResumeIndexIngestResponse) {}
+
+  // AllowIndexQuerying allows queries against an index.
+  rpc AllowIndexQuerying(AllowIndexQueryingRequest)
+      returns (AllowIndexQueryingResponse) {}
+
+  // DisallowIndexQuerying prevents queries against an index.
+  rpc DisallowIndexQuerying(DisallowIndexQueryingRequest)
+      returns (DisallowIndexQueryingResponse) {}
+
+  // FreezeIndexPlan prevents the index plan from being reassigned.
+  rpc FreezeIndexPlan(FreezeIndexPlanRequest)
+      returns (FreezeIndexPlanResponse) {}
+
+  // UnfreezeIndexPlan allows the index plan to be reassigned.
+  rpc UnfreezeIndexPlan(UnfreezeIndexPlanRequest)
+      returns (UnfreezeIndexPlanResponse) {}
+}
+
+// Index represents a full-text search index definition.
+message Index {
+  // The name of the index.
+  string name = 1;
+
+  // Index parameters (type mappings, analyzers, etc.). Values are JSON-encoded.
+  map<string, bytes> params = 2;
+
+  // Plan parameters (num_replicas, partition settings). Values are
+  // JSON-encoded.
+  map<string, bytes> plan_params = 3;
+
+  // The data source name (typically the bucket name).
+  optional string source_name = 4;
+
+  // Source-specific parameters. Values are JSON-encoded.
+  map<string, bytes> source_params = 5;
+
+  // The type of data source (e.g., "couchbase").
+  optional string source_type = 6;
+
+  // The UUID of the source.
+  optional string source_uuid = 7;
+
+  // The index type (e.g., "fulltext-index").
+  string type = 8;
+
+  // The unique identifier for this index.
+  string uuid = 9;
+}
+
+// CreateIndexRequest creates a new search index.
+// Does not reuse the Index message because uuid is server-assigned.
+message CreateIndexRequest {
+  string name = 1;
+  map<string, bytes> params = 2;
+  map<string, bytes> plan_params = 3;
+
+  // UUID of a prior index version, for optimistic concurrency.
+  optional string prev_index_uuid = 4;
+
+  optional string source_name = 5;
+  map<string, bytes> source_params = 6;
+  optional string source_type = 7;
+  optional string source_uuid = 8;
+  string type = 9;
+
+  // Optional bucket/scope scoping for the index.
+  optional string bucket_name = 10;
+  optional string scope_name = 11;
+}
+
+// CreateIndexResponse is empty on success.
+message CreateIndexResponse {}
+
+// UpdateIndexRequest updates an existing search index.
+message UpdateIndexRequest {
+  // The full index definition with updated fields.
+  Index index = 1;
+
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// UpdateIndexResponse is empty on success.
+message UpdateIndexResponse {}
+
+// GetIndexRequest retrieves a search index by name.
+message GetIndexRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// GetIndexResponse contains the index definition.
+message GetIndexResponse { Index index = 1; }
+
+// ListIndexesRequest lists search indexes, optionally scoped.
+message ListIndexesRequest {
+  optional string bucket_name = 1;
+  optional string scope_name = 2;
+}
+
+// ListIndexesResponse contains all matching indexes.
+message ListIndexesResponse { repeated Index indexes = 1; }
+
+// DeleteIndexRequest deletes a search index.
+message DeleteIndexRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// DeleteIndexResponse is empty on success.
+message DeleteIndexResponse {}
+
+// AnalyzeDocumentRequest analyzes a document against an index definition.
+message AnalyzeDocumentRequest {
+  // The index name to analyze against.
+  string name = 1;
+
+  // The document to analyze. JSON-encoded.
+  bytes doc = 2;
+
+  optional string bucket_name = 3;
+  optional string scope_name = 4;
+}
+
+// AnalyzeDocumentResponse contains the analysis results.
+message AnalyzeDocumentResponse {
+  // Status of the analysis operation.
+  string status = 1;
+
+  // The analysis results (tokens, etc.). JSON-encoded.
+  bytes analyzed = 2;
+}
+
+// GetIndexedDocumentsCountRequest retrieves the indexed document count.
+message GetIndexedDocumentsCountRequest {
+  string name = 1;
+  optional string bucket_name = 3;
+  optional string scope_name = 4;
+}
+
+// GetIndexedDocumentsCountResponse returns the count.
+message GetIndexedDocumentsCountResponse { uint64 count = 1; }
+
+// PauseIndexIngestRequest pauses document ingestion for an index.
+message PauseIndexIngestRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// PauseIndexIngestResponse is empty on success.
+message PauseIndexIngestResponse {}
+
+// ResumeIndexIngestRequest resumes document ingestion for a paused index.
+message ResumeIndexIngestRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// ResumeIndexIngestResponse is empty on success.
+message ResumeIndexIngestResponse {}
+
+// AllowIndexQueryingRequest re-enables querying for an index.
+message AllowIndexQueryingRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// AllowIndexQueryingResponse is empty on success.
+message AllowIndexQueryingResponse {}
+
+// DisallowIndexQueryingRequest disables querying for an index.
+message DisallowIndexQueryingRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// DisallowIndexQueryingResponse is empty on success.
+message DisallowIndexQueryingResponse {}
+
+// FreezeIndexPlanRequest freezes the index plan, preventing reassignment.
+message FreezeIndexPlanRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// FreezeIndexPlanResponse is empty on success.
+message FreezeIndexPlanResponse {}
+
+// UnfreezeIndexPlanRequest unfreezes the index plan, allowing reassignment.
+message UnfreezeIndexPlanRequest {
+  string name = 1;
+  optional string bucket_name = 2;
+  optional string scope_name = 3;
+}
+
+// UnfreezeIndexPlanResponse is empty on success.
+message UnfreezeIndexPlanResponse {}

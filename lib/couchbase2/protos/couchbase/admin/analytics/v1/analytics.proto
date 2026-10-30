@@ -1,0 +1,288 @@
+// Analytics Admin Service
+//
+// Provides analytics link lifecycle management and ingestion status
+// monitoring. Analytics links connect the analytics service to external
+// data sources (remote Couchbase clusters, S3, Azure Blob, GCS).
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/admin_analytics_v1;admin_analytics_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Admin::Analytics::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Admin\\Analytics\\V1";
+option java_package = "com.couchbase.client.protostellar.admin.analytics.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Admin.Analytics.V1";
+
+import "google/protobuf/timestamp.proto";
+
+package couchbase.admin.analytics.v1;
+
+// LinkStatus describes the health state of an analytics link.
+enum LinkStatus {
+  LINK_STATUS_UNKNOWN = 0;
+  LINK_STATUS_HEALTHY = 1;
+  LINK_STATUS_STOPPED = 2;
+  LINK_STATUS_UNHEALTHY = 3;
+  LINK_STATUS_SUSPENDED = 4;
+}
+
+// CouchbaseEncryptionMode controls the encryption level for
+// remote Couchbase cluster links.
+enum CouchbaseEncryptionMode {
+  // No encryption.
+  COUCHBASE_ENCRYPTION_MODE_NONE = 0;
+
+  // Encrypt password only.
+  COUCHBASE_ENCRYPTION_MODE_HALF = 1;
+
+  // Full TLS encryption.
+  COUCHBASE_ENCRYPTION_MODE_FULL = 2;
+}
+
+// AnalyticsAdminService provides CRUD for analytics links and
+// ingestion status monitoring.
+service AnalyticsAdminService {
+  // CreateLink creates a new analytics link.
+  rpc CreateLink(CreateLinkRequest) returns (CreateLinkResponse) {}
+
+  // GetLink retrieves an analytics link's configuration.
+  // Sensitive fields (passwords, secret keys) are omitted from the response.
+  rpc GetLink(GetLinkRequest) returns (GetLinkResponse) {}
+
+  // UpdateLink updates an existing analytics link's configuration.
+  rpc UpdateLink(UpdateLinkRequest) returns (UpdateLinkResponse) {}
+
+  // DeleteLink removes an analytics link.
+  rpc DeleteLink(DeleteLinkRequest) returns (DeleteLinkResponse) {}
+
+  // GetIngestionStatus returns the current ingestion status for all links,
+  // including progress, time lag, and scope/collection details.
+  rpc GetIngestionStatus(GetIngestionStatusRequest)
+      returns (GetIngestionStatusResponse) {}
+}
+
+// CreateLinkRequest creates a new analytics link. Exactly one link type
+// must be specified via the oneof.
+message CreateLinkRequest {
+  // CouchbaseLink connects to a remote Couchbase cluster.
+  message CouchbaseLink {
+    string hostname = 1;
+    CouchbaseEncryptionMode encryption_mode = 2;
+    optional string username = 3;
+    optional string password = 4;
+    optional string certificate = 5;
+    optional string client_certificate = 6;
+    optional string client_key = 7;
+  }
+
+  // S3Link connects to an Amazon S3 data source.
+  message S3Link {
+    string access_key_id = 1;
+    string secret_access_key = 2;
+    optional string session_token = 3;
+    string region = 4;
+    optional string service_endpoint = 5;
+  }
+
+  // AzureBlobLink connects to an Azure Blob Storage data source.
+  message AzureBlobLink {
+    optional string account_name = 1;
+    optional string account_key = 2;
+    optional string shared_access_signature = 3;
+    optional string managed_identity_id = 4;
+    optional string client_id = 5;
+    optional string tenant_id = 6;
+    optional string client_secret = 7;
+    optional string client_certificate_password = 8;
+    optional string endpoint = 9;
+  }
+
+  // GcsLink connects to a Google Cloud Storage data source.
+  message GcsLink { optional string json_credentials = 1; }
+
+  // The analytics scope this link belongs to.
+  string analytics_scope_name = 1;
+
+  // The name of the link.
+  string link_name = 2;
+
+  // The link configuration. Exactly one must be set.
+  oneof link {
+    CouchbaseLink couchbase_link = 3;
+    S3Link s3_link = 4;
+    AzureBlobLink azureblob_link = 5;
+    GcsLink gcs_link = 6;
+  }
+}
+
+// CreateLinkResponse is empty on success.
+message CreateLinkResponse {}
+
+// GetLinkRequest retrieves a link by scope and name.
+message GetLinkRequest {
+  string analytics_scope_name = 1;
+  string link_name = 2;
+}
+
+// GetLinkResponse returns the link configuration with sensitive fields
+// (passwords, secret keys, SAS tokens) omitted for security.
+message GetLinkResponse {
+  // CouchbaseLink — sensitive fields (password, client_key) are omitted.
+  message CouchbaseLink {
+    string uuid = 1;
+    string active_hostname = 2;
+    string bootstrap_hostname = 3;
+    bool is_bootstrap_alternate_address = 4;
+    optional string certificate = 5;
+    // client_certificate — omitted
+    // client_key — omitted
+    // cluster_compatibility — omitted
+    CouchbaseEncryptionMode encryption_mode = 6;
+    // nodes — omitted
+    string username = 7;
+    // password — omitted
+  }
+
+  // S3Link — secret_access_key and session_token are omitted.
+  message S3Link {
+    string access_key_id = 1;
+    string region = 2;
+    // secret_access_key — omitted
+    // session_token — omitted
+    optional string service_endpoint = 3;
+  }
+
+  // AzureBlobLink — sensitive credential fields are omitted.
+  message AzureBlobLink {
+    // account_key — omitted
+    optional string account_name = 1;
+    // client_certificate — omitted
+    // client_certificate_password — omitted
+    optional string client_id = 2;
+    // client_secret — omitted
+    string endpoint = 3;
+    optional string managed_identity_id = 4;
+    // shared_access_signature — omitted
+    optional string tenant_id = 5;
+  }
+
+  // GcsLink — json_credentials are omitted.
+  message GcsLink {
+    bool use_application_default_credentials = 1;
+    string endpoint = 2;
+    // json_credentials — omitted
+  }
+
+  oneof link {
+    CouchbaseLink couchbase_link = 1;
+    S3Link s3_link = 2;
+    AzureBlobLink azureblob_link = 3;
+    GcsLink gcs_link = 4;
+  }
+}
+
+// UpdateLinkRequest updates an existing link. Same structure as
+// CreateLinkRequest.
+message UpdateLinkRequest {
+  // CouchbaseLink — same fields as CreateLinkRequest.CouchbaseLink.
+  message CouchbaseLink {
+    string hostname = 1;
+    CouchbaseEncryptionMode encryption_mode = 2;
+    optional string username = 3;
+    optional string password = 4;
+    optional string certificate = 5;
+    optional string client_certificate = 6;
+    optional string client_key = 7;
+  }
+
+  message S3Link {
+    string access_key_id = 1;
+    string secret_access_key = 2;
+    optional string session_token = 3;
+    string region = 4;
+    optional string service_endpoint = 5;
+  }
+
+  message AzureBlobLink {
+    optional string account_name = 1;
+    optional string account_key = 2;
+    optional string shared_access_signature = 3;
+    optional string managed_identity_id = 4;
+    optional string client_id = 5;
+    optional string tenant_id = 6;
+    optional string client_secret = 7;
+    optional string client_certificate_password = 8;
+    optional string endpoint = 9;
+  }
+
+  message GcsLink { optional string json_credentials = 1; }
+
+  string analytics_scope_name = 1;
+  string link_name = 2;
+
+  oneof link {
+    CouchbaseLink couchbase_link = 3;
+    S3Link s3_link = 4;
+    AzureBlobLink azureblob_link = 5;
+    GcsLink gcs_link = 6;
+  }
+}
+
+// UpdateLinkResponse is empty on success.
+message UpdateLinkResponse {}
+
+// DeleteLinkRequest removes an analytics link.
+message DeleteLinkRequest {
+  string analytics_scope_name = 1;
+  string link_name = 2;
+}
+
+// DeleteLinkResponse is empty on success.
+message DeleteLinkResponse {}
+
+// GetIngestionStatusRequest retrieves ingestion status for all links.
+message GetIngestionStatusRequest {}
+
+// GetIngestionStatusResponse contains the ingestion status of all links.
+message GetIngestionStatusResponse {
+  // Link contains the status and ingestion state for a single link.
+  message Link {
+    // State represents the ingestion state at a point in time.
+    message State {
+      // Scope identifies a scope being ingested.
+      message Scope {
+        // Collection identifies a collection being ingested.
+        message Collection { string collection_name = 1; }
+
+        string scope_name = 1;
+        repeated Collection collections = 2;
+      }
+
+      // When this state snapshot was captured.
+      google.protobuf.Timestamp timestamp = 1;
+
+      // Ingestion progress as a fraction (0.0 to 1.0).
+      double progress = 2;
+
+      // Time lag in milliseconds behind the source.
+      optional int64 time_lag_ms = 3;
+
+      // Number of items processed so far.
+      optional int64 items_processed = 4;
+
+      // Number of sequence number advances.
+      optional int64 seqno_advances = 5;
+
+      // Scopes being ingested.
+      repeated Scope scopes = 6;
+    }
+
+    string link_name = 1;
+    string analytics_scope_name = 2;
+    LinkStatus status = 3;
+
+    // Historical and current ingestion states.
+    repeated State states = 4;
+  }
+
+  repeated Link links = 1;
+}

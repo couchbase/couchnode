@@ -1,0 +1,707 @@
+// Key-Value (KV) Service
+//
+// Provides full key-value document operations for Couchbase, including
+// CRUD, sub-document lookups and mutations, binary append/prepend,
+// atomic counters, pessimistic locking, and replica reads.
+// All operations are scoped to a bucket/scope/collection/key address.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/kv_v1;kv_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::KV::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\KV\\V1";
+option java_package = "com.couchbase.client.protostellar.kv.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.KV.V1";
+
+package couchbase.kv.v1;
+
+import "google/rpc/status.proto";
+import "google/protobuf/timestamp.proto";
+
+// KvService provides key-value document operations against a Couchbase cluster.
+// Operations are organized into reads, mutations, counters, binary operations,
+// sub-document operations, and replica reads.
+service KvService {
+  // Get retrieves a document by key. Supports field-level projection via the
+  // `project` field and optional compressed responses.
+  rpc Get(GetRequest) returns (GetResponse) {}
+
+  // GetAndTouch retrieves a document and simultaneously resets its expiry.
+  rpc GetAndTouch(GetAndTouchRequest) returns (GetAndTouchResponse) {}
+
+  // GetAndLock retrieves a document and acquires a pessimistic lock for the
+  // specified duration. The lock must be released via Unlock or will
+  // auto-expire after lock_time_secs.
+  rpc GetAndLock(GetAndLockRequest) returns (GetAndLockResponse) {}
+
+  // Unlock releases a pessimistic lock previously acquired by GetAndLock.
+  // Requires the CAS value returned by the locking operation.
+  rpc Unlock(UnlockRequest) returns (UnlockResponse) {}
+
+  // Touch resets a document's expiry without retrieving its content.
+  rpc Touch(TouchRequest) returns (TouchResponse) {}
+
+  // Exists checks whether a document exists without retrieving its content.
+  // Returns a boolean result and the current CAS.
+  rpc Exists(ExistsRequest) returns (ExistsResponse) {}
+
+  // Insert creates a new document. Fails if the document already exists.
+  // Supports durability requirements.
+  rpc Insert(InsertRequest) returns (InsertResponse) {}
+
+  // Upsert creates or replaces a document unconditionally.
+  // Supports preserving the existing expiry on update.
+  rpc Upsert(UpsertRequest) returns (UpsertResponse) {}
+
+  // Replace updates an existing document. Fails if the document does not exist.
+  // Supports optimistic locking via optional CAS.
+  rpc Replace(ReplaceRequest) returns (ReplaceResponse) {}
+
+  // Remove deletes a document. Supports optimistic locking via optional CAS
+  // and durability requirements.
+  rpc Remove(RemoveRequest) returns (RemoveResponse) {}
+
+  // Increment atomically increments a counter document by the specified delta.
+  // If the document does not exist and an initial value is provided, it is
+  // created with that value.
+  rpc Increment(IncrementRequest) returns (IncrementResponse) {}
+
+  // Decrement atomically decrements a counter document by the specified delta.
+  // If the document does not exist and an initial value is provided, it is
+  // created with that value.
+  rpc Decrement(DecrementRequest) returns (DecrementResponse) {}
+
+  // Append appends raw bytes to the end of an existing document's value.
+  rpc Append(AppendRequest) returns (AppendResponse) {}
+
+  // Prepend prepends raw bytes to the beginning of an existing document's
+  // value.
+  rpc Prepend(PrependRequest) returns (PrependResponse) {}
+
+  // LookupIn performs one or more sub-document lookup operations (get, exists,
+  // count) on paths within a JSON document. Supports xattr and access_deleted
+  // flags.
+  rpc LookupIn(LookupInRequest) returns (LookupInResponse) {}
+
+  // MutateIn performs one or more sub-document mutation operations on paths
+  // within a JSON document. Supports insert, upsert, replace, remove, array
+  // operations, and counters at the sub-document level.
+  rpc MutateIn(MutateInRequest) returns (MutateInResponse) {}
+
+  // GetAllReplicas returns the document from the active node and all replica
+  // nodes as a server-streamed response. Each response indicates whether it
+  // is from a replica via the is_replica flag.
+  rpc GetAllReplicas(GetAllReplicasRequest)
+      returns (stream GetAllReplicasResponse) {}
+}
+
+// DurabilityLevel specifies the durability requirements for mutation
+// operations. Controls how many nodes must acknowledge a write before it is
+// considered successful.
+enum DurabilityLevel {
+  // The mutation must be replicated to a majority of data service nodes.
+  DURABILITY_LEVEL_MAJORITY = 0;
+
+  // The mutation must be replicated to a majority of nodes and additionally
+  // persisted to disk on the active node.
+  DURABILITY_LEVEL_MAJORITY_AND_PERSIST_TO_ACTIVE = 1;
+
+  // The mutation must be persisted to disk on a majority of data service nodes.
+  DURABILITY_LEVEL_PERSIST_TO_MAJORITY = 2;
+}
+
+// CompressionEnabled controls whether the server may return compressed content.
+enum CompressionEnabled {
+  // The server may return either compressed or uncompressed content.
+  COMPRESSION_ENABLED_OPTIONAL = 0;
+
+  // The server should always return compressed content when possible.
+  COMPRESSION_ENABLED_ALWAYS = 1;
+}
+
+// LegacyDurabilitySpec provides legacy-style observe-based durability by
+// specifying the number of nodes that must replicate and persist the mutation.
+message LegacyDurabilitySpec {
+  // Number of replica nodes that must acknowledge the mutation.
+  uint32 num_replicated = 1;
+
+  // Number of nodes (active + replicas) that must persist the mutation to disk.
+  uint32 num_persisted = 2;
+}
+
+// MutationToken represents a point-in-time marker for a mutation on a specific
+// vbucket. Used for read-your-own-writes consistency (e.g., at_plus scan
+// consistency in query services).
+message MutationToken {
+  // The bucket in which the mutation occurred.
+  string bucket_name = 1;
+
+  // The vbucket where the mutation was applied.
+  uint32 vbucket_id = 2;
+
+  // The UUID of the vbucket at the time of mutation.
+  uint64 vbucket_uuid = 3;
+
+  // The sequence number assigned to the mutation.
+  uint64 seq_no = 4;
+}
+
+// GetRequest retrieves a document by its key.
+message GetRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // Optional list of JSON field paths to project. When specified, only
+  // the requested fields are returned instead of the full document.
+  repeated string project = 5;
+
+  // Controls whether compressed content may be returned.
+  optional CompressionEnabled compression = 6;
+}
+
+// GetResponse contains the retrieved document content and metadata.
+message GetResponse {
+  // The document body, either uncompressed or compressed.
+  oneof content {
+    bytes content_uncompressed = 1;
+    bytes content_compressed = 7;
+  }
+
+  // SDK-specific flags describing the content encoding/type.
+  uint32 content_flags = 6;
+
+  // The current Compare-And-Swap value for optimistic concurrency.
+  uint64 cas = 3;
+
+  // The document's expiry time, if set.
+  google.protobuf.Timestamp expiry = 4;
+  reserved 2, 5;
+}
+
+// GetAndTouchRequest retrieves a document and simultaneously resets its expiry.
+message GetAndTouchRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The new expiry to set, as either an absolute timestamp or a duration in
+  // seconds.
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 5;
+    uint32 expiry_secs = 6;
+  }
+
+  optional CompressionEnabled compression = 7;
+}
+
+// GetAndTouchResponse contains the retrieved document with its updated expiry.
+message GetAndTouchResponse {
+  oneof content {
+    bytes content_uncompressed = 1;
+    bytes content_compressed = 7;
+  }
+  uint32 content_flags = 6;
+  uint64 cas = 3;
+  google.protobuf.Timestamp expiry = 4;
+  reserved 2, 5;
+}
+
+// GetAndLockRequest retrieves a document and acquires a pessimistic lock.
+message GetAndLockRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // Duration in seconds for the pessimistic lock. The lock auto-expires
+  // after this period if not explicitly released via Unlock.
+  uint32 lock_time_secs = 5;
+
+  optional CompressionEnabled compression = 6;
+}
+
+// GetAndLockResponse contains the locked document's content and metadata.
+message GetAndLockResponse {
+  oneof content {
+    bytes content_uncompressed = 1;
+    bytes content_compressed = 7;
+  }
+  uint32 content_flags = 6;
+
+  // The CAS value required to unlock or mutate the locked document.
+  uint64 cas = 3;
+
+  google.protobuf.Timestamp expiry = 4;
+  reserved 2, 5;
+}
+
+// UnlockRequest releases a pessimistic lock on a document.
+message UnlockRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The CAS value returned by the GetAndLock that acquired the lock.
+  uint64 cas = 5;
+}
+
+// UnlockResponse is empty on success.
+message UnlockResponse {}
+
+// TouchRequest resets a document's expiry without retrieving its content.
+message TouchRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The new expiry to set.
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 5;
+    uint32 expiry_secs = 6;
+  }
+}
+
+// TouchResponse returns the updated CAS and mutation token.
+message TouchResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// ExistsRequest checks if a document exists by key.
+message ExistsRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+}
+
+// ExistsResponse indicates whether the document exists.
+message ExistsResponse {
+  // True if the document exists.
+  bool result = 1;
+
+  // The current CAS value of the document, if it exists.
+  uint64 cas = 2;
+}
+
+// InsertRequest creates a new document. Fails if the document already exists.
+message InsertRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The document body to store.
+  oneof content {
+    bytes content_uncompressed = 5;
+    bytes content_compressed = 12;
+  }
+
+  // SDK-specific flags describing the content encoding/type.
+  uint32 content_flags = 11;
+
+  // Optional expiry for the new document.
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 7;
+    uint32 expiry_secs = 10;
+  }
+
+  // Optional durability requirements for this mutation.
+  optional DurabilityLevel durability_level = 9;
+  reserved 6;
+}
+
+// InsertResponse returns the CAS and mutation token for the new document.
+message InsertResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// UpsertRequest creates or fully replaces a document unconditionally.
+message UpsertRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  oneof content {
+    bytes content_uncompressed = 5;
+    bytes content_compressed = 13;
+  }
+  uint32 content_flags = 11;
+
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 7;
+    uint32 expiry_secs = 10;
+  }
+
+  // When true and the document already exists, the existing expiry is
+  // preserved rather than being replaced by the new expiry value.
+  optional bool preserve_expiry_on_existing = 12;
+
+  optional DurabilityLevel durability_level = 9;
+  reserved 6;
+}
+
+// UpsertResponse returns the CAS and mutation token.
+message UpsertResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// ReplaceRequest updates an existing document. Fails if the document does not
+// exist.
+message ReplaceRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  oneof content {
+    bytes content_uncompressed = 5;
+    bytes content_compressed = 13;
+  }
+  uint32 content_flags = 12;
+
+  // Optional CAS for optimistic concurrency. If provided, the replace
+  // will fail if the document has been modified since this CAS was obtained.
+  optional uint64 cas = 7;
+
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 8;
+    uint32 expiry_secs = 11;
+  }
+
+  optional DurabilityLevel durability_level = 10;
+  reserved 6;
+}
+
+// ReplaceResponse returns the new CAS and mutation token.
+message ReplaceResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// RemoveRequest deletes a document by key.
+message RemoveRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // Optional CAS for optimistic concurrency control.
+  optional uint64 cas = 5;
+
+  optional DurabilityLevel durability_level = 7;
+}
+
+// RemoveResponse returns the resulting CAS and mutation token.
+message RemoveResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// IncrementRequest atomically increments a counter document.
+message IncrementRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The amount to increment the counter by.
+  uint64 delta = 5;
+
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 6;
+    uint32 expiry_secs = 10;
+  }
+
+  // If the counter document does not exist, it will be created with this
+  // initial value. If not provided and the document doesn't exist, the
+  // operation will fail.
+  optional int64 initial = 7;
+
+  optional DurabilityLevel durability_level = 9;
+}
+
+// IncrementResponse returns the new counter value after incrementing.
+message IncrementResponse {
+  uint64 cas = 1;
+
+  // The counter value after the increment operation.
+  int64 content = 2;
+
+  MutationToken mutation_token = 3;
+}
+
+// DecrementRequest atomically decrements a counter document.
+message DecrementRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The amount to decrement the counter by.
+  uint64 delta = 5;
+
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 6;
+    uint32 expiry_secs = 10;
+  }
+
+  // If the counter document does not exist, it will be created with this
+  // initial value.
+  optional int64 initial = 7;
+
+  optional DurabilityLevel durability_level = 9;
+}
+
+// DecrementResponse returns the new counter value after decrementing.
+message DecrementResponse {
+  uint64 cas = 1;
+
+  // The counter value after the decrement operation.
+  int64 content = 2;
+
+  MutationToken mutation_token = 3;
+}
+
+// AppendRequest appends raw bytes to the end of an existing document's value.
+message AppendRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The bytes to append to the existing document value.
+  bytes content = 5;
+
+  // Optional CAS for optimistic concurrency.
+  optional uint64 cas = 6;
+
+  optional DurabilityLevel durability_level = 8;
+}
+
+// AppendResponse returns the new CAS and mutation token.
+message AppendResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// PrependRequest prepends raw bytes to the beginning of an existing document's
+// value.
+message PrependRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The bytes to prepend to the existing document value.
+  bytes content = 5;
+
+  // Optional CAS for optimistic concurrency.
+  optional uint64 cas = 6;
+
+  optional DurabilityLevel durability_level = 8;
+}
+
+// PrependResponse returns the new CAS and mutation token.
+message PrependResponse {
+  uint64 cas = 1;
+  MutationToken mutation_token = 2;
+}
+
+// LookupInRequest performs sub-document read operations on a JSON document.
+// Multiple lookup specs can be executed atomically in a single request.
+message LookupInRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // Spec defines a single sub-document lookup operation.
+  message Spec {
+    // The type of sub-document lookup to perform.
+    enum Operation {
+      // Retrieve the value at the specified path.
+      OPERATION_GET = 0;
+
+      // Check whether a value exists at the specified path.
+      OPERATION_EXISTS = 1;
+
+      // Count the number of elements in an array or keys in an object
+      // at the specified path.
+      OPERATION_COUNT = 2;
+    }
+    Operation operation = 1;
+
+    // The JSON path to operate on (e.g., "address.city" or "tags[0]").
+    string path = 2;
+
+    // Flags for this individual spec.
+    message Flags {
+      // When true, operate on an extended attribute (xattr) rather
+      // than the document body.
+      optional bool xattr = 1;
+    }
+    optional Flags flags = 3;
+  }
+
+  // The list of sub-document lookup operations to perform.
+  repeated Spec specs = 5;
+
+  // Document-level flags.
+  message Flags {
+    // When true, allow lookups on deleted (tombstoned) documents.
+    optional bool access_deleted = 1;
+  }
+  optional Flags flags = 6;
+}
+
+// LookupInResponse contains the results of sub-document lookup operations.
+message LookupInResponse {
+  // Spec contains the result for a single lookup operation.
+  message Spec {
+    // The status of this individual lookup operation. A non-OK status
+    // indicates the path was not found or another path-level error.
+    google.rpc.Status status = 1;
+
+    // The content retrieved from the path, if the operation succeeded.
+    bytes content = 2;
+  }
+
+  // Results corresponding 1:1 to the specs in the request.
+  repeated Spec specs = 1;
+
+  // The document's CAS at the time of the lookup.
+  uint64 cas = 2;
+}
+
+// MutateInRequest performs sub-document mutation operations on a JSON document.
+// Multiple mutation specs can be executed atomically in a single request.
+message MutateInRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // Spec defines a single sub-document mutation operation.
+  message Spec {
+    // The type of sub-document mutation to perform.
+    enum Operation {
+      // Insert a value at the specified path (fails if path exists).
+      OPERATION_INSERT = 0;
+
+      // Insert or replace a value at the specified path.
+      OPERATION_UPSERT = 1;
+
+      // Replace a value at the specified path (fails if path doesn't exist).
+      OPERATION_REPLACE = 2;
+
+      // Remove the value at the specified path.
+      OPERATION_REMOVE = 3;
+
+      // Append a value to the end of an array.
+      OPERATION_ARRAY_APPEND = 4;
+
+      // Prepend a value to the beginning of an array.
+      OPERATION_ARRAY_PREPEND = 5;
+
+      // Insert a value at a specific index in an array.
+      OPERATION_ARRAY_INSERT = 6;
+
+      // Add a value to an array only if it doesn't already exist.
+      OPERATION_ARRAY_ADD_UNIQUE = 7;
+
+      // Increment or decrement a numeric value at the specified path.
+      OPERATION_COUNTER = 8;
+    }
+    Operation operation = 1;
+
+    // The JSON path to operate on.
+    string path = 2;
+
+    // The value to apply (interpretation depends on the operation).
+    bytes content = 3;
+
+    // Flags for this individual spec.
+    message Flags {
+      // When true, intermediate path elements are created if they don't exist.
+      optional bool create_path = 1;
+
+      // When true, operate on an extended attribute (xattr).
+      optional bool xattr = 2;
+    }
+    optional Flags flags = 4;
+  }
+
+  // The list of sub-document mutations to perform atomically.
+  repeated Spec specs = 5;
+
+  // StoreSemantic controls the document-level behavior of the mutation.
+  enum StoreSemantic {
+    // The document must already exist (default).
+    STORE_SEMANTIC_REPLACE = 0;
+
+    // Create the document if it doesn't exist, or update if it does.
+    STORE_SEMANTIC_UPSERT = 1;
+
+    // Create the document only if it doesn't exist (fail otherwise).
+    STORE_SEMANTIC_INSERT = 2;
+  }
+  optional StoreSemantic store_semantic = 6;
+
+  optional DurabilityLevel durability_level = 8;
+
+  // Optional CAS for optimistic concurrency on the full document.
+  optional uint64 cas = 9;
+
+  // Document-level flags.
+  message Flags {
+    // When true, allow mutations on deleted (tombstoned) documents.
+    optional bool access_deleted = 1;
+  }
+  optional Flags flags = 10;
+
+  // Optional expiry to set on the document.
+  oneof expiry {
+    google.protobuf.Timestamp expiry_time = 11;
+    uint32 expiry_secs = 12;
+  }
+}
+
+// MutateInResponse contains the results of sub-document mutation operations.
+message MutateInResponse {
+  // Spec contains the result for a single mutation. Content is only
+  // populated for counter operations (returns the new counter value).
+  message Spec { optional bytes content = 1; }
+
+  // Results corresponding 1:1 to the specs in the request.
+  repeated Spec specs = 1;
+
+  uint64 cas = 2;
+  MutationToken mutation_token = 3;
+}
+
+// GetAllReplicasRequest reads a document from the active node and all replicas.
+message GetAllReplicasRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+}
+
+// GetAllReplicasResponse is streamed once per node (active + replicas).
+message GetAllReplicasResponse {
+  // True if this response came from a replica node, false if from the active.
+  bool is_replica = 1;
+
+  bytes content = 2;
+  uint32 content_flags = 3;
+  uint64 cas = 4;
+}

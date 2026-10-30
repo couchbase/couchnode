@@ -1,0 +1,178 @@
+// Transactions Service
+//
+// Provides server-managed distributed ACID transactions against a
+// Couchbase cluster. The transaction lifecycle is:
+//   1. BeginAttempt — start a new transaction attempt.
+//   2. Perform data operations (Get, Insert, Replace, Remove) within
+//      the transaction context.
+//   3. Commit or Rollback the transaction attempt.
+// Each attempt is identified by a (transaction_id, attempt_id) pair.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/transactions_v1;transactions_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Transactions::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Transactions\\V1";
+option java_package = "com.couchbase.client.protostellar.transactions.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Transactions.V1";
+
+package couchbase.transactions.v1;
+
+// TransactionsService provides distributed ACID transactions.
+// All data operations must reference a valid transaction_id and attempt_id
+// obtained from TransactionBeginAttempt.
+service TransactionsService {
+  // TransactionBeginAttempt starts a new transaction attempt. Returns
+  // a transaction_id and attempt_id to use for all subsequent operations.
+  // If transaction_id is provided, this begins a retry attempt for an
+  // existing transaction.
+  rpc TransactionBeginAttempt(TransactionBeginAttemptRequest)
+      returns (TransactionBeginAttemptResponse) {}
+
+  // TransactionCommit commits all mutations made within the transaction
+  // attempt, making them visible to other operations.
+  rpc TransactionCommit(TransactionCommitRequest)
+      returns (TransactionCommitResponse) {}
+
+  // TransactionRollback aborts the transaction attempt and discards
+  // all uncommitted mutations.
+  rpc TransactionRollback(TransactionRollbackRequest)
+      returns (TransactionRollbackResponse) {}
+
+  // TransactionGet retrieves a document within the transaction context.
+  // The returned CAS must be used for subsequent Replace or Remove
+  // operations on this document within the same transaction.
+  rpc TransactionGet(TransactionGetRequest) returns (TransactionGetResponse) {}
+
+  // TransactionInsert creates a new document within the transaction.
+  // Fails if the document already exists.
+  rpc TransactionInsert(TransactionInsertRequest)
+      returns (TransactionInsertResponse) {}
+
+  // TransactionReplace replaces an existing document within the transaction.
+  // Requires the CAS from a prior TransactionGet.
+  rpc TransactionReplace(TransactionReplaceRequest)
+      returns (TransactionReplaceResponse) {}
+
+  // TransactionRemove removes a document within the transaction.
+  // Requires the CAS from a prior TransactionGet.
+  rpc TransactionRemove(TransactionRemoveRequest)
+      returns (TransactionRemoveResponse) {}
+}
+
+// TransactionBeginAttemptRequest starts a new transaction attempt.
+message TransactionBeginAttemptRequest {
+  // The bucket to use for transaction metadata storage.
+  string bucket_name = 1;
+
+  // Optional. When provided, this begins a retry attempt for an existing
+  // transaction rather than starting a brand-new transaction.
+  optional string transaction_id = 2;
+}
+
+// TransactionBeginAttemptResponse contains the identifiers for the new attempt.
+message TransactionBeginAttemptResponse {
+  // The unique identifier for this transaction.
+  string transaction_id = 1;
+
+  // The unique identifier for this specific attempt within the transaction.
+  string attempt_id = 2;
+}
+
+// TransactionCommitRequest commits a transaction attempt.
+message TransactionCommitRequest {
+  string bucket_name = 1;
+  string transaction_id = 2;
+  string attempt_id = 3;
+}
+
+// TransactionCommitResponse is empty on success.
+message TransactionCommitResponse {}
+
+// TransactionRollbackRequest rolls back a transaction attempt.
+message TransactionRollbackRequest {
+  string bucket_name = 1;
+  string transaction_id = 2;
+  string attempt_id = 3;
+}
+
+// TransactionRollbackResponse is empty on success.
+message TransactionRollbackResponse {}
+
+// TransactionGetRequest retrieves a document within a transaction.
+message TransactionGetRequest {
+  string bucket_name = 1;
+  // transaction_id and attempt_id are optional to allow read-only transactions.
+  // clients are not permitted to use this functionality to optimize
+  // non-read-only transactions.
+  string transaction_id = 2;
+  string attempt_id = 3;
+
+  string scope_name = 4;
+  string collection_name = 5;
+  string key = 6;
+}
+
+// TransactionGetResponse returns the document content and CAS.
+message TransactionGetResponse {
+  // The CAS value, required for subsequent Replace or Remove operations.
+  uint64 cas = 1;
+
+  // The document body as raw bytes.
+  bytes value = 2;
+}
+
+// TransactionInsertRequest creates a new document within the transaction.
+message TransactionInsertRequest {
+  string bucket_name = 1;
+  string transaction_id = 2;
+  string attempt_id = 3;
+
+  string scope_name = 4;
+  string collection_name = 5;
+  string key = 6;
+
+  // The document body to store.
+  bytes value = 7;
+}
+
+// TransactionInsertResponse returns the CAS of the new document.
+message TransactionInsertResponse { uint64 cas = 1; }
+
+// TransactionReplaceRequest replaces an existing document within the
+// transaction.
+message TransactionReplaceRequest {
+  string bucket_name = 1;
+  string transaction_id = 2;
+  string attempt_id = 3;
+
+  string scope_name = 4;
+  string collection_name = 5;
+  string key = 6;
+
+  // The CAS from a prior TransactionGet. Required for concurrency control.
+  uint64 cas = 7;
+
+  // The new document body.
+  bytes value = 8;
+}
+
+// TransactionReplaceResponse returns the new CAS.
+message TransactionReplaceResponse { uint64 cas = 1; }
+
+// TransactionRemoveRequest removes a document within the transaction.
+message TransactionRemoveRequest {
+  string bucket_name = 1;
+  string transaction_id = 2;
+  string attempt_id = 3;
+
+  string scope_name = 4;
+  string collection_name = 5;
+  string key = 6;
+
+  // The CAS from a prior TransactionGet. Required for concurrency control.
+  uint64 cas = 7;
+}
+
+// TransactionRemoveResponse returns the resulting CAS.
+message TransactionRemoveResponse { uint64 cas = 1; }

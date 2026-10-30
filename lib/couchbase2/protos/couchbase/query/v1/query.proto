@@ -1,0 +1,205 @@
+// Query Service
+//
+// Provides N1QL query execution against a Couchbase cluster.
+// Queries are submitted as statements and results are returned as a
+// server-streamed sequence of row batches with optional metadata.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/query_v1;query_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Query::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Query\\V1";
+option java_package = "com.couchbase.client.protostellar.query.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Query.V1";
+
+package couchbase.query.v1;
+
+import "google/protobuf/duration.proto";
+import "couchbase/kv/v1/kv.proto";
+
+// QueryService provides N1QL (SQL++) query execution.
+service QueryService {
+  // Query executes a N1QL statement and streams back result rows and metadata.
+  // Results are delivered incrementally — rows arrive first, followed by a
+  // final response containing MetaData (status, metrics, warnings).
+  rpc Query(QueryRequest) returns (stream QueryResponse) {}
+}
+
+// QueryRequest contains the N1QL statement and all execution options.
+message QueryRequest {
+  // The bucket to scope the query to. Optional for cluster-level queries.
+  optional string bucket_name = 1;
+
+  // The scope within the bucket. Only meaningful when bucket_name is set.
+  optional string scope_name = 2;
+
+  // The N1QL (SQL++) statement to execute.
+  string statement = 3;
+
+  // When true, the query is read-only and will not modify any data.
+  optional bool read_only = 4;
+
+  // When true, the query engine uses a prepared (cached) form of the statement.
+  optional bool prepared = 5;
+
+  // TuningOptions controls query engine resource usage and timing.
+  message TuningOptions {
+    // Maximum number of index partitions to scan in parallel.
+    optional uint32 max_parallelism = 1;
+
+    // Number of items in a batch for query pipeline processing.
+    optional uint32 pipeline_batch = 2;
+
+    // Maximum number of items in the query pipeline queue.
+    optional uint32 pipeline_cap = 3;
+
+    // Maximum time to wait for index consistency (for scan_consistency).
+    optional google.protobuf.Duration scan_wait = 4;
+
+    // Maximum number of index entries to scan per partition.
+    optional uint32 scan_cap = 5;
+
+    // When true, metrics are not collected for this query.
+    optional bool disable_metrics = 6;
+  }
+  optional TuningOptions tuning_options = 6;
+
+  // An opaque identifier for this request, echoed back in the response
+  // for client-side correlation.
+  optional string client_context_id = 7;
+
+  // ScanConsistency controls index consistency guarantees.
+  enum ScanConsistency {
+    // No consistency required — fastest, but may return stale results.
+    SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+
+    // Wait for all prior mutations to be indexed before executing.
+    SCAN_CONSISTENCY_REQUEST_PLUS = 1;
+  }
+  optional ScanConsistency scan_consistency = 8;
+
+  // Positional parameters for parameterized queries ($1, $2, etc.).
+  // Each element is a JSON-encoded value.
+  repeated bytes positional_parameters = 9;
+
+  // Named parameters for parameterized queries ($name).
+  // Keys are parameter names, values are JSON-encoded.
+  map<string, bytes> named_parameters = 10;
+
+  // When true, use a flex index (full-text search index) for the query.
+  optional bool flex_index = 11;
+
+  // When true, preserve document expiry on mutations performed by this query.
+  optional bool preserve_expiry = 12;
+
+  // Mutation tokens from prior KV operations. Provides at_plus (read-your-
+  // own-writes) consistency — the query will wait until these mutations
+  // are indexed.
+  repeated couchbase.kv.v1.MutationToken consistent_with = 13;
+
+  // DurabilityLevel for mutations performed by this query.
+  enum DurabilityLevel {
+    // No durability requirements (default).
+    DURABILITY_LEVEL_NONE = 0;
+
+    // Replicate to a majority of data service nodes.
+    DURABILITY_LEVEL_MAJORITY = 1;
+
+    // Replicate to majority and persist to the active node.
+    DURABILITY_LEVEL_MAJORITY_AND_PERSIST_TO_ACTIVE = 2;
+
+    // Persist to a majority of data service nodes.
+    DURABILITY_LEVEL_PERSIST_TO_MAJORITY = 3;
+  }
+  optional DurabilityLevel durability_level = 15;
+
+  // ProfileMode controls the level of query profiling information returned.
+  enum ProfileMode {
+    // No profiling.
+    PROFILE_MODE_OFF = 0;
+
+    // Profile execution phases.
+    PROFILE_MODE_PHASES = 1;
+
+    // Profile individual operator timings.
+    PROFILE_MODE_TIMINGS = 2;
+  }
+  optional ProfileMode profile_mode = 14;
+}
+
+// QueryResponse is streamed back to the client. Early responses contain
+// rows; the final response includes MetaData with execution status and metrics.
+message QueryResponse {
+  // Result rows, each as a JSON-encoded byte array.
+  repeated bytes rows = 1;
+
+  // MetaData is included in the final streamed response and contains
+  // execution status, metrics, warnings, and profile information.
+  message MetaData {
+    // Warning represents a non-fatal issue encountered during execution.
+    message Warning {
+      // The warning code.
+      uint32 code = 1;
+
+      // A human-readable description of the warning.
+      string message = 2;
+    }
+
+    // Status indicates the overall outcome of the query.
+    enum Status {
+      STATUS_RUNNING = 0;
+      STATUS_SUCCESS = 1;
+      STATUS_ERRORS = 2;
+      STATUS_COMPLETED = 3;
+      STATUS_STOPPED = 4;
+      STATUS_TIMEOUT = 5;
+      STATUS_CLOSED = 6;
+      STATUS_FATAL = 7;
+      STATUS_ABORTED = 8;
+      STATUS_UNKNOWN = 9;
+    }
+
+    // The unique identifier assigned to this query by the server.
+    string request_id = 1;
+
+    // The client_context_id echoed back from the request.
+    string client_context_id = 2;
+
+    // Metrics contains execution timing and count statistics.
+    message Metrics {
+      // Total wall-clock time for the query.
+      google.protobuf.Duration elapsed_time = 1;
+
+      // Time spent executing the query (excludes queue wait).
+      google.protobuf.Duration execution_time = 2;
+
+      // Number of result rows returned.
+      uint64 result_count = 3;
+
+      // Total size of all result rows in bytes.
+      uint64 result_size = 4;
+
+      // Number of mutations performed by the query.
+      uint64 mutation_count = 5;
+
+      // Number of items sorted during query execution.
+      uint64 sort_count = 6;
+
+      // Number of errors encountered.
+      uint64 error_count = 7;
+
+      // Number of warnings encountered.
+      uint64 warning_count = 8;
+    }
+    optional Metrics metrics = 3;
+    Status status = 4;
+    repeated Warning warnings = 5;
+
+    // Profiling information, when requested via profile_mode. JSON-encoded.
+    optional bytes profile = 6;
+
+    // The schema signature of the results. JSON-encoded.
+    bytes signature = 7;
+  }
+  optional MetaData meta_data = 2;
+}

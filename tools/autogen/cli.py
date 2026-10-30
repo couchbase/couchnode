@@ -20,6 +20,7 @@ from pathlib import Path
 import click
 
 from tools.autogen.commands.bindings import bindings_group
+from tools.autogen.commands.protos import protos_group
 
 
 @click.group()
@@ -29,13 +30,18 @@ def cli(ctx):
     """Couchbase Node.js SDK code generation tools.
 
     Generate SDK code from the C++ core headers using the schema in
-    tools/autogen/config/bindings.yaml.
+    tools/autogen/config/bindings.yaml, and the couchbase2 protocol's
+    protos and type declarations from tools/autogen/config/protos.yaml.
 
     Examples:
 
     \b
     # Generate the C++ / TypeScript bindings
     python -m tools.autogen bindings generate
+
+    \b
+    # Write the couchbase2 protos and their type declarations
+    python -m tools.autogen protos generate
     """
     ctx.ensure_object(dict)
     # tools/autogen/cli.py -> tools/autogen -> tools -> repository root
@@ -43,6 +49,7 @@ def cli(ctx):
 
 
 cli.add_command(bindings_group)
+cli.add_command(protos_group)
 
 
 if __name__ == '__main__':

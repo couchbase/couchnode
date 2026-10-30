@@ -16,7 +16,15 @@
     // extensionless.
     "allowImportingTsExtensions": true,
     "module": "ESNext",
-    "moduleResolution": "bundler"
+    "moduleResolution": "bundler",
+    // The couchbase2 generated types import `Long` from @grpc/proto-loader,
+    // which takes it with `import Long = require('long')`. Under bundler
+    // resolution that finds long's ESM types, whose module object is only a
+    // namespace, so every int64 field fails as TS2709. Point long at its
+    // CommonJS types, which the library build already resolves.
+    "paths": {
+      "long": ["../node_modules/long/umd/index.d.ts"]
+    }
   },
   "include": ["."]
 }

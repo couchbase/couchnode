@@ -1,0 +1,318 @@
+// XDCR Service (Internal / Unstable)
+//
+// Provides cross-datacenter replication (XDCR) primitives for
+// replicating documents between Couchbase clusters. Includes
+// cluster/bucket/vbucket info discovery, collection watching,
+// and document get/check/push operations.
+//
+// @uncommitted This service is not yet stable and may change without warning.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/internal_xdcr_v1;internal_xdcr_v1";
+
+package couchbase.internal.xdcr.v1;
+
+import "google/protobuf/timestamp.proto";
+
+// XdcrService provides XDCR replication operations.
+// @uncommitted This service is not yet stable and may change without warning.
+service XdcrService {
+  // Heartbeat sends a payload to verify the XDCR connection is alive.
+  rpc Heartbeat(HeartbeatRequest) returns (HeartbeatResponse) {}
+
+  // GetClusterInfo returns the cluster UUID for identity verification.
+  rpc GetClusterInfo(GetClusterInfoRequest) returns (GetClusterInfoResponse) {}
+
+  // GetBucketInfo returns bucket metadata needed for XDCR setup.
+  rpc GetBucketInfo(GetBucketInfoRequest) returns (GetBucketInfoResponse) {}
+
+  // GetVbucketInfo streams vbucket state (UUIDs, seqnos, history)
+  // for the requested vbucket IDs.
+  rpc GetVbucketInfo(GetVbucketInfoRequest)
+      returns (stream GetVbucketInfoResponse) {}
+
+  // WatchCollections streams collection manifest updates for a bucket.
+  rpc WatchCollections(WatchCollectionsRequest)
+      returns (stream WatchCollectionsResponse) {}
+
+  // GetDocument retrieves a document with full metadata for replication.
+  rpc GetDocument(GetDocumentRequest) returns (GetDocumentResponse) {}
+
+  // CheckDocument checks if a document exists with the given metadata,
+  // used for conflict resolution before pushing.
+  rpc CheckDocument(CheckDocumentRequest) returns (CheckDocumentResponse) {}
+
+  // PushDocument pushes a replicated document to the target cluster.
+  rpc PushDocument(PushDocumentRequest) returns (PushDocumentResponse) {}
+}
+
+// HeartbeatRequest sends an opaque payload to verify connectivity.
+message HeartbeatRequest { bytes payload = 1; }
+
+// HeartbeatResponse is empty on success.
+message HeartbeatResponse {}
+
+// GetClusterInfoRequest requests cluster identity information.
+message GetClusterInfoRequest {}
+
+// ClusterEdition indicates the edition of the Couchbase cluster.
+enum ClusterEdition {
+  CLUSTER_EDITION_COMMUNITY = 0;
+  CLUSTER_EDITION_ENTERPRISE = 1;
+  CLUSTER_EDITION_MIXED = 2;
+}
+
+// GetClusterInfoResponse returns cluster identity and edition information.
+message GetClusterInfoResponse {
+  string cluster_uuid = 1;
+
+  // The edition of the cluster (Community or Enterprise).
+  optional ClusterEdition edition = 2;
+}
+
+// GetBucketInfoRequest requests bucket metadata.
+message GetBucketInfoRequest { string bucket_name = 1; }
+
+// ConflictResolutionType specifies how XDCR conflicts are resolved.
+enum ConflictResolutionType {
+  // Resolve by highest timestamp (last-write-wins).
+  CONFLICT_RESOLUTION_TYPE_TIMESTAMP = 0;
+
+  // Resolve by highest sequence number.
+  CONFLICT_RESOLUTION_TYPE_SEQUENCE_NUMBER = 1;
+
+  // Use custom conflict resolution logic.
+  CONFLICT_RESOLUTION_TYPE_CUSTOM = 2;
+}
+
+// BucketType specifies the bucket storage type.
+enum BucketType {
+  BUCKET_TYPE_COUCHBASE = 0;
+  BUCKET_TYPE_EPHEMERAL = 1;
+}
+
+// GetBucketInfoResponse returns bucket metadata for XDCR configuration.
+message GetBucketInfoResponse {
+  // The bucket UUID.
+  string bucket_uuid = 2;
+
+  // Total number of vbuckets in the bucket.
+  uint32 num_vbuckets = 3;
+
+  // How conflicts are resolved during replication.
+  ConflictResolutionType conflict_resolution_type = 4;
+
+  // Whether cross-cluster versioning is enabled for this bucket.
+  bool cross_cluster_versioning_enabled = 5;
+
+  // The bucket type (Couchbase or Ephemeral).
+  optional BucketType bucket_type = 6;
+}
+
+// GetVbucketInfoRequest requests vbucket state. Results are streamed.
+message GetVbucketInfoRequest {
+  string bucket_name = 1;
+
+  // The vbucket IDs to retrieve state for.
+  repeated uint32 vbucket_ids = 2;
+
+  // When true, include the failover history for each vbucket.
+  optional bool include_history = 3;
+
+  // When true, include the maximum CAS for each vbucket.
+  optional bool include_max_cas = 4;
+}
+
+// GetVbucketInfoResponse contains vbucket state for one or more vbuckets.
+message GetVbucketInfoResponse {
+  // HistoryEntry represents a single entry in the vbucket failover log.
+  message HistoryEntry {
+    uint64 uuid = 1;
+    uint64 seqno = 2;
+  }
+
+  // VbucketState describes the current state of a single vbucket.
+  message VbucketState {
+    uint32 vbucket_id = 1;
+
+    // The current vbucket UUID.
+    uint64 uuid = 2;
+
+    // The highest sequence number in this vbucket.
+    uint64 high_seqno = 3;
+
+    // The failover history, if requested.
+    repeated HistoryEntry history = 4;
+
+    // The maximum CAS value in this vbucket, if requested.
+    optional uint64 max_cas = 5;
+  }
+
+  repeated VbucketState vbuckets = 2;
+}
+
+// WatchCollectionsRequest starts streaming collection manifest updates.
+message WatchCollectionsRequest { string bucket_name = 1; }
+
+// WatchCollectionsResponse contains the current collection manifest.
+message WatchCollectionsResponse {
+  // Collection describes a single collection within a scope.
+  message Collection {
+    // The numeric collection ID.
+    uint32 collection_id = 1;
+
+    // The collection name.
+    string collection_name = 2;
+  }
+
+  // Scope describes a scope and its collections.
+  message Scope {
+    // The numeric scope ID.
+    uint32 scope_id = 1;
+
+    // The scope name.
+    string scope_name = 2;
+
+    repeated Collection collections = 3;
+  }
+
+  // The manifest UID for this version of the collection configuration.
+  uint32 manifest_uid = 1;
+
+  repeated Scope scopes = 2;
+}
+
+// GetDocumentRequest retrieves a document with full replication metadata.
+message GetDocumentRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 5;
+
+  // When true, include the document body in the response.
+  bool include_content = 6;
+
+  // When true, include extended attributes (xattrs) in the response.
+  optional bool include_xattrs = 7;
+}
+
+// GetDocumentResponse returns the document with full metadata for replication.
+message GetDocumentResponse {
+  // The CAS value of the document.
+  uint64 cas = 1;
+
+  // The document expiry time.
+  google.protobuf.Timestamp expiry = 2;
+
+  // Whether the document is a tombstone (deleted but retained for replication).
+  bool is_deleted = 3;
+
+  // The datatype flags for the document content.
+  uint32 datatype = 5;
+
+  // The content flags (SDK-specific encoding metadata).
+  uint32 content_flags = 6;
+
+  // The document body, snappy-compressed.
+  optional bytes content_compressed = 7;
+
+  // The revision number for conflict resolution.
+  uint64 revno = 8;
+
+  // Extended attributes, keyed by xattr name.
+  map<string, bytes> xattrs = 9;
+}
+
+// ContentType indicates the format of document content.
+enum ContentType {
+  // Non-JSON content (binary, string, etc.).
+  CONTENT_TYPE_NONJSON = 0;
+
+  // JSON content.
+  CONTENT_TYPE_JSON = 1;
+}
+
+// CheckDocumentRequest checks if a document exists and compares metadata
+// for conflict resolution before pushing a replicated document.
+message CheckDocumentRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The CAS to compare against (from the source document).
+  uint64 store_cas = 5;
+
+  // The revision number of the source document.
+  uint64 revno = 6;
+
+  // The content flags of the source document.
+  uint32 content_flags = 7;
+
+  // Whether the source document has extended attributes.
+  bool has_xattrs = 8;
+
+  // The expiry time of the source document.
+  optional google.protobuf.Timestamp expiry_time = 9;
+
+  // Whether the source document is a tombstone.
+  bool is_deleted = 10;
+
+  // The vbucket UUID for disambiguating cluster/bucket identity.
+  optional uint64 vb_uuid = 11;
+}
+
+// CheckDocumentResponse indicates whether the document already exists
+// on the target cluster.
+message CheckDocumentResponse { bool exists = 1; }
+
+// PushDocumentRequest pushes a replicated document to the target cluster.
+message PushDocumentRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  string key = 4;
+
+  // The CAS to check before storing. If the target document's CAS
+  // does not match, the push is rejected for conflict resolution.
+  optional uint64 check_cas = 5;
+
+  // The CAS value to store with the document on the target.
+  uint64 store_cas = 6;
+
+  // The revision number.
+  uint64 revno = 7;
+
+  // SDK-specific content encoding metadata.
+  uint32 content_flags = 8;
+
+  // The content format (JSON or non-JSON).
+  ContentType content_type = 9;
+
+  // The document body, either uncompressed or snappy-compressed.
+  oneof content {
+    bytes content_uncompressed = 15;
+    bytes content_compressed = 10;
+  }
+
+  // Extended attributes to store with the document.
+  map<string, bytes> xattrs = 16;
+
+  // The document expiry time.
+  optional google.protobuf.Timestamp expiry_time = 11;
+
+  // Whether this is a tombstone (deletion marker).
+  bool is_deleted = 12;
+
+  // The vbucket UUID for disambiguating cluster/bucket identity.
+  optional uint64 vb_uuid = 13;
+}
+
+// PushDocumentResponse returns the CAS and seqno assigned on the target.
+message PushDocumentResponse {
+  // The CAS assigned to the document on the target cluster.
+  uint64 cas = 1;
+
+  // The sequence number assigned on the target vbucket.
+  uint64 seqno = 2;
+}

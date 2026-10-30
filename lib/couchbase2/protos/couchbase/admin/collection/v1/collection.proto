@@ -1,0 +1,127 @@
+// Collection Admin Service
+//
+// Provides scope and collection lifecycle management within a Couchbase
+// bucket. Scopes provide a logical grouping of collections (similar to
+// schemas in SQL databases). Each mutation returns a manifest_uid that
+// tracks the version of the scope/collection configuration.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/admin_collection_v1;admin_collection_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Admin::Collection::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Admin\\Collection\\V1";
+option java_package = "com.couchbase.client.protostellar.admin.collection.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Admin.Collection.V1";
+
+package couchbase.admin.collection.v1;
+
+// CollectionAdminService provides CRUD for scopes and collections.
+service CollectionAdminService {
+  // ListCollections returns all scopes and collections within a bucket,
+  // along with the current manifest_uid.
+  rpc ListCollections(ListCollectionsRequest)
+      returns (ListCollectionsResponse) {}
+
+  // CreateScope creates a new scope within a bucket.
+  rpc CreateScope(CreateScopeRequest) returns (CreateScopeResponse) {}
+
+  // DeleteScope removes a scope and all its collections from a bucket.
+  rpc DeleteScope(DeleteScopeRequest) returns (DeleteScopeResponse) {}
+
+  // CreateCollection creates a new collection within a scope.
+  rpc CreateCollection(CreateCollectionRequest)
+      returns (CreateCollectionResponse) {}
+
+  // UpdateCollection modifies a collection's configuration (e.g., max expiry).
+  rpc UpdateCollection(UpdateCollectionRequest)
+      returns (UpdateCollectionResponse) {}
+
+  // DeleteCollection removes a collection from a scope.
+  rpc DeleteCollection(DeleteCollectionRequest)
+      returns (DeleteCollectionResponse) {}
+}
+
+// ListCollectionsRequest requests all scopes and collections in a bucket.
+message ListCollectionsRequest { string bucket_name = 1; }
+
+// ListCollectionsResponse contains the scope/collection hierarchy.
+message ListCollectionsResponse {
+  // Collection describes a single collection within a scope.
+  message Collection {
+    string name = 1;
+
+    // Maximum document expiry in seconds. 0 means no maximum.
+    optional uint32 max_expiry_secs = 2;
+
+    // Whether change history retention is enabled for this collection.
+    optional bool history_retention_enabled = 3;
+  }
+
+  // Scope describes a scope and its collections.
+  message Scope {
+    string name = 1;
+    repeated Collection collections = 2;
+  }
+
+  repeated Scope scopes = 1;
+
+  // The unique identifier for the current collection manifest version.
+  // Incremented on each scope/collection mutation.
+  uint64 manifest_uid = 2;
+}
+
+// CreateScopeRequest creates a new scope.
+message CreateScopeRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+}
+
+// CreateScopeResponse returns the new manifest version.
+message CreateScopeResponse { uint64 manifest_uid = 1; }
+
+// DeleteScopeRequest deletes a scope and all its collections.
+message DeleteScopeRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+}
+
+// DeleteScopeResponse returns the new manifest version.
+message DeleteScopeResponse { uint64 manifest_uid = 1; }
+
+// CreateCollectionRequest creates a new collection within a scope.
+message CreateCollectionRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+
+  // Maximum document expiry in seconds for this collection.
+  optional uint32 max_expiry_secs = 4;
+
+  // Whether to enable change history retention.
+  optional bool history_retention_enabled = 5;
+}
+
+// CreateCollectionResponse returns the new manifest version.
+message CreateCollectionResponse { uint64 manifest_uid = 1; }
+
+// UpdateCollectionRequest modifies collection properties.
+message UpdateCollectionRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+  optional uint32 max_expiry_secs = 4;
+  optional bool history_retention_enabled = 5;
+}
+
+// UpdateCollectionResponse returns the new manifest version.
+message UpdateCollectionResponse { uint64 manifest_uid = 1; }
+
+// DeleteCollectionRequest removes a collection.
+message DeleteCollectionRequest {
+  string bucket_name = 1;
+  string scope_name = 2;
+  string collection_name = 3;
+}
+
+// DeleteCollectionResponse returns the new manifest version.
+message DeleteCollectionResponse { uint64 manifest_uid = 1; }

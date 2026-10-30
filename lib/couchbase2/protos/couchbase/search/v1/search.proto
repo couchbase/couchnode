@@ -1,0 +1,584 @@
+// Search (Full-Text Search) Service
+//
+// Provides full-text search (FTS) queries against Couchbase search indexes.
+// Supports 21 query types, geo queries, KNN vector search, sorting, facets,
+// and highlighting. Results are server-streamed.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/search_v1;search_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Search::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Search\\V1";
+option java_package = "com.couchbase.client.protostellar.search.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Search.V1";
+
+package couchbase.search.v1;
+
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+// ---- Query Types ----
+// All query messages can be composed via the Query oneof wrapper.
+
+// BooleanFieldQuery matches documents where a boolean field has the given
+// value.
+message BooleanFieldQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  bool value = 6;
+}
+
+// BooleanQuery combines must, must_not, and should clauses using boolean logic.
+message BooleanQuery {
+  optional float boost = 1;
+
+  // All queries in `must` must match (AND).
+  optional ConjunctionQuery must = 2;
+
+  // No queries in `must_not` may match.
+  optional DisjunctionQuery must_not = 3;
+
+  // At least one query in `should` should match (OR).
+  optional DisjunctionQuery should = 4;
+}
+
+// ConjunctionQuery requires all child queries to match (AND).
+message ConjunctionQuery {
+  optional float boost = 1;
+  repeated Query queries = 2;
+}
+
+// DateRangeQuery matches documents with date field values within the
+// specified range. Dates are parsed using the optional date_time_parser.
+message DateRangeQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  optional string date_time_parser = 3;
+  optional string start_date = 4;
+  optional string end_date = 5;
+}
+
+// DisjunctionQuery requires at least `minimum` child queries to match (OR).
+// Defaults to minimum=1 if not specified.
+message DisjunctionQuery {
+  optional float boost = 1;
+  repeated Query queries = 2;
+
+  // Minimum number of child queries that must match. Default: 1.
+  optional uint32 minimum = 3;
+}
+
+// DocIdQuery matches documents by their document IDs.
+message DocIdQuery {
+  optional float boost = 1;
+  repeated string ids = 3;
+}
+
+// LatLng represents a geographic coordinate.
+message LatLng {
+  double latitude = 1;
+  double longitude = 2;
+}
+
+// GeoBoundingBoxQuery matches documents with a geo field within the
+// specified bounding box defined by top-left and bottom-right coordinates.
+message GeoBoundingBoxQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  LatLng top_left = 3;
+  LatLng bottom_right = 4;
+}
+
+// GeoDistanceQuery matches documents with a geo field within the
+// specified distance from a center point.
+message GeoDistanceQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  LatLng center = 3;
+
+  // The maximum distance from center, with unit (e.g., "10mi", "5km").
+  string distance = 4;
+}
+
+// GeoPolygonQuery matches documents with a geo field within the
+// polygon defined by the given vertices.
+message GeoPolygonQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  repeated LatLng vertices = 3;
+}
+
+// MatchAllQuery matches every document in the index.
+message MatchAllQuery {}
+
+// MatchNoneQuery matches no documents. Useful as a placeholder.
+message MatchNoneQuery {}
+
+// MatchPhraseQuery matches documents containing the exact phrase
+// in the specified field, using the given analyzer.
+message MatchPhraseQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  string phrase = 3;
+  optional string analyzer = 4;
+}
+
+// MatchQuery performs full-text matching on a field. Supports fuzziness,
+// prefix length, and AND/OR operator modes.
+message MatchQuery {
+  // Operator controls how multiple terms in the value are combined.
+  enum Operator {
+    // Any term may match (default).
+    OPERATOR_OR = 0;
+
+    // All terms must match.
+    OPERATOR_AND = 1;
+  }
+
+  optional float boost = 1;
+  optional string field = 2;
+
+  // The text to match against the field.
+  string value = 3;
+
+  optional string analyzer = 4;
+
+  // Maximum edit distance for fuzzy matching.
+  optional uint64 fuzziness = 5;
+
+  optional Operator operator = 6;
+
+  // Number of characters at the start of the term that must match exactly.
+  optional uint64 prefix_length = 7;
+}
+
+// NumericRangeQuery matches documents with a numeric field within the
+// specified range.
+message NumericRangeQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  optional float min = 3;
+  optional float max = 4;
+
+  // Whether the min value is inclusive (default: true).
+  optional bool inclusive_min = 5;
+
+  // Whether the max value is inclusive (default: false).
+  optional bool inclusive_max = 6;
+}
+
+// PhraseQuery matches documents containing the exact sequence of terms
+// in the specified field.
+message PhraseQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  repeated string terms = 3;
+}
+
+// PrefixQuery matches documents where the field value starts with
+// the given prefix.
+message PrefixQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  string prefix = 3;
+}
+
+// QueryStringQuery uses the FTS query string syntax to express complex
+// queries in a single string (e.g., "+field:value -excluded").
+message QueryStringQuery {
+  optional float boost = 1;
+  string query_string = 3;
+}
+
+// RegexpQuery matches documents where the field value matches the
+// given regular expression.
+message RegexpQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  string regexp = 3;
+}
+
+// TermQuery matches documents containing the exact term. Supports
+// fuzziness for approximate matching.
+message TermQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  string term = 3;
+  optional uint64 fuzziness = 4;
+  optional uint64 prefix_length = 5;
+}
+
+// TermRangeQuery matches documents with a string field value within
+// the specified lexicographic range.
+message TermRangeQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  optional string min = 5;
+  optional string max = 6;
+  optional bool inclusive_min = 7;
+  optional bool inclusive_max = 8;
+}
+
+// WildcardQuery matches documents where the field value matches a
+// wildcard pattern (* for any characters, ? for single character).
+message WildcardQuery {
+  optional float boost = 1;
+  optional string field = 2;
+  string wildcard = 3;
+}
+
+// Query is the polymorphic wrapper for all search query types.
+// Exactly one query variant must be set.
+message Query {
+  oneof query {
+    BooleanFieldQuery boolean_field_query = 1;
+    BooleanQuery boolean_query = 2;
+    ConjunctionQuery conjunction_query = 3;
+    DateRangeQuery date_range_query = 4;
+    DisjunctionQuery disjunction_query = 5;
+    DocIdQuery doc_id_query = 6;
+    GeoBoundingBoxQuery geo_bounding_box_query = 7;
+    GeoDistanceQuery geo_distance_query = 8;
+    GeoPolygonQuery geo_polygon_query = 9;
+    MatchAllQuery match_all_query = 10;
+    MatchNoneQuery match_none_query = 11;
+    MatchPhraseQuery match_phrase_query = 12;
+    MatchQuery match_query = 13;
+    NumericRangeQuery numeric_range_query = 14;
+    PhraseQuery phrase_query = 15;
+    PrefixQuery prefix_query = 16;
+    QueryStringQuery query_string_query = 17;
+    RegexpQuery regexp_query = 18;
+    TermQuery term_query = 19;
+    TermRangeQuery term_range_query = 20;
+    WildcardQuery wildcard_query = 21;
+  }
+}
+
+// ---- Sorting ----
+
+// FieldSorting sorts results by a document field value.
+message FieldSorting {
+  string field = 1;
+  bool descending = 2;
+
+  // How to handle documents missing this field ("first" or "last").
+  string missing = 3;
+
+  // Sort mode for multi-valued fields ("min", "max").
+  string mode = 4;
+
+  // Type hint for the field value ("auto", "string", "number", "date").
+  string type = 5;
+}
+
+// GeoDistanceSorting sorts results by distance from a geographic point.
+message GeoDistanceSorting {
+  string field = 1;
+  bool descending = 2;
+  LatLng center = 3;
+
+  // Distance unit (e.g., "mi", "km", "m").
+  string unit = 4;
+}
+
+// IdSorting sorts results by document ID.
+message IdSorting { bool descending = 1; }
+
+// ScoreSorting sorts results by relevance score.
+message ScoreSorting { bool descending = 1; }
+
+// Sorting is the polymorphic wrapper for sort specifications.
+message Sorting {
+  oneof sorting {
+    FieldSorting field_sorting = 1;
+    GeoDistanceSorting geo_distance_sorting = 2;
+    IdSorting id_sorting = 3;
+    ScoreSorting score_sorting = 4;
+  }
+}
+
+// ---- Facets ----
+
+// DateRange defines a named date range for faceting.
+message DateRange {
+  string name = 1;
+  optional string start = 2;
+  optional string end = 3;
+}
+
+// DateRangeFacet aggregates results into named date ranges on a field.
+message DateRangeFacet {
+  string field = 1;
+  uint32 size = 2;
+  repeated DateRange date_ranges = 3;
+}
+
+// NumericRange defines a named numeric range for faceting.
+message NumericRange {
+  string name = 1;
+  optional float min = 2;
+  optional float max = 3;
+}
+
+// NumericRangeFacet aggregates results into named numeric ranges on a field.
+message NumericRangeFacet {
+  string field = 1;
+  uint32 size = 2;
+  repeated NumericRange numeric_ranges = 3;
+}
+
+// TermFacet aggregates results by the most frequent terms in a field.
+message TermFacet {
+  string field = 1;
+
+  // Maximum number of term buckets to return.
+  uint32 size = 2;
+}
+
+// Facet is the polymorphic wrapper for facet specifications.
+message Facet {
+  oneof facet {
+    DateRangeFacet date_range_facet = 1;
+    NumericRangeFacet numeric_range_facet = 2;
+    TermFacet term_facet = 3;
+  }
+}
+
+// ---- KNN (Vector Search) ----
+
+// KnnQuery performs k-nearest-neighbor vector search on a vector field.
+message KnnQuery {
+  // The vector index field name to search against.
+  string field = 1;
+
+  // Number of nearest neighbors to return.
+  int64 k = 2;
+
+  // The query vector to find neighbors for.
+  repeated float vector = 3;
+
+  optional float boost = 4;
+}
+
+// KnnOperator controls how multiple KNN queries are combined.
+enum KnnOperator {
+  // Results from multiple KNN queries are combined with OR (union).
+  KNN_OPERATOR_OR = 0;
+
+  // Results from multiple KNN queries are combined with AND (intersection).
+  KNN_OPERATOR_AND = 1;
+}
+
+// ---- Service ----
+
+// SearchService provides full-text search query execution.
+service SearchService {
+  // SearchQuery executes a search query against a named index and streams
+  // back hits, facet results, and metadata.
+  rpc SearchQuery(SearchQueryRequest) returns (stream SearchQueryResponse) {}
+}
+
+// SearchQueryRequest specifies the search index, query, and all options.
+message SearchQueryRequest {
+  // The name of the search index to query.
+  string index_name = 1;
+
+  // The search query to execute.
+  Query query = 2;
+
+  // ScanConsistency for search queries.
+  enum ScanConsistency {
+    // No consistency required.
+    SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+  }
+  ScanConsistency scan_consistency = 3;
+
+  // Maximum number of hits to return.
+  uint32 limit = 4;
+
+  // Number of hits to skip (for pagination).
+  uint32 skip = 5;
+
+  // When true, include scoring explanations in each hit.
+  bool include_explanation = 6;
+
+  // HighlightStyle controls how matching terms are highlighted in results.
+  enum HighlightStyle {
+    // Server default highlighting.
+    HIGHLIGHT_STYLE_DEFAULT = 0;
+
+    // HTML tag highlighting (<mark>).
+    HIGHLIGHT_STYLE_HTML = 1;
+
+    // ANSI escape code highlighting (for terminals).
+    HIGHLIGHT_STYLE_ANSI = 2;
+  }
+  HighlightStyle highlight_style = 7;
+
+  // Fields to apply highlighting to.
+  repeated string highlight_fields = 8;
+
+  // Document fields to include in each hit (empty = all stored fields).
+  repeated string fields = 9;
+
+  // Sort specifications. Applied in order.
+  repeated Sorting sort = 10;
+
+  // When true, do not compute relevance scores (faster for non-scored queries).
+  bool disable_scoring = 11;
+
+  // Restrict the search to these collections within the index.
+  repeated string collections = 12;
+
+  // When true, include term location data in each hit.
+  bool include_locations = 13;
+
+  // Facets to compute. Keys are facet names, values are facet specs.
+  map<string, Facet> facets = 14;
+
+  // KNN queries for vector search. Combined according to knn_operator.
+  repeated KnnQuery knn = 17;
+
+  // How to combine multiple KNN queries. Default: OR.
+  optional KnnOperator knn_operator = 18;
+
+  // Optional bucket scope for scoped indexes.
+  optional string bucket_name = 15;
+  optional string scope_name = 16;
+}
+
+// SearchQueryResponse is streamed back containing hits, facets, and metadata.
+message SearchQueryResponse {
+  // SearchQueryRow represents a single search hit.
+  message SearchQueryRow {
+    // The document ID of the matching document.
+    string id = 1;
+
+    // The relevance score of this hit.
+    double score = 2;
+
+    // The index partition that produced this hit.
+    string index = 3;
+
+    // Scoring explanation, if requested. JSON-encoded.
+    bytes explanation = 4;
+
+    // Term location data, if requested.
+    repeated Location locations = 5;
+
+    // Highlighted fragments, keyed by field name.
+    map<string, Fragment> fragments = 6;
+
+    // Stored field values, keyed by field name. JSON-encoded values.
+    map<string, bytes> fields = 7;
+  }
+
+  // Location describes where a term was found within a document field.
+  message Location {
+    string field = 1;
+    string term = 2;
+    uint32 position = 3;
+
+    // Byte offset of the term start in the field value.
+    uint32 start = 4;
+
+    // Byte offset of the term end in the field value.
+    uint32 end = 5;
+
+    // Array positions if the field is an array.
+    repeated uint32 array_positions = 6;
+  }
+
+  // Fragment contains highlighted text snippets for a field.
+  message Fragment { repeated string content = 1; }
+
+  // FacetResult contains the result for a single facet computation.
+  message FacetResult {
+    oneof search_facet {
+      TermFacetResult term_facet = 1;
+      DateRangeFacetResult date_range_facet = 2;
+      NumericRangeFacetResult numeric_range_facet = 3;
+    }
+  }
+
+  // TermResult is a single term bucket in a term facet.
+  message TermResult {
+    string name = 1;
+    string field = 2;
+    uint64 size = 3;
+  }
+
+  // TermFacetResult contains the results of a term facet aggregation.
+  message TermFacetResult {
+    reserved 1;
+    string field = 2;
+    int64 total = 3;
+    int64 missing = 4;
+    int64 other = 5;
+    repeated TermResult terms = 6;
+  }
+
+  // DateRangeResult is a single bucket in a date range facet.
+  message DateRangeResult {
+    string name = 1;
+    uint64 size = 2;
+    google.protobuf.Timestamp start = 3;
+    google.protobuf.Timestamp end = 4;
+  }
+
+  // DateRangeFacetResult contains the results of a date range facet.
+  message DateRangeFacetResult {
+    reserved 1;
+    string field = 2;
+    int64 total = 3;
+    int64 missing = 4;
+    int64 other = 5;
+    repeated DateRangeResult date_ranges = 6;
+  }
+
+  // NumericRangeResult is a single bucket in a numeric range facet.
+  message NumericRangeResult {
+    string name = 1;
+    uint64 size = 2;
+    uint64 min = 3;
+    uint64 max = 4;
+  }
+
+  // NumericRangeFacetResult contains the results of a numeric range facet.
+  message NumericRangeFacetResult {
+    reserved 1;
+    string field = 2;
+    int64 total = 3;
+    int64 missing = 4;
+    int64 other = 5;
+    repeated NumericRangeResult numeric_ranges = 6;
+  }
+
+  // MetaData contains summary information about the search results.
+  message MetaData {
+    SearchMetrics metrics = 1;
+
+    // Errors from individual search partitions, keyed by partition name.
+    map<string, string> errors = 2;
+  }
+
+  // SearchMetrics contains timing and count statistics for the search.
+  message SearchMetrics {
+    google.protobuf.Duration execution_time = 1;
+    uint64 total_rows = 2;
+    double max_score = 3;
+    uint64 total_partition_count = 4;
+    uint64 success_partition_count = 5;
+    uint64 error_partition_count = 6;
+  }
+
+  // The search hits matching the query.
+  repeated SearchQueryRow hits = 1;
+
+  // Facet results, keyed by facet name.
+  map<string, FacetResult> facets = 2;
+
+  // Metadata about the search execution.
+  optional MetaData meta_data = 3;
+}

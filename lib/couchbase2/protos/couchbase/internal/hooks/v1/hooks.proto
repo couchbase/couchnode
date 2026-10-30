@@ -1,0 +1,210 @@
+// Hooks Service (Internal / Debug Only)
+//
+// Provides a testing hooks framework for intercepting, modifying, and
+// controlling gateway behavior during integration testing. Hooks use a
+// small DSL of actions (conditions, counters, barriers, response/error
+// injection) that can be attached to specific gRPC methods.
+//
+// This service is only available when the gateway is started in debug mode.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/internal_hooks_v1;internal_hooks_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Internal::Hooks::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Internal\\Hooks\\V1";
+option java_package = "com.couchbase.client.protostellar.internal.hooks.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Internal.Hooks.V1";
+
+package couchbase.internal.hooks.v1;
+
+import "google/protobuf/any.proto";
+
+// HooksService provides test hook registration and synchronization primitives.
+service HooksService {
+  // CreateHooksContext creates a new isolated hooks context with its own
+  // hooks, counters, and barriers.
+  rpc CreateHooksContext(CreateHooksContextRequest)
+      returns (CreateHooksContextResponse) {}
+
+  // DestroyHooksContext tears down a hooks context and all its state.
+  rpc DestroyHooksContext(DestroyHooksContextRequest)
+      returns (DestroyHooksContextResponse) {}
+
+  // AddHooks registers one or more hooks within a context.
+  rpc AddHooks(AddHooksRequest) returns (AddHooksResponse) {}
+
+  // WatchBarrier streams messages each time a request reaches a barrier.
+  rpc WatchBarrier(WatchBarrierRequest) returns (stream WatchBarrierResponse) {}
+
+  // SignalBarrier signals a barrier to release waiting requests.
+  rpc SignalBarrier(SignalBarrierRequest) returns (SignalBarrierResponse) {}
+
+  // WatchRequests streams intercepted requests matching registered hooks.
+  rpc WatchRequests(WatchRequestsRequest)
+      returns (stream WatchRequestsResponse) {}
+}
+
+// CreateHooksContextRequest creates a new hooks context.
+message CreateHooksContextRequest {
+  // Unique identifier for this hooks context.
+  string id = 1;
+}
+
+// CreateHooksContextResponse is empty on success.
+message CreateHooksContextResponse {}
+
+// DestroyHooksContextRequest tears down a hooks context.
+message DestroyHooksContextRequest { string id = 1; }
+
+// DestroyHooksContextResponse is empty on success.
+message DestroyHooksContextResponse {}
+
+// ComparisonOperator defines comparison operations for hook conditions.
+enum ComparisonOperator {
+  COMPARISON_OPERATOR_EQUAL = 0;
+  COMPARISON_OPERATOR_NOT_EQUAL = 1;
+  COMPARISON_OPERATOR_GREATER_THAN = 2;
+  COMPARISON_OPERATOR_GREATER_THAN_OR_EQUAL = 3;
+  COMPARISON_OPERATOR_LESS_THAN = 4;
+  COMPARISON_OPERATOR_LESS_THAN_OR_EQUAL = 5;
+}
+
+// ValueRef references a value: a request field, a counter, or a literal.
+message ValueRef {
+  oneof value {
+    // A field path in the incoming gRPC request message.
+    string request_field = 1;
+
+    // The current value of a named counter.
+    string counter_value = 2;
+
+    // A literal JSON value for comparison.
+    bytes json_value = 3;
+  }
+}
+
+// HookCondition defines a comparison between two ValueRefs.
+message HookCondition {
+  ValueRef left = 1;
+  ComparisonOperator op = 2;
+  ValueRef right = 3;
+}
+
+// HookAction defines a single action in the hook execution pipeline.
+// Actions form a small DSL for test control flow.
+message HookAction {
+  // If conditionally executes actions based on conditions.
+  message If {
+    repeated HookCondition cond = 1;
+    // Actions when all conditions are true.
+    repeated HookAction match = 2;
+    // Actions when any condition is false.
+    repeated HookAction no_match = 3;
+  }
+
+  // Counter increments or decrements a named counter.
+  message Counter {
+    string counter_id = 1;
+    int64 delta = 2;
+  }
+
+  // WaitOnBarrier pauses execution until the named barrier is signaled.
+  message WaitOnBarrier { string barrier_id = 1; }
+
+  // SignalBarrier signals a named barrier to release waiters.
+  message SignalBarrier {
+    string barrier_id = 1;
+    bool signal_all = 2;
+  }
+
+  // ReturnResponse short-circuits the RPC and returns a custom response.
+  message ReturnResponse { google.protobuf.Any value = 1; }
+
+  // ReturnError short-circuits the RPC and returns a gRPC error.
+  message ReturnError {
+    int32 code = 1;
+    string message = 2;
+    repeated google.protobuf.Any details = 3;
+  }
+
+  // Execute proceeds with normal RPC execution (passthrough).
+  message Execute {}
+
+  // Exactly one action type must be set.
+  oneof action {
+    If if = 1;
+    Counter counter = 2;
+    WaitOnBarrier wait_on_barrier = 3;
+    SignalBarrier signal_barrier = 4;
+    ReturnResponse return_response = 5;
+    ReturnError return_error = 6;
+    Execute execute = 7;
+  }
+}
+
+// Hook defines a named hook targeting a gRPC method with a pipeline of actions.
+message Hook {
+  // A descriptive name for this hook.
+  string name = 1;
+
+  // A human-readable description of what this hook does.
+  string description = 2;
+
+  // The full gRPC method name to intercept (e.g.,
+  // "/couchbase.kv.v1.KvService/Get").
+  string target_method = 3;
+
+  // The ordered list of actions to execute when the method is called.
+  repeated HookAction actions = 4;
+}
+
+// AddHooksRequest registers hooks within a context.
+message AddHooksRequest {
+  string hooks_context_id = 1;
+  repeated Hook hooks = 2;
+}
+
+// AddHooksResponse is empty on success.
+message AddHooksResponse {}
+
+// WatchBarrierRequest opens a stream for a specific barrier.
+message WatchBarrierRequest {
+  string hooks_context_id = 1;
+  string barrier_id = 2;
+}
+
+// WatchBarrierResponse emits the wait_id of each request at the barrier.
+message WatchBarrierResponse { string wait_id = 2; }
+
+// SignalBarrierRequest signals a barrier to release waiters.
+message SignalBarrierRequest {
+  string hooks_context_id = 1;
+  string barrier_id = 2;
+
+  // When specified, only the waiter with this ID is released.
+  optional string wait_id = 3;
+}
+
+// SignalBarrierResponse is empty on success.
+message SignalBarrierResponse {}
+
+// WatchRequestsRequest opens a stream of intercepted requests.
+message WatchRequestsRequest { string hooks_context_id = 1; }
+
+// WatchRequestsResponse contains details of an intercepted request.
+message WatchRequestsResponse {
+  // MetaDataEntry is a key-value pair from gRPC request metadata.
+  message MetaDataEntry {
+    string key = 1;
+    string value = 2;
+  }
+
+  // The gRPC metadata headers from the intercepted request.
+  repeated MetaDataEntry meta_data = 1;
+
+  // The full gRPC method name.
+  string full_method = 2;
+
+  // The request message payload.
+  google.protobuf.Any payload = 3;
+}

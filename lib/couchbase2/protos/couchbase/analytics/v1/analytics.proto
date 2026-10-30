@@ -1,0 +1,165 @@
+// Analytics Service
+//
+// Provides Analytics (CBAS) query execution against a Couchbase cluster.
+// Analytics queries use SQL++ syntax and are executed against the
+// Analytics service, which maintains its own copy of data independent
+// of the KV and Query services. Results are server-streamed.
+syntax = "proto3";
+
+option go_package = "github.com/couchbase/goprotostellar/genproto/analytics_v1;analytics_v1";
+option ruby_package = "Couchbase::Protostellar::Generated::Analytics::V1";
+option php_namespace = "Couchbase\\Protostellar\\Generated\\Analytics\\V1";
+option java_package = "com.couchbase.client.protostellar.analytics.v1";
+option java_multiple_files = true;
+option csharp_namespace = "Couchbase.Protostellar.Analytics.V1";
+
+package couchbase.analytics.v1;
+
+import "google/protobuf/duration.proto";
+
+// AnalyticsService provides SQL++ analytics query execution.
+service AnalyticsService {
+  // AnalyticsQuery executes an analytics statement and streams back result
+  // rows and metadata. The final streamed response contains MetaData.
+  rpc AnalyticsQuery(AnalyticsQueryRequest)
+      returns (stream AnalyticsQueryResponse) {}
+}
+
+// AnalyticsQueryRequest contains the analytics statement and execution options.
+message AnalyticsQueryRequest {
+  reserved 8; // bucket_name
+
+  // The analytics scope to execute the query against.
+  optional string analytics_scope_name = 9;
+
+  // The SQL++ analytics statement to execute.
+  string statement = 1;
+
+  // When true, the query is read-only and will not modify any data.
+  optional bool read_only = 2;
+
+  // An opaque identifier for client-side request correlation.
+  optional string client_context_id = 3;
+
+  // When true, this query receives priority scheduling on the analytics node.
+  optional bool priority = 4;
+
+  // ScanConsistency controls data consistency for the analytics query.
+  enum ScanConsistency {
+    // No consistency required — may return stale results.
+    SCAN_CONSISTENCY_NOT_BOUNDED = 0;
+
+    // Wait for all prior mutations to be ingested before executing.
+    SCAN_CONSISTENCY_REQUEST_PLUS = 1;
+  }
+  optional ScanConsistency scan_consistency = 5;
+
+  // Positional parameters ($1, $2, etc.). Each element is JSON-encoded.
+  repeated bytes positional_parameters = 6;
+
+  // Named parameters ($name). Keys are parameter names, values are
+  // JSON-encoded.
+  map<string, bytes> named_parameters = 7;
+
+  // PlanFormat controls the output format for query execution plans.
+  enum PlanFormat {
+    // Return the plan as a JSON object.
+    PLAN_FORMAT_JSON = 0;
+
+    // Return the plan as a human-readable string.
+    PLAN_FORMAT_STRING = 1;
+  }
+  optional PlanFormat plan_format = 10;
+
+  // When true, include the logical plan in the response metadata.
+  optional bool include_logical_plan = 11;
+
+  // When true, include the organized (optimized) logical plan.
+  optional bool include_organized_logical_plan = 12;
+
+  // When true, include the expression tree in the response metadata.
+  optional bool include_expression_tree = 13;
+
+  // When true, include the rewritten expression tree.
+  optional bool include_rewritten_expression_tree = 14;
+
+  // Maximum number of warnings to include in the response.
+  optional int32 max_warnings = 15;
+}
+
+// AnalyticsQueryResponse is streamed back to the client. Early responses
+// contain rows; the final response includes MetaData.
+message AnalyticsQueryResponse {
+  // Result rows, each as a JSON-encoded byte array.
+  repeated bytes rows = 1;
+
+  // Metrics contains execution timing and count statistics for the query.
+  message Metrics {
+    // Total wall-clock time for the query.
+    google.protobuf.Duration elapsed_time = 1;
+
+    // Time spent executing (excludes queue wait).
+    google.protobuf.Duration execution_time = 2;
+
+    // Number of result rows returned.
+    uint64 result_count = 3;
+
+    // Total size of result rows in bytes.
+    uint64 result_size = 4;
+
+    // Number of mutations performed.
+    uint64 mutation_count = 5;
+
+    // Number of items sorted.
+    uint64 sort_count = 6;
+
+    // Number of errors encountered.
+    uint64 error_count = 7;
+
+    // Number of warnings encountered.
+    uint64 warning_count = 8;
+
+    // Number of objects processed by the analytics engine.
+    uint64 processed_objects = 9;
+  }
+
+  // MetaData is included in the final streamed response.
+  message MetaData {
+    // Warning represents a non-fatal issue during query execution.
+    message Warning {
+      uint32 code = 1;
+      string message = 2;
+    }
+
+    // The unique identifier assigned to this query by the server.
+    string request_id = 1;
+
+    // The client_context_id echoed back from the request.
+    string client_context_id = 2;
+
+    // Execution metrics for this query.
+    Metrics metrics = 3;
+
+    // The schema signature of the results. JSON-encoded.
+    bytes signature = 4;
+
+    // Warnings encountered during execution.
+    repeated Warning warnings = 5;
+
+    // The analytics execution status string.
+    string status = 6;
+
+    // The logical plan, if requested. JSON-encoded.
+    optional bytes logical_plan = 7;
+
+    // The optimized logical plan, if requested. JSON-encoded.
+    optional bytes optimized_logical_plan = 8;
+
+    // The expression tree, if requested.
+    optional string expression_tree = 9;
+
+    // The rewritten expression tree, if requested.
+    optional string rewritten_expression_tree = 10;
+  }
+  optional MetaData meta_data = 2;
+}
