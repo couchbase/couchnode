@@ -1,9 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
 
+import { DurabilityLevel } from '../../../lib/generaltypes'
+import { durabilityAttributeOf } from '../../../lib/observabilityutilities'
 import {
   NodeCallback,
   PromiseHelper,
   callbackOf,
+  durabilityLevelOf,
   optionsOf,
 } from '../../../lib/utilities'
 import { watchRejections } from '../../infra/rejections'
@@ -360,6 +363,42 @@ describe('#utilities', () => {
       expect(() => {
         a.timeout = 1
       }).toThrow(TypeError)
+    })
+  })
+
+  describe('#durability', () => {
+    it.each([
+      [undefined, undefined],
+      [null, undefined],
+      [DurabilityLevel.None, DurabilityLevel.None],
+      [DurabilityLevel.Majority, DurabilityLevel.Majority],
+      ['none', DurabilityLevel.None],
+      ['majority', DurabilityLevel.Majority],
+      ['majorityAndPersistActive', DurabilityLevel.MajorityAndPersistOnMaster],
+      ['persistToMajority', DurabilityLevel.PersistToMajority],
+    ])('should resolve %s to %s', (given, expected) => {
+      expect(
+        durabilityLevelOf(given as DurabilityLevel | string | undefined)
+      ).toBe(expected)
+    })
+
+    it('should refuse an unknown durability string', () => {
+      expect(() => durabilityLevelOf('always')).toThrow(
+        'invalid durability level string'
+      )
+    })
+
+    it.each([
+      [undefined, undefined],
+      [DurabilityLevel.None, undefined],
+      [DurabilityLevel.Majority, 'majority'],
+      [
+        DurabilityLevel.MajorityAndPersistOnMaster,
+        'majority_and_persist_to_active',
+      ],
+      [DurabilityLevel.PersistToMajority, 'persist_to_majority'],
+    ])('should give %s the span attribute %s', (level, expected) => {
+      expect(durabilityAttributeOf(level)).toBe(expected)
     })
   })
 })

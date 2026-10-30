@@ -26,14 +26,40 @@ export function connect(
  *
  * @deprecated Use {@link cbppVersion} instead.
  */
-export const lcbVersion: string = binding.cbppVersion
+export declare const lcbVersion: string
 
 /**
  * Exposes the underlying couchbase++ library version that is being used by the
  * SDK to perform I/O with the cluster.
  */
-export const cbppVersion: string = binding.cbppVersion
-export const cbppMetadata: string = binding.cbppMetadata
+export declare const cbppVersion: string
+export declare const cbppMetadata: string
+
+// Getters rather than constants, so importing the SDK does not load the native
+// addon: these read it only when they are read. TypeScript cannot declare an
+// exported getter, hence the declarations above and the definitions here.
+// Each is spelled out in the one form Node's ESM loader detects as a named
+// export of a CommonJS module: a literal name, and a getter function returning
+// a member of a plain identifier.
+const addon = binding
+Object.defineProperty(exports, 'lcbVersion', {
+  enumerable: true,
+  get: function () {
+    return addon.cbppVersion
+  },
+})
+Object.defineProperty(exports, 'cbppVersion', {
+  enumerable: true,
+  get: function () {
+    return addon.cbppVersion
+  },
+})
+Object.defineProperty(exports, 'cbppMetadata', {
+  enumerable: true,
+  get: function () {
+    return addon.cbppMetadata
+  },
+})
 
 /**
  * Volatile: This API is subject to change at any time.

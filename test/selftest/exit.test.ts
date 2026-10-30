@@ -23,17 +23,33 @@ const FIXTURES = join(import.meta.dirname, 'exitfixtures')
  */
 const WEDGED_BUDGET_MS = 4_000
 
-describe('expectProcessExits', () => {
-  it('passes a fixture that exits, and resolves with what it reported', async () => {
-    const { outcome } = await expectProcessExits<{
-      connectType: string
-      resolvedFrom: string
-    }>(join(FIXTURES, 'clean.exitfixture.ts'))
+/**
+ * Long, because this test is about the helper passing a fixture, not about
+ * how fast one starts. Loading the SDK means compiling `lib/` under `ts-node`
+ * and loading the native addon, which on a Windows agent busy with other test
+ * files can take the whole default budget. A longer one costs nothing unless
+ * the fixture hangs, and then it still fails.
+ */
+const CLEAN_BUDGET_MS = 45_000
 
-    expect(outcome.connectType).toBe('function')
-    // The source, not the last build: see the fixture contract.
-    expect(outcome.resolvedFrom).toMatch(/[\\/]lib[\\/]couchbase\.ts$/)
-  })
+describe('expectProcessExits', () => {
+  it(
+    'passes a fixture that exits, and resolves with what it reported',
+    async () => {
+      const { outcome } = await expectProcessExits<{
+        connectType: string
+        resolvedFrom: string
+      }>(join(FIXTURES, 'clean.exitfixture.ts'), {
+        withinMs: CLEAN_BUDGET_MS,
+      })
+
+      expect(outcome.connectType).toBe('function')
+      // The source, not the last build: see the fixture contract.
+      expect(outcome.resolvedFrom).toMatch(/[\\/]lib[\\/]couchbase\.ts$/)
+    },
+    // The budget, plus the kill grace, plus room for the error to be built.
+    CLEAN_BUDGET_MS + 10_000
+  )
 
   it('kills a fixture that does not exit, and fails naming it', async () => {
     const err = await expectProcessExits(

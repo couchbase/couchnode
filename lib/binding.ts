@@ -5,6 +5,9 @@ jsdoc/require-jsdoc: off,
 */
 import path from 'path'
 
+import { CouchbaseError } from './errors'
+import { getErrorMessage } from './utilities'
+
 // TODO(Brett19): Check which of these is actually needed...
 export type CppMilliseconds = number
 export type CppSeconds = number
@@ -4272,12 +4275,68 @@ export interface CppBinding extends CppBindingAutogen {
   }
 }
 
-// CN_PREBUILD_PATH_OVERRIDE is meant to help for webpack scenarios.  Webpack's EnvironmentPlugin
-// can be used to set the path of the desired prebuild which will allow the node-loader package
-// to pull in the corresponding prebuild.
-const binding: CppBinding = process.env.CN_PREBUILD_PATH_OVERRIDE
-  ? // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require(process.env.CN_PREBUILD_PATH_OVERRIDE)
-  : // eslint-disable-next-line @typescript-eslint/no-require-imports
-    require('../scripts/prebuilds').loadPrebuild(path.resolve(__dirname, '..'))
+let loadedBinding: CppBinding | undefined
+
+/**
+ * Loads the addon the first time any of its members is read. A failed load is
+ * not remembered, so a later read tries again.
+ */
+function loadBinding(member: string): CppBinding {
+  if (loadedBinding) {
+    return loadedBinding
+  }
+  try {
+    // CN_PREBUILD_PATH_OVERRIDE is meant to help for webpack scenarios.  Webpack's EnvironmentPlugin
+    // can be used to set the path of the desired prebuild which will allow the node-loader package
+    // to pull in the corresponding prebuild.
+    loadedBinding = process.env.CN_PREBUILD_PATH_OVERRIDE
+      ? // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require(process.env.CN_PREBUILD_PATH_OVERRIDE)
+      : // eslint-disable-next-line @typescript-eslint/no-require-imports
+        require('../scripts/prebuilds').loadPrebuild(
+          path.resolve(__dirname, '..')
+        )
+  } catch (err) {
+    throw new CouchbaseError(
+      `The couchbase native addon could not be loaded, and ${member} needs ` +
+        `it: ${getErrorMessage(err)}`,
+      err instanceof Error ? err : undefined
+    )
+  }
+  return loadedBinding as CppBinding
+}
+
+// Importing the SDK does not load the addon; using a member of this object
+// does. So a couchbase2 connection, which never uses one, runs without it.
+// A member defined or replaced here lands on the addon, as it would on the
+// module object itself.
+const binding: CppBinding = new Proxy({} as CppBinding, {
+  get(_target, member) {
+    return Reflect.get(loadBinding(String(member)), member)
+  },
+  has(_target, member) {
+    return Reflect.has(loadBinding(String(member)), member)
+  },
+  set(_target, member, value) {
+    return Reflect.set(loadBinding(String(member)), member, value)
+  },
+  getOwnPropertyDescriptor(_target, member) {
+    const descriptor = Reflect.getOwnPropertyDescriptor(
+      loadBinding(String(member)),
+      member
+    )
+    // The target is empty, so a member can only be reported as configurable.
+    return descriptor && { ...descriptor, configurable: true }
+  },
+  defineProperty(_target, member, descriptor) {
+    return Reflect.defineProperty(
+      loadBinding(String(member)),
+      member,
+      descriptor
+    )
+  },
+  deleteProperty(_target, member) {
+    return Reflect.deleteProperty(loadBinding(String(member)), member)
+  },
+})
 export default binding

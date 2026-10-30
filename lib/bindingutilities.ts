@@ -3,7 +3,7 @@ import {
   AnalyticsEncryptionLevel,
   CouchbaseAnalyticsEncryptionSettings,
 } from './analyticsindexmanager'
-import { SubdocStatus } from './sdutils'
+import { LookupInOp, MutateInOp, SubdocStatus } from './sdutils'
 import binding, {
   CppAnalyticsResponseAnalyticsStatus,
   CppAnalyticsScanConsistency,
@@ -12,6 +12,7 @@ import binding, {
   CppDiagPingState,
   CppDurabilityLevel,
   CppError,
+  CppImplSubdocCommand,
   CppKeyValueStatusCode,
   CppManagementAnalyticsCouchbaseLinkEncryptionLevel,
   CppManagementAnalyticsCouchbaseLinkEncryptionSettings,
@@ -32,6 +33,7 @@ import binding, {
   CppMutationToken,
   CppPersistTo,
   CppPrefixScan,
+  CppProtocolSubdocOpcode,
   CppQueryProfile,
   CppQueryScanConsistency,
   CppRangeScan,
@@ -75,6 +77,7 @@ import {
 import { MutationState } from './mutationstate'
 import { QueryProfileMode, QueryScanConsistency } from './querytypes'
 import { PrefixScan, RangeScan, SamplingScan } from './rangeScan'
+import { LookupInSpec, MutateInSpec } from './sdspecs'
 import {
   HighlightStyle,
   SearchScanConsistency,
@@ -2070,4 +2073,107 @@ export function subdocumentStatusFromCpp(
   // answering with a document level failure and no field results has one
   // synthesized per requested spec, each stamped with that status.
   return 'unknown'
+}
+
+/**
+ * @internal
+ */
+export function lookupInOpToCpp(op: LookupInOp): CppProtocolSubdocOpcode {
+  if (op === LookupInOp.Get) {
+    return binding.protocol_subdoc_opcode.get
+  } else if (op === LookupInOp.GetDoc) {
+    return binding.protocol_subdoc_opcode.get_doc
+  } else if (op === LookupInOp.Exists) {
+    return binding.protocol_subdoc_opcode.exists
+  } else if (op === LookupInOp.Count) {
+    return binding.protocol_subdoc_opcode.get_count
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized lookup-in operation.')
+  )
+}
+
+/**
+ * @internal
+ */
+export function mutateInOpToCpp(op: MutateInOp): CppProtocolSubdocOpcode {
+  if (op === MutateInOp.Insert) {
+    return binding.protocol_subdoc_opcode.dict_add
+  } else if (op === MutateInOp.Upsert) {
+    return binding.protocol_subdoc_opcode.dict_upsert
+  } else if (op === MutateInOp.Replace) {
+    return binding.protocol_subdoc_opcode.replace
+  } else if (op === MutateInOp.Remove) {
+    return binding.protocol_subdoc_opcode.remove
+  } else if (op === MutateInOp.ArrayAppend) {
+    return binding.protocol_subdoc_opcode.array_push_last
+  } else if (op === MutateInOp.ArrayPrepend) {
+    return binding.protocol_subdoc_opcode.array_push_first
+  } else if (op === MutateInOp.ArrayInsert) {
+    return binding.protocol_subdoc_opcode.array_insert
+  } else if (op === MutateInOp.ArrayAddUnique) {
+    return binding.protocol_subdoc_opcode.array_add_unique
+  } else if (op === MutateInOp.Counter) {
+    return binding.protocol_subdoc_opcode.counter
+  } else if (op === MutateInOp.SetDoc) {
+    return binding.protocol_subdoc_opcode.set_doc
+  } else if (op === MutateInOp.RemoveDoc) {
+    return binding.protocol_subdoc_opcode.remove_doc
+  }
+
+  throw new errs.InvalidArgumentError(
+    new Error('Unrecognized mutate-in operation.')
+  )
+}
+
+/**
+ * @internal
+ */
+export function lookupInSpecToCpp(
+  spec: LookupInSpec,
+  index: number
+): CppImplSubdocCommand {
+  let flags = 0
+  if (spec._xattr) {
+    flags |=
+      binding.protocol_lookup_in_request_body_lookup_in_specs_path_flag.xattr
+  }
+
+  return {
+    opcode_: lookupInOpToCpp(spec._op),
+    flags_: flags,
+    path_: spec._path,
+    original_index_: index,
+  }
+}
+
+/**
+ * @internal
+ */
+export function mutateInSpecToCpp(
+  spec: MutateInSpec,
+  value: Buffer | undefined,
+  index: number
+): CppImplSubdocCommand {
+  const pathFlags =
+    binding.protocol_mutate_in_request_body_mutate_in_specs_path_flag
+  let flags = 0
+  if (spec._createPath) {
+    flags |= pathFlags.create_parents
+  }
+  if (spec._expandMacros) {
+    flags |= pathFlags.expand_macros
+  }
+  if (spec._xattr) {
+    flags |= pathFlags.xattr
+  }
+
+  return {
+    opcode_: mutateInOpToCpp(spec._op),
+    flags_: flags,
+    path_: spec._path,
+    value_: value,
+    original_index_: index,
+  }
 }

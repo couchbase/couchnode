@@ -4,11 +4,8 @@ jsdoc/require-jsdoc: off,
 @typescript-eslint/no-empty-interface: off
 */
 import { AnalyticsQueryOptions } from './analyticstypes'
-import binding, {
-  CppDocumentId,
-  CppDurabilityLevel,
-  HiResTime,
-} from './binding'
+import { HiResTime } from './binding'
+import { DurabilityLevel } from './generaltypes'
 import {
   AttributeValue,
   HttpOpType,
@@ -144,12 +141,43 @@ export function timeInputToHiResTime(input?: TimeInput): HiResTime {
 }
 
 /**
+ * The keyspace a key-value span describes. Neutral, so either protocol can
+ * set the attributes; a classic `CppDocumentId` satisfies it as is.
+ *
+ * @internal
+ */
+export interface KeyValueKeyspace {
+  bucket: string
+  scope: string
+  collection: string
+}
+
+/**
+ * The span attribute value for a durability level, or `undefined` when the
+ * level asks for no durability and the attribute is left off.
+ *
+ * @internal
+ */
+export function durabilityAttributeOf(
+  durability?: DurabilityLevel
+): string | undefined {
+  if (durability === DurabilityLevel.Majority) {
+    return 'majority'
+  } else if (durability === DurabilityLevel.MajorityAndPersistOnMaster) {
+    return 'majority_and_persist_to_active'
+  } else if (durability === DurabilityLevel.PersistToMajority) {
+    return 'persist_to_majority'
+  }
+  return undefined
+}
+
+/**
  * @internal
  */
 export function getAttributesForKeyValueOpType(
   opType: KeyValueOp,
-  cppDocId: CppDocumentId,
-  durability?: CppDurabilityLevel
+  keyspace: KeyValueKeyspace,
+  durability?: DurabilityLevel
 ): {
   [key: string]: AttributeValue
 } {
@@ -157,21 +185,13 @@ export function getAttributesForKeyValueOpType(
     [OpAttributeName.SystemName]: 'couchbase',
     [OpAttributeName.Service]: ServiceName.KeyValue,
     [OpAttributeName.OperationName]: opType,
-    [OpAttributeName.BucketName]: cppDocId.bucket,
-    [OpAttributeName.ScopeName]: cppDocId.scope,
-    [OpAttributeName.CollectionName]: cppDocId.collection,
+    [OpAttributeName.BucketName]: keyspace.bucket,
+    [OpAttributeName.ScopeName]: keyspace.scope,
+    [OpAttributeName.CollectionName]: keyspace.collection,
   }
-  if (durability && durability != binding.durability_level.none) {
-    if (durability === binding.durability_level.majority) {
-      attributes[OpAttributeName.DurabilityLevel] = 'majority'
-    } else if (
-      durability === binding.durability_level.majority_and_persist_to_active
-    ) {
-      attributes[OpAttributeName.DurabilityLevel] =
-        'majority_and_persist_to_active'
-    } else if (durability === binding.durability_level.persist_to_majority) {
-      attributes[OpAttributeName.DurabilityLevel] = 'persist_to_majority'
-    }
+  const durabilityAttr = durabilityAttributeOf(durability)
+  if (durabilityAttr) {
+    attributes[OpAttributeName.DurabilityLevel] = durabilityAttr
   }
   return attributes
 }

@@ -39,6 +39,40 @@ export type SubdocStatus =
   | 'value_too_deep'
   | 'unknown'
 
+/**
+ * The operation a {@link LookupInSpec} performs. Owned by the SDK rather than
+ * the native addon, so a spec can be built without loading it; each protocol
+ * maps it to its own wire value at dispatch.
+ *
+ * @internal
+ */
+export enum LookupInOp {
+  Get = 'get',
+  GetDoc = 'get_doc',
+  Exists = 'exists',
+  Count = 'count',
+}
+
+/**
+ * The operation a {@link MutateInSpec} performs. Owned by the SDK for the
+ * same reason as {@link LookupInOp}.
+ *
+ * @internal
+ */
+export enum MutateInOp {
+  Insert = 'insert',
+  Upsert = 'upsert',
+  Replace = 'replace',
+  Remove = 'remove',
+  ArrayAppend = 'array_append',
+  ArrayPrepend = 'array_prepend',
+  ArrayInsert = 'array_insert',
+  ArrayAddUnique = 'array_add_unique',
+  Counter = 'counter',
+  SetDoc = 'set_doc',
+  RemoveDoc = 'remove_doc',
+}
+
 interface SdPathPartProp {
   type: 'property'
   path: string

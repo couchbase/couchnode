@@ -118,7 +118,9 @@ export class WaitUntilReadyExecutor {
       this._logPingErrors(discoveryResult)
 
       waitSet = []
-      for (const [serviceType, endpoints] of Object.entries(discoveryResult.services)) {
+      for (const [serviceType, endpoints] of Object.entries(
+        discoveryResult.services
+      )) {
         if (endpoints.length > 0) {
           waitSet.push(serviceType as ServiceType)
         }
@@ -189,7 +191,8 @@ export class WaitUntilReadyExecutor {
         throw new UnambiguousTimeoutError(
           new Error(
             'Timed out prior to reaching desired state. ' +
-            'Services not ready: ' + needPing.join(', ')
+              'Services not ready: ' +
+              needPing.join(', ')
           )
         )
       }

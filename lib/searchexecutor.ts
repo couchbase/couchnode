@@ -173,9 +173,7 @@ export class SearchExecutor {
     }
 
     const timeout = options.timeout || this._cluster.searchTimeout
-    const { scoring_name, scoring_value } = searchScoringToCpp(
-      options.scoring
-    )
+    const { scoring_name, scoring_value } = searchScoringToCpp(options.scoring)
     const request: CppSearchRequest = {
       timeout,
       index_name: indexName,

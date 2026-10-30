@@ -40,7 +40,6 @@ export class Scope {
 
   private _bucket: Bucket
   private _name: string
-  private _conn: CppConnection
 
   /**
   @internal
@@ -48,14 +47,13 @@ export class Scope {
   constructor(bucket: Bucket, scopeName: string) {
     this._bucket = bucket
     this._name = scopeName
-    this._conn = bucket.conn
   }
 
   /**
   @internal
   */
   get conn(): CppConnection {
-    return this._conn
+    return this._bucket.conn
   }
 
   /**

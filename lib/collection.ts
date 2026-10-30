@@ -16,6 +16,8 @@ import binding, {
 import {
   durabilityToCpp,
   errorFromCpp,
+  lookupInSpecToCpp,
+  mutateInSpecToCpp,
   mutationStateToCpp,
   persistToToCpp,
   readPreferenceToCpp,
@@ -52,7 +54,10 @@ import {
 import { DurabilityLevel, ReadPreference, StoreSemantics } from './generaltypes'
 import { MutationState } from './mutationstate'
 import { wrapObservableBindingCall } from './observability'
-import { isNoopObservabilityInstruments, ObservableRequestHandler } from './observabilityhandler'
+import {
+  isNoopObservabilityInstruments,
+  ObservableRequestHandler,
+} from './observabilityhandler'
 import { KeyValueOp, ObservabilityInstruments } from './observabilitytypes'
 import { CollectionQueryIndexManager } from './queryindexmanager'
 import { RangeScan, SamplingScan, PrefixScan } from './rangeScan'
@@ -71,6 +76,7 @@ import {
   PromiseHelper,
   CasInput,
   callbackOf,
+  durabilityLevelOf,
   optionsOf,
 } from './utilities'
 
@@ -753,7 +759,6 @@ export class Collection {
 
   private _scope: Scope
   private _name: string
-  private _conn: CppConnection
   private _kvScanTimeout: number
   private _scanBatchItemLimit: number
   private _scanBatchByteLimit: number
@@ -764,7 +769,6 @@ export class Collection {
   constructor(scope: Scope, collectionName: string) {
     this._scope = scope
     this._name = collectionName
-    this._conn = scope.conn
     this._kvScanTimeout = 75000
     this._scanBatchByteLimit = 15000
     this._scanBatchItemLimit = 50
@@ -774,7 +778,11 @@ export class Collection {
   @internal
   */
   get conn(): CppConnection {
-    return this._conn
+    return this._scope.conn
+  }
+
+  private get _conn(): CppConnection {
+    return this._scope.conn
   }
 
   /**
@@ -808,7 +816,14 @@ export class Collection {
   /**
   @internal
   */
-  _mutationTimeout(durabilityLevel?: DurabilityLevel): number {
+  _mutationTimeout(options: {
+    timeout?: number
+    durabilityLevel?: DurabilityLevel
+  }): number {
+    if (options.timeout) {
+      return options.timeout
+    }
+    const durabilityLevel = options.durabilityLevel
     if (
       durabilityLevel !== undefined &&
       durabilityLevel !== null &&
@@ -817,6 +832,59 @@ export class Collection {
       return this.cluster.kvDurableTimeout
     }
     return this.cluster.kvTimeout
+  }
+
+  /**
+   * @internal
+   */
+  _kvTimeout(options: { timeout?: number }): number {
+    return options.timeout || this.cluster.kvTimeout
+  }
+
+  /**
+   * @internal
+   */
+  _transcoder(options: { transcoder?: Transcoder }): Transcoder {
+    return options.transcoder || this.transcoder
+  }
+
+  /**
+   * Creates the observability handler for an operation, or returns null when
+   * no tracer or meter is configured so the operation skips that work.
+   *
+   * @internal
+   */
+  _requestHandler(
+    op: KeyValueOp,
+    options: { parentSpan?: RequestSpan }
+  ): ObservableRequestHandler | null {
+    if (isNoopObservabilityInstruments(this.observabilityInstruments)) {
+      return null
+    }
+    return new ObservableRequestHandler(
+      op,
+      this.observabilityInstruments,
+      options.parentSpan
+    )
+  }
+
+  /**
+   * Encodes a document value, inside an encoding span when the operation has
+   * one.
+   *
+   * @internal
+   */
+  _encode(
+    value: any,
+    transcoder: Transcoder,
+    obsReqHandler: ObservableRequestHandler | null
+  ): [Buffer, number] {
+    if (obsReqHandler) {
+      return obsReqHandler.maybeCreateEncodingSpan(() =>
+        transcoder.encode(value)
+      )
+    }
+    return transcoder.encode(value)
   }
 
   /**
@@ -907,13 +975,7 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Get,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Get, options)
 
     try {
       const cppDocId = this._cppDocId(key)
@@ -930,8 +992,8 @@ export class Collection {
         )
       }
 
-      const transcoder = options.transcoder || this.transcoder
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const transcoder = this._transcoder(options)
+      const timeout = this._kvTimeout(options)
 
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
@@ -1073,16 +1135,10 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Exists,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Exists, options)
     try {
       const cppDocId = this._cppDocId(key)
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout = this._kvTimeout(options)
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
 
       return PromiseHelper.wrapAsync(async () => {
@@ -1143,8 +1199,8 @@ export class Collection {
       GetReplicaResult
     >((replicas: GetReplicaResult[]) => replicas)
 
-    const transcoder = options.transcoder || this.transcoder
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const transcoder = this._transcoder(options)
+    const timeout = this._kvTimeout(options)
 
     if (opType == KeyValueOp.GetAllReplicas) {
       PromiseHelper.wrapAsync(async () => {
@@ -1244,16 +1300,18 @@ export class Collection {
   ): Promise<GetReplicaResult> {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.GetAnyReplica,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(
+      KeyValueOp.GetAnyReplica,
+      options
+    )
     try {
       return PromiseHelper.wrapAsync(async () => {
-        const replicas = await this._getReplica(key, KeyValueOp.GetAnyReplica, obsReqHandler, options)
+        const replicas = await this._getReplica(
+          key,
+          KeyValueOp.GetAnyReplica,
+          obsReqHandler,
+          options
+        )
         return replicas[0]
       }, callback)
     } catch (e) {
@@ -1281,13 +1339,7 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.GetReplica,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.GetReplica, options)
 
     try {
       const cppDocId = this._cppDocId(key)
@@ -1299,8 +1351,8 @@ export class Collection {
         )
       }
 
-      const transcoder = options.transcoder || this.transcoder
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const transcoder = this._transcoder(options)
+      const timeout = this._kvTimeout(options)
 
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
@@ -1359,15 +1411,18 @@ export class Collection {
   ): Promise<GetReplicaResult[]> {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.GetAllReplicas,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(
+      KeyValueOp.GetAllReplicas,
+      options
+    )
     try {
-      return this._getReplica(key, KeyValueOp.GetAllReplicas, obsReqHandler, options, callback)
+      return this._getReplica(
+        key,
+        KeyValueOp.GetAllReplicas,
+        obsReqHandler,
+        options,
+        callback
+      )
     } catch (e) {
       obsReqHandler?.endWithError(e)
       throw e
@@ -1392,28 +1447,20 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Insert,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Insert, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
-      const transcoder = options.transcoder || this.transcoder
+      const transcoder = this._transcoder(options)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
+      const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
-      const [bytesBuf, flags] =
-        obsReqHandler?.maybeCreateEncodingSpan(() => transcoder.encode(value)) ??
-        transcoder.encode(value)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
       const insertReq = {
         id: cppDocId,
@@ -1484,29 +1531,21 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Upsert,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Upsert, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
       const preserve_expiry = options.preserveExpiry
-      const transcoder = options.transcoder || this.transcoder
+      const transcoder = this._transcoder(options)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
+      const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
-      const [bytesBuf, flags] =
-        obsReqHandler?.maybeCreateEncodingSpan(() => transcoder.encode(value)) ??
-        transcoder.encode(value)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
       const upsertReq = {
         id: cppDocId,
@@ -1577,30 +1616,22 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Replace,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Replace, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
       const cas = options.cas
       const preserve_expiry = options.preserveExpiry
-      const transcoder = options.transcoder || this.transcoder
+      const transcoder = this._transcoder(options)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
+      const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
-      const [bytesBuf, flags] =
-        obsReqHandler?.maybeCreateEncodingSpan(() => transcoder.encode(value)) ??
-        transcoder.encode(value)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
       const replaceReq = {
         id: cppDocId,
@@ -1669,24 +1700,18 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Remove,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Remove, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const cas = options.cas
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
+      const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       const removeReq = {
         id: cppDocId,
@@ -1759,18 +1784,12 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.GetAndTouch,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.GetAndTouch, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const transcoder = options.transcoder || this.transcoder
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const transcoder = this._transcoder(options)
+      const timeout = this._kvTimeout(options)
 
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       return PromiseHelper.wrapAsync(async () => {
@@ -1827,17 +1846,11 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Touch,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Touch, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout = this._kvTimeout(options)
 
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       return PromiseHelper.wrapAsync(async () => {
@@ -1887,18 +1900,12 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.GetAndLock,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.GetAndLock, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const transcoder = options.transcoder || this.transcoder
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const transcoder = this._transcoder(options)
+      const timeout = this._kvTimeout(options)
 
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       return PromiseHelper.wrapAsync(async () => {
@@ -1950,17 +1957,11 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Unlock,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Unlock, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout = this._kvTimeout(options)
 
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       return PromiseHelper.wrapAsync(async () => {
@@ -2109,7 +2110,7 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const transcoder = options.transcoder || this.transcoder
+    const transcoder = this._transcoder(options)
     const timeout = options.timeout || this._kvScanTimeout
     const idsOnly = options.idsOnly || false
     const batchByteLimit =
@@ -2165,13 +2166,7 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.LookupIn,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.LookupIn, options)
 
     try {
       if (specs.length === 0) {
@@ -2180,17 +2175,9 @@ export class Collection {
         )
       }
       const cppDocId = this._cppDocId(key)
-      const cppSpecs: CppImplSubdocCommand[] = []
-      for (let i = 0; i < specs.length; ++i) {
-        cppSpecs.push({
-          opcode_: specs[i]._op,
-          flags_: specs[i]._flags,
-          path_: specs[i]._path,
-          original_index_: i,
-        })
-      }
+      const cppSpecs = specs.map((spec, i) => lookupInSpecToCpp(spec, i))
 
-      const timeout = options.timeout || this.cluster.kvTimeout
+      const timeout = this._kvTimeout(options)
       const accessDeleted = options.accessDeleted || false
 
       obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
@@ -2275,17 +2262,9 @@ export class Collection {
       LookupInReplicaResult
     >((replicas: LookupInReplicaResult[]) => replicas)
 
-    const cppSpecs: CppImplSubdocCommand[] = []
-    for (let i = 0; i < specs.length; ++i) {
-      cppSpecs.push({
-        opcode_: specs[i]._op,
-        flags_: specs[i]._flags,
-        path_: specs[i]._path,
-        original_index_: i,
-      })
-    }
+    const cppSpecs = specs.map((spec, i) => lookupInSpecToCpp(spec, i))
 
-    const timeout = options.timeout || this.cluster.kvTimeout
+    const timeout = this._kvTimeout(options)
 
     if (opType == KeyValueOp.LookupInAllReplicas) {
       PromiseHelper.wrapAsync(async () => {
@@ -2424,13 +2403,10 @@ export class Collection {
   ): Promise<LookupInReplicaResult> {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.LookupInAnyReplica,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(
+      KeyValueOp.LookupInAnyReplica,
+      options
+    )
     try {
       return PromiseHelper.wrapAsync(async () => {
         const replicas = await this._lookupInReplica(
@@ -2467,15 +2443,19 @@ export class Collection {
   ): Promise<LookupInReplicaResult[]> {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.LookupInAllReplicas,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(
+      KeyValueOp.LookupInAllReplicas,
+      options
+    )
     try {
-      return this._lookupInReplica(key, KeyValueOp.LookupInAllReplicas, obsReqHandler, specs, options, callback)
+      return this._lookupInReplica(
+        key,
+        KeyValueOp.LookupInAllReplicas,
+        obsReqHandler,
+        specs,
+        options,
+        callback
+      )
     } catch (e) {
       obsReqHandler?.endWithError(e)
       throw e
@@ -2501,13 +2481,7 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.MutateIn,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.MutateIn, options)
 
     try {
       if (specs.length === 0) {
@@ -2517,26 +2491,20 @@ export class Collection {
       }
 
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
 
       const cppSpecs: CppImplSubdocCommand[] = []
       for (let i = 0; i < specs.length; ++i) {
         let value: Buffer | undefined = undefined
         if (specs[i]._data) {
-          const [bytesValue] =
-            obsReqHandler?.maybeAddEncodingSpan(() => {
-              const encoded = this._subdocEncode(specs[i]._data)
-              return [encoded, 0]
-            }) ?? [this._subdocEncode(specs[i]._data), 0]
+          const [bytesValue] = obsReqHandler?.maybeAddEncodingSpan(() => {
+            const encoded = this._subdocEncode(specs[i]._data)
+            return [encoded, 0]
+          }) ?? [this._subdocEncode(specs[i]._data), 0]
           value = bytesValue
         }
-        cppSpecs.push({
-          opcode_: specs[i]._op,
-          flags_: specs[i]._flags,
-          path_: specs[i]._path,
-          value_: value,
-          original_index_: 0,
-        })
+        cppSpecs.push(mutateInSpecToCpp(specs[i], value, 0))
       }
 
       const storeSemantics = options.upsertDocument
@@ -2547,10 +2515,9 @@ export class Collection {
       const cas = options.cas
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
+      const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       const mutateInReq = {
         id: cppDocId,
@@ -2678,24 +2645,18 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Increment,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Increment, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const initial_value = options.initial
       const expiry = parseExpiry(options.expiry)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const timeout = this._mutationTimeout(options)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       const incrementReq = {
         id: cppDocId,
@@ -2764,24 +2725,18 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Decrement,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Decrement, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const initial_value = options.initial
       const expiry = parseExpiry(options.expiry)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const timeout = this._mutationTimeout(options)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       const decrementReq = {
         id: cppDocId,
@@ -2850,23 +2805,17 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Append,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Append, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
       const cas = options.cas
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const timeout = this._mutationTimeout(options)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       if (!Buffer.isBuffer(value)) {
         value = Buffer.from(value)
@@ -2934,23 +2883,17 @@ export class Collection {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const obsReqHandler = isNoopObservabilityInstruments(this.observabilityInstruments)
-      ? null
-      : new ObservableRequestHandler(
-          KeyValueOp.Prepend,
-          this.observabilityInstruments,
-          options?.parentSpan
-        )
+    const obsReqHandler = this._requestHandler(KeyValueOp.Prepend, options)
 
     try {
       const cppDocId = this._cppDocId(key)
-      const cppDurability = durabilityToCpp(options.durabilityLevel)
+      const durability = durabilityLevelOf(options.durabilityLevel)
+      const cppDurability = durabilityToCpp(durability)
       const persistTo = options.durabilityPersistTo
       const replicateTo = options.durabilityReplicateTo
       const cas = options.cas
-      const timeout =
-        options.timeout || this._mutationTimeout(options.durabilityLevel)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, cppDurability)
+      const timeout = this._mutationTimeout(options)
+      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
 
       if (!Buffer.isBuffer(value)) {
         value = Buffer.from(value)

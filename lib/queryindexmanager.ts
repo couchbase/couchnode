@@ -1,7 +1,11 @@
 import { CppQueryContext } from './binding'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
-import { CouchbaseError, IndexNotFoundError, InvalidArgumentError } from './errors'
+import {
+  CouchbaseError,
+  IndexNotFoundError,
+  InvalidArgumentError,
+} from './errors'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
 import {

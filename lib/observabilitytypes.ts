@@ -347,12 +347,8 @@ const _OP_TYPE_TO_SERVICE = new Map<string, ServiceName>([
   ...Object.values(SearchIndexMgmtOp).map(
     (v) => [v, ServiceName.Search] as const
   ),
-  ...Object.values(UserMgmtOp).map(
-    (v) => [v, ServiceName.Management] as const
-  ),
-  ...Object.values(ViewIndexMgmtOp).map(
-    (v) => [v, ServiceName.Views] as const
-  ),
+  ...Object.values(UserMgmtOp).map((v) => [v, ServiceName.Management] as const),
+  ...Object.values(ViewIndexMgmtOp).map((v) => [v, ServiceName.Views] as const),
 ])
 
 /**

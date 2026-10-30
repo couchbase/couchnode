@@ -18,6 +18,7 @@ import { BucketManager } from './bucketmanager'
 import { knownProfiles } from './configProfile'
 import { ConnSpec } from './connspec'
 import { DiagnoticsExecutor, PingExecutor } from './diagnosticsexecutor'
+import { FeatureNotAvailableError } from './errors'
 import {
   DiagnosticsOptions,
   DiagnosticsResult,
@@ -437,7 +438,7 @@ export class Cluster {
   private _bootstrapTimeout: number | undefined
   private _resolveTimeout: number | undefined
   private _auth: Authenticator
-  private _conn: CppConnection
+  private _conn: CppConnection | undefined
   private _transcoder: Transcoder
   private _txnConfig: TransactionsConfig
   private _transactions?: Transactions
@@ -460,6 +461,11 @@ export class Cluster {
    * @internal
    */
   get conn(): CppConnection {
+    if (!this._conn) {
+      throw new FeatureNotAvailableError(
+        new Error('A couchbase2:// cluster has no native addon connection.')
+      )
+    }
     return this._conn
   }
 
@@ -749,7 +755,11 @@ export class Cluster {
     this._openBuckets = []
     this._closing = false
     this._openQueryStreams = new Set()
-    this._conn = new binding.Connection()
+    // A couchbase2:// cluster never creates the addon's connection, so it does
+    // not load the addon.
+    if (ConnSpec.parse(connStr).scheme !== 'couchbase2') {
+      this._conn = new binding.Connection()
+    }
   }
 
   /**
@@ -773,7 +783,7 @@ export class Cluster {
    * @param bucketName The name of the bucket to reference.
    */
   bucket(bucketName: string): Bucket {
-    if (!this._openBuckets.includes(bucketName)) {
+    if (this._conn && !this._openBuckets.includes(bucketName)) {
       this._conn.openBucket(bucketName, (err) => {
         if (err) {
           // BUG(JSCBC-1011): Move this to log framework once it is implemented.
@@ -1045,8 +1055,13 @@ export class Cluster {
         this._meter.cleanup()
       }
 
+      const conn = this._conn
+      if (!conn) {
+        return
+      }
+
       return PromiseHelper.wrap<void>((wrapCallback) => {
-        this._conn.shutdown((cppErr) => {
+        conn.shutdown((cppErr) => {
           wrapCallback(errorFromCpp(cppErr))
         })
       })
@@ -1068,7 +1083,7 @@ export class Cluster {
    * @param auth The new credentials to use.
    */
   updateCredentials(auth: Authenticator): void {
-    const cppErr = this._conn.updateCredentials(this._getCppCredentials(auth))
+    const cppErr = this.conn.updateCredentials(this._getCppCredentials(auth))
     if (cppErr) {
       const err = errorFromCpp(cppErr)
       throw err
@@ -1079,6 +1094,9 @@ export class Cluster {
    * @internal
    */
   _getClusterLabels(): Record<string, string | undefined> {
+    if (!this._conn) {
+      return { clusterName: undefined, clusterUUID: undefined }
+    }
     const resp = this._conn.getClusterLabels()
     return { clusterName: resp.clusterName, clusterUUID: resp.clusterUUID }
   }
@@ -1169,6 +1187,13 @@ export class Cluster {
   }
 
   private async _connect() {
+    const conn = this._conn
+    if (!conn) {
+      throw new FeatureNotAvailableError(
+        new Error('couchbase2:// connections are not supported yet.')
+      )
+    }
+
     return new Promise((resolve, reject) => {
       const dsnObj = ConnSpec.parse(this._connStr)
 
@@ -1222,7 +1247,7 @@ export class Cluster {
 
       const [enableTracing, _enableMetrics] = this._setupObservability()
 
-      this._conn.connect(
+      conn.connect(
         connStr,
         authOpts,
         this._dnsConfig,

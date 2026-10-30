@@ -3,7 +3,11 @@ import { Cluster } from './cluster'
 import { Collection } from './collection'
 import { CollectionManager } from './collectionmanager'
 import { PingExecutor } from './diagnosticsexecutor'
-import { PingOptions, PingResult, WaitUntilReadyOptions } from './diagnosticstypes'
+import {
+  PingOptions,
+  PingResult,
+  WaitUntilReadyOptions,
+} from './diagnosticstypes'
 import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
 import { Scope } from './scope'
 import { StreamableRowPromise } from './streamablepromises'
@@ -28,7 +32,6 @@ import {
 export class Bucket {
   private _cluster: Cluster
   private _name: string
-  private _conn: CppConnection
 
   /**
   @internal
@@ -36,14 +39,13 @@ export class Bucket {
   constructor(cluster: Cluster, bucketName: string) {
     this._cluster = cluster
     this._name = bucketName
-    this._conn = cluster.conn
   }
 
   /**
   @internal
   */
   get conn(): CppConnection {
-    return this._conn
+    return this._cluster.conn
   }
 
   /**

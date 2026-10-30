@@ -138,9 +138,7 @@ export function callbackOf<T>(
   options: unknown,
   callback?: NodeCallback<T>
 ): NodeCallback<T> | undefined {
-  return typeof options === 'function'
-    ? (options as NodeCallback<T>)
-    : callback
+  return typeof options === 'function' ? (options as NodeCallback<T>) : callback
 }
 
 /**
@@ -226,6 +224,22 @@ export function duraLevelToNsServerStr(
   } else {
     throw new Error('invalid durability level specified')
   }
+}
+
+/**
+ * Resolves the durability level an operation asked for. The option is typed
+ * as a {@link DurabilityLevel}, but a JavaScript caller may pass the server's
+ * string form instead, so that is accepted too.
+ *
+ * @internal
+ */
+export function durabilityLevelOf(
+  level: DurabilityLevel | string | undefined
+): DurabilityLevel | undefined {
+  if (level === null || level === undefined) {
+    return undefined
+  }
+  return typeof level === 'string' ? nsServerStrToDuraLevel(level) : level
 }
 
 /**

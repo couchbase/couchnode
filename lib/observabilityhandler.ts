@@ -1,10 +1,5 @@
-import binding, {
-  CppDocumentId,
-  CppDurabilityLevel,
-  CppWrapperSdkChildSpan,
-  CppWrapperSdkSpan,
-  HiResTime,
-} from './binding'
+import { CppWrapperSdkChildSpan, CppWrapperSdkSpan, HiResTime } from './binding'
+import { DurabilityLevel } from './generaltypes'
 import { NoOpMeter, NoOpTracer } from './observability'
 import { Meter } from './metrics'
 import { ObservabilityInstruments } from './observabilitytypes'
@@ -24,11 +19,13 @@ import {
   ServiceName,
 } from './observabilitytypes'
 import {
+  durabilityAttributeOf,
   getAttributesForHttpOpType,
   getAttributesForKeyValueOpType,
   getCoreSpanEndTime,
   getLatestTime,
   HttpOpAttributesOptions,
+  KeyValueKeyspace,
   timeInputToHiResTime,
 } from './observabilityutilities'
 import { hiResTimeToMicros, getHiResTimeDelta } from './observabilityutilities'
@@ -196,39 +193,27 @@ class ObservableRequestHandlerTracerImpl {
    * @internal
    */
   setRequestKeyValueAttributes(
-    cppDocId: CppDocumentId,
-    durability?: CppDurabilityLevel
+    keyspace: KeyValueKeyspace,
+    durability?: DurabilityLevel
   ): void {
     this._wrappedSpan.setAttribute(OpAttributeName.SystemName, 'couchbase')
-    this._wrappedSpan.setAttribute(OpAttributeName.Service, ServiceName.KeyValue)
+    this._wrappedSpan.setAttribute(
+      OpAttributeName.Service,
+      ServiceName.KeyValue
+    )
     this._wrappedSpan.setAttribute(OpAttributeName.OperationName, this._opType)
-    this._wrappedSpan.setAttribute(OpAttributeName.BucketName, cppDocId.bucket)
-    this._wrappedSpan.setAttribute(OpAttributeName.ScopeName, cppDocId.scope)
+    this._wrappedSpan.setAttribute(OpAttributeName.BucketName, keyspace.bucket)
+    this._wrappedSpan.setAttribute(OpAttributeName.ScopeName, keyspace.scope)
     this._wrappedSpan.setAttribute(
       OpAttributeName.CollectionName,
-      cppDocId.collection
+      keyspace.collection
     )
-    if (durability && durability !== binding.durability_level.none) {
-      if (durability === binding.durability_level.majority) {
-        this._wrappedSpan.setAttribute(
-          OpAttributeName.DurabilityLevel,
-          'majority'
-        )
-      } else if (
-        durability === binding.durability_level.majority_and_persist_to_active
-      ) {
-        this._wrappedSpan.setAttribute(
-          OpAttributeName.DurabilityLevel,
-          'majority_and_persist_to_active'
-        )
-      } else if (
-        durability === binding.durability_level.persist_to_majority
-      ) {
-        this._wrappedSpan.setAttribute(
-          OpAttributeName.DurabilityLevel,
-          'persist_to_majority'
-        )
-      }
+    const durabilityAttr = durabilityAttributeOf(durability)
+    if (durabilityAttr) {
+      this._wrappedSpan.setAttribute(
+        OpAttributeName.DurabilityLevel,
+        durabilityAttr
+      )
     }
   }
 }
@@ -322,8 +307,8 @@ class ObservableRequestHandlerNoOpTracerImpl {
    * @internal
    */
   setRequestKeyValueAttributes(
-    _cppDocId: CppDocumentId,
-    _durability?: CppDurabilityLevel
+    _keyspace: KeyValueKeyspace,
+    _durability?: DurabilityLevel
   ): void {}
 }
 
@@ -343,8 +328,8 @@ class ObservableRequestHandlerNoOpMeterImpl {
    * @internal
    */
   setRequestKeyValueAttributes(
-    _cppDocId: CppDocumentId,
-    _durability?: CppDurabilityLevel
+    _keyspace: KeyValueKeyspace,
+    _durability?: DurabilityLevel
   ): void {}
 
   /**
@@ -402,10 +387,10 @@ class ObservableRequestHandlerMeterImpl {
   /**
    * @internal
    */
-  setRequestKeyValueAttributes(cppDocId: CppDocumentId): void {
+  setRequestKeyValueAttributes(keyspace: KeyValueKeyspace): void {
     this._attrs = getAttributesForKeyValueOpType(
       this._opType as KeyValueOp,
-      cppDocId
+      keyspace
     )
   }
 
@@ -728,11 +713,11 @@ export class ObservableRequestHandler {
    * @internal
    */
   setRequestKeyValueAttributes(
-    cppDocId: CppDocumentId,
-    durability?: CppDurabilityLevel
+    keyspace: KeyValueKeyspace,
+    durability?: DurabilityLevel
   ): void {
-    this._tracerImpl.setRequestKeyValueAttributes(cppDocId, durability)
-    this._meterImpl.setRequestKeyValueAttributes(cppDocId, durability)
+    this._tracerImpl.setRequestKeyValueAttributes(keyspace, durability)
+    this._meterImpl.setRequestKeyValueAttributes(keyspace)
   }
 }
 
