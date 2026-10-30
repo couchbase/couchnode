@@ -42,7 +42,9 @@ import {
 import { LoggingMeter } from './loggingmeter'
 import { Meter } from './metrics'
 import { NoOpMeter, NoOpTracer } from './observability'
-import { ObservabilityInstruments } from './observabilitytypes'
+import { ObservableRequestHandler } from './observabilityhandler'
+import { ObservabilityInstruments, StreamingOp } from './observabilitytypes'
+import { HttpOpAttributesOptions } from './observabilityutilities'
 import { OpenQueryStream, QueryExecutor } from './queryexecutor'
 import { QueryIndexManager } from './queryindexmanager'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
@@ -58,7 +60,7 @@ import {
 } from './searchtypes'
 import { StreamableRowPromise } from './streamablepromises'
 import { ThresholdLoggingTracer } from './thresholdlogging'
-import { RequestTracer } from './tracing'
+import { RequestSpan, RequestTracer } from './tracing'
 import { Transactions, TransactionsConfig } from './transactions'
 import { Transcoder, DefaultTranscoder } from './transcoders'
 import { UserManager } from './usermanager'
@@ -887,9 +889,25 @@ export class Cluster {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new QueryExecutor(this)
-
     const options_ = options
+    const backend = this._backend
+    if (backend) {
+      const obs = this._streamingRequestHandler(
+        StreamingOp.Query,
+        options_.parentSpan,
+        {
+          statement,
+          queryContext: options_.queryContext,
+          queryOptions: options_,
+        }
+      )
+      return PromiseHelper.wrapAsync(
+        () => backend.query.query<TRow>(statement, options_, undefined, obs),
+        callback
+      )
+    }
+
+    const exec = new QueryExecutor(this)
     return PromiseHelper.wrapAsync(
       () => exec.query<TRow>(statement, options_),
       callback
@@ -1126,6 +1144,26 @@ export class Cluster {
   }
 
   /**
+   * The handler a query or search over a backend is traced and metered
+   * with. The backend ends it when the stream ends.
+   *
+   * @internal
+   */
+  _streamingRequestHandler(
+    op: StreamingOp,
+    parentSpan: RequestSpan | undefined,
+    attributes: HttpOpAttributesOptions
+  ): ObservableRequestHandler {
+    const obs = new ObservableRequestHandler(
+      op,
+      this.observabilityInstruments,
+      parentSpan
+    )
+    obs.setRequestHttpAttributes(attributes)
+    return obs
+  }
+
+  /**
    * @internal
    */
   _getClusterLabels(): Record<string, string | undefined> {
@@ -1331,6 +1369,7 @@ export class Cluster {
       auth: this._auth,
       trustStorePath: this._trustStorePath,
       logger: this._logger,
+      queryTimeout: this._queryTimeout,
       ignoredConnectOptions,
       logRedaction: this._logRedaction,
     })

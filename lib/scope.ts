@@ -8,6 +8,7 @@ import { CppConnection } from './binding'
 import { Bucket } from './bucket'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
+import { StreamingOp } from './observabilitytypes'
 import { QueryExecutor } from './queryexecutor'
 import { QueryMetaData, QueryOptions, QueryResult } from './querytypes'
 import { SearchExecutor } from './searchexecutor'
@@ -135,9 +136,26 @@ export class Scope {
     options = optionsOf(options)
 
     const bucket = this.bucket
-    const exec = new QueryExecutor(this.cluster)
-
     const options_ = options
+    const backend = this.cluster.backend
+    if (backend) {
+      const scope = { bucketName: bucket.name, scopeName: this.name }
+      const obs = this.cluster._streamingRequestHandler(
+        StreamingOp.Query,
+        options_.parentSpan,
+        {
+          statement,
+          queryContext: `\`${bucket.name}\`.\`${this.name}\``,
+          queryOptions: options_,
+        }
+      )
+      return PromiseHelper.wrapAsync(
+        () => backend.query.query<TRow>(statement, options_, scope, obs),
+        callback
+      )
+    }
+
+    const exec = new QueryExecutor(this.cluster)
     return PromiseHelper.wrapAsync(
       () =>
         exec.query<TRow>(statement, {

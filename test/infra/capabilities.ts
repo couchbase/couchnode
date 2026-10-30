@@ -281,6 +281,9 @@ export const PROTOCOL_GAPS: Readonly<
     [ServerFeature.BinaryTransactions]: Object.freeze({
       note: 'the SDK offers no transactions over couchbase2',
     }),
+    [ServerFeature.Analytics]: Object.freeze({
+      note: 'the protos carry analytics but the gateway does not serve it, so the SDK refuses it',
+    }),
     [ServerFeature.ClientDurability]: Object.freeze({
       note: 'the protos have no observe based durability, so the SDK refuses persistTo and replicateTo',
     }),
@@ -292,6 +295,9 @@ export const PROTOCOL_GAPS: Readonly<
     }),
     [ServerFeature.NumVbucketsSetting]: Object.freeze({
       note: 'the protos carry no vBucket count, so the SDK neither reports one nor sets one',
+    }),
+    [ServerFeature.AnalyticsPendingMutations]: Object.freeze({
+      note: 'the protos carry analytics but the gateway does not serve it, so the SDK refuses it',
     }),
   }),
 })

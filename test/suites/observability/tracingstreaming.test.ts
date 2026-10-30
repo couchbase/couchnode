@@ -62,7 +62,8 @@ async function targetFor(
     validator: createHttpValidator(
       target.tracer,
       undefined,
-      target.clusterName
+      target.clusterName,
+      target.couchbase2
     ),
     parentSpan: (name: string) => target.tracer.requestSpan(name),
   }

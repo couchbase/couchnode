@@ -20,6 +20,7 @@ import { Couchbase2Collections } from './collections'
 import { parseConnStr } from './connstr'
 import type { HealthClient } from './generated/grpc/health/v1/Health'
 import { Couchbase2Kv } from './kv'
+import { Couchbase2Query } from './query'
 import { Couchbase2QueryIndexes } from './queryindexes'
 import { Couchbase2Op, RequestContext } from './requestcontext'
 import { retryUnary } from './retry'
@@ -39,6 +40,11 @@ export const WAIT_UNTIL_READY: Couchbase2Op = {
   readOnly: true,
   idempotent: true,
 }
+
+/**
+ * The cluster's default query timeout, in milliseconds.
+ */
+const DEFAULT_QUERY_TIMEOUT_MS = 75000
 
 /**
  * What a couchbase2 cluster is built from.
@@ -65,6 +71,12 @@ export interface Couchbase2BackendOptions {
    * Where the connection's warnings and each retry are logged.
    */
   logger: CouchbaseLogger
+
+  /**
+   * The timeout of a query that does not set its own, in milliseconds; the
+   * cluster's default when unset.
+   */
+  queryTimeout?: number
 
   /**
    * The cluster options that were set and that a couchbase2 connection does
@@ -127,9 +139,19 @@ export class Couchbase2Backend implements ImplementedBackend {
   readonly streams = new OpenStreams()
 
   /**
+   * The timeout of a query that does not set its own, in milliseconds.
+   */
+  readonly queryTimeout: number
+
+  /**
    * Key-value operations.
    */
   readonly kv: Couchbase2Kv
+
+  /**
+   * SQL++ queries.
+   */
+  readonly query: Couchbase2Query
 
   /**
    * Bucket management.
@@ -171,6 +193,7 @@ export class Couchbase2Backend implements ImplementedBackend {
       options.trustStorePath
     )
     this._logger = options.logger
+    this.queryTimeout = options.queryTimeout ?? DEFAULT_QUERY_TIMEOUT_MS
     this.target = settings.target
     this._address = {
       host: connStr.host.replace(/^\[(.*)\]$/, '$1'),
@@ -211,6 +234,14 @@ export class Couchbase2Backend implements ImplementedBackend {
     this.kv = new Couchbase2Kv(
       this,
       new schema.couchbase.kv.v1.KvService(this.target, insecure, stubOptions)
+    )
+    this.query = new Couchbase2Query(
+      this,
+      new schema.couchbase.query.v1.QueryService(
+        this.target,
+        insecure,
+        stubOptions
+      )
     )
     this.buckets = new Couchbase2Buckets(
       this,

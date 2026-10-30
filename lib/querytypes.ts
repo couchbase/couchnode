@@ -401,7 +401,8 @@ export interface QueryOptions {
    * An adhoc query is cancelled by closing its connection to the query
    * service, which normally stops the query on the server too.  A query with
    * `adhoc: false` is not interrupted: it runs to completion and its result is
-   * discarded.
+   * discarded.  Over a couchbase2:// connection either kind is cancelled by
+   * cancelling its call to the gateway.
    */
   signal?: AbortSignal
 }
