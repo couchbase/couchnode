@@ -22,7 +22,7 @@ import { LookupInSpec, MutateInSpec } from '../../../lib/sdspecs'
 import type { Transcoder } from '../../../lib/transcoders'
 import { expectThrows } from '../../asserts/errors'
 import { awaitCallback } from '../../infra/callbacks'
-import { ServerFeature } from '../../infra/capabilities'
+import { ServerFeature, isClassic } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import type { CollectionLease } from '../../infra/leases/collection-lease'
 import { skipWithoutReplicas, waitUntilReplicated } from '../../infra/replicas'
@@ -139,6 +139,8 @@ interface OpCase {
   readonly label: string
   readonly op: KeyValueOp
   readonly nested?: readonly KeyValueOp[]
+  /** `nested` is the classic path's; couchbase2 sends a single request. */
+  readonly nestedOnClassicOnly?: boolean
   readonly arrayResult?: boolean
   readonly mutationResult?: boolean
   /** Prepares what the successful call needs and returns its key. */
@@ -174,10 +176,14 @@ function expectRecordedResult(subject: OpCase, res: unknown): void {
 
 function declare(
   validator: MetricsValidator,
-  subject: OpCase
+  subject: OpCase,
+  env: TestEnv
 ): MetricsValidator {
   validator.reset().op(subject.op)
-  if (subject.nested) {
+  if (
+    subject.nested &&
+    (isClassic(env.capabilities) || !subject.nestedOnClassicOnly)
+  ) {
     validator.nestedOps(subject.nested)
   }
   return validator
@@ -198,7 +204,7 @@ async function runPerform(
   const key = await subject.setup(collection, env)
   await subject.settle?.(collection, env, key, signal)
 
-  declare(validator, subject)
+  declare(validator, subject, env)
   expectRecordedResult(subject, await subject.call(collection, key))
   validator.validate()
 }
@@ -214,7 +220,7 @@ async function runViaCallback(
   const key = await subject.setup(collection, env)
   await subject.settle?.(collection, env, key, signal)
 
-  declare(validator, subject)
+  declare(validator, subject, env)
   expectRecordedResult(subject, await subject.callback(collection, key))
   validator.validate()
 }
@@ -229,7 +235,7 @@ async function runFailure(
   const key = await subject.failSetup(collection, env)
   const failing = subject.fail ?? subject.call
 
-  declare(validator, subject).error(true)
+  declare(validator, subject, env).error(true)
   await expectThrows(
     () => failing(collection, key),
     CouchbaseError,
@@ -366,8 +372,9 @@ const GET_PROJECT: OpCase = {
   label: 'getProject',
   op: KeyValueOp.Get,
   // A projection is a subdocument lookup underneath, recorded as a nested
-  // metric.
+  // metric. Over couchbase2 the gateway's get carries the projection itself.
   nested: [KeyValueOp.LookupIn],
+  nestedOnClassicOnly: true,
   setup: seededKey,
   call: (c, key) => c.get(key, { project: ['baz'] }),
   callback: (c, key) =>

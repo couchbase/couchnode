@@ -19,6 +19,7 @@ import { Couchbase2Buckets } from './buckets'
 import { Couchbase2Collections } from './collections'
 import { parseConnStr } from './connstr'
 import type { HealthClient } from './generated/grpc/health/v1/Health'
+import { Couchbase2Kv } from './kv'
 import { Couchbase2Op, RequestContext } from './requestcontext'
 import { retryUnary } from './retry'
 import { loadSchema } from './schema'
@@ -124,6 +125,11 @@ export class Couchbase2Backend implements ImplementedBackend {
   readonly streams = new OpenStreams()
 
   /**
+   * Key-value operations.
+   */
+  readonly kv: Couchbase2Kv
+
+  /**
    * Bucket management.
    */
   readonly buckets: Couchbase2Buckets
@@ -189,6 +195,10 @@ export class Couchbase2Backend implements ImplementedBackend {
       this.target,
       insecure,
       stubOptions
+    )
+    this.kv = new Couchbase2Kv(
+      this,
+      new schema.couchbase.kv.v1.KvService(this.target, insecure, stubOptions)
     )
     this.buckets = new Couchbase2Buckets(
       this,

@@ -45,7 +45,8 @@ async function targetFor(
         collName: lease.collectionName,
       },
       target.clusterName,
-      target.mockBackend
+      target.mockBackend,
+      target.couchbase2
     ),
   }
 }

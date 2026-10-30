@@ -24,7 +24,7 @@ import { LookupInSpec, MutateInSpec } from '../../../lib/sdspecs'
 import type { Transcoder } from '../../../lib/transcoders'
 import { expectThrows } from '../../asserts/errors'
 import { awaitCallback } from '../../infra/callbacks'
-import { ServerFeature } from '../../infra/capabilities'
+import { isClassic, ServerFeature } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import type { CollectionLease } from '../../infra/leases/collection-lease'
 import { skipWithoutReplicas, waitUntilReplicated } from '../../infra/replicas'
@@ -133,7 +133,8 @@ async function targetFor(
         collName: lease.collectionName,
       },
       target.clusterName,
-      target.mockBackend
+      target.mockBackend,
+      target.couchbase2
     ),
     parentSpan: (name: string) => target.tracer.requestSpan(name),
   }
@@ -184,6 +185,8 @@ interface OpCase {
   readonly label: string
   readonly op: KeyValueOp
   readonly nested?: readonly KeyValueOp[]
+  /** `nested` is the classic path's; couchbase2 sends a single request. */
+  readonly nestedOnClassicOnly?: boolean
   readonly arrayResult?: boolean
   readonly mutationResult?: boolean
   /** False for an any-replica read. See `serverDurationAboveZero()`. */
@@ -230,11 +233,13 @@ function expectRecordedResult(subject: OpCase, res: unknown): void {
  */
 function declareInto(
   validator: TracingValidator,
-  subject: OpCase
+  subject: OpCase,
+  env: TestEnv
 ): TracingValidator {
   validator.op(subject.op)
-  if (subject.nested) {
-    validator.nestedOps(subject.nested)
+  const nested = nestedOf(subject, env)
+  if (nested) {
+    validator.nestedOps(nested)
   }
   if (subject.serverDurationAboveZero === false) {
     validator.serverDurationAboveZero(false)
@@ -244,9 +249,19 @@ function declareInto(
 
 function declare(
   validator: TracingValidator,
-  subject: OpCase
+  subject: OpCase,
+  env: TestEnv
 ): TracingValidator {
-  return declareInto(validator.reset(), subject)
+  return declareInto(validator.reset(), subject, env)
+}
+
+function nestedOf(
+  subject: OpCase,
+  env: TestEnv
+): readonly KeyValueOp[] | undefined {
+  return isClassic(env.capabilities) || !subject.nestedOnClassicOnly
+    ? subject.nested
+    : undefined
 }
 
 /**
@@ -264,7 +279,7 @@ async function runPerform(
   const key = await subject.setup(collection, env)
   await subject.settle?.(collection, env, key, signal)
 
-  declare(validator, subject)
+  declare(validator, subject, env)
   expectRecordedResult(subject, await subject.call(collection, key))
   validator.validate()
 }
@@ -280,7 +295,7 @@ async function runViaCallback(
   const key = await subject.setup(collection, env)
   await subject.settle?.(collection, env, key, signal)
 
-  declare(validator, subject)
+  declare(validator, subject, env)
   expectRecordedResult(subject, await subject.callback(collection, key))
   validator.validate()
 }
@@ -306,7 +321,7 @@ async function runWithParentSpan(
 
   validator.reset()
   const span = parentSpan(`${subject.label}-parent-span`)
-  declareInto(validator, subject).parent(span)
+  declareInto(validator, subject, env).parent(span)
   expectRecordedResult(subject, await subject.withParent(collection, key, span))
   validator.validate()
 }
@@ -322,8 +337,9 @@ async function runFailure(
   const failing = subject.fail ?? subject.call
 
   validator.reset().op(subject.op).error(true)
-  if (subject.failNested && subject.nested) {
-    validator.nestedOps(subject.nested)
+  const nested = nestedOf(subject, env)
+  if (subject.failNested && nested) {
+    validator.nestedOps(nested)
   }
   if (subject.failBeforeDispatch) {
     validator.errorBeforeDispatch(true)
@@ -495,6 +511,7 @@ const GET_PROJECT: OpCase = {
   op: KeyValueOp.Get,
   // A projection is a subdocument lookup underneath, traced as a nested span.
   nested: [KeyValueOp.LookupIn],
+  nestedOnClassicOnly: true,
   setup: seededKey,
   call: (c, key) => c.get(key, { project: ['baz'] }),
   callback: (c, key) =>
@@ -630,7 +647,7 @@ const INCREMENT: OpCase = {
   withParent: (c, key, parentSpan) =>
     c.binary().increment(key, COUNTER_DELTA, { parentSpan }),
   failSetup: missingKey,
-  fail: (c, key) => c.binary().increment(key, -1),
+  fail: (c, key) => c.binary().increment(key, COUNTER_DELTA),
 }
 
 const DECREMENT: OpCase = {
@@ -645,7 +662,7 @@ const DECREMENT: OpCase = {
   withParent: (c, key, parentSpan) =>
     c.binary().decrement(key, COUNTER_DELTA, { parentSpan }),
   failSetup: missingKey,
-  fail: (c, key) => c.binary().decrement(key, -1),
+  fail: (c, key) => c.binary().decrement(key, COUNTER_DELTA),
 }
 
 const APPEND: OpCase = {

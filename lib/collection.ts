@@ -1,3 +1,24 @@
+import type {
+  EncodedMutateInSpec,
+  KvAppendRequest,
+  KvCounterRequest,
+  KvGetAndLockRequest,
+  KvGetAndTouchRequest,
+  KvGetRequest,
+  KvInsertRequest,
+  KvLookupInReplicaRequest,
+  KvLookupInRequest,
+  KvMutateInRequest,
+  KvPrependRequest,
+  KvRemoveRequest,
+  KvReplaceRequest,
+  KvReplicaReadRequest,
+  KvRequest,
+  KvScanRequest,
+  KvTouchRequest,
+  KvUnlockRequest,
+  KvUpsertRequest,
+} from './backends'
 import {
   IncrementOptions,
   DecrementOptions,
@@ -78,6 +99,7 @@ import {
   callbackOf,
   durabilityLevelOf,
   optionsOf,
+  runOnBackend,
 } from './utilities'
 
 /**
@@ -888,6 +910,20 @@ export class Collection {
   }
 
   /**
+   * Runs a request on the cluster's backend, ending the operation's span
+   * with its outcome.
+   *
+   * @internal
+   */
+  _onBackend<T>(
+    obsReqHandler: ObservableRequestHandler | null,
+    run: () => Promise<T>,
+    callback?: NodeCallback<T>
+  ): Promise<T> {
+    return runOnBackend(obsReqHandler, run, callback)
+  }
+
+  /**
    * @internal
    */
   _cppDocId(key: string): CppDocumentId {
@@ -978,9 +1014,31 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Get, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
-      if (options.project || options.withExpiry) {
+      const project = options.project
+      const req: KvGetRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        transcoder: this._transcoder(options),
+        project: !project
+          ? undefined
+          : Array.isArray(project)
+            ? project
+            : [project],
+        withExpiry: options.withExpiry || false,
+      }
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.get(req),
+          callback
+        )
+      }
+
+      if (req.project || req.withExpiry) {
         // Thread the span through a copy: the options object belongs to the
         // caller, and one reused across requests would otherwise carry a
         // finished request's span into the next call.
@@ -992,15 +1050,12 @@ export class Collection {
         )
       }
 
-      const transcoder = this._transcoder(options)
-      const timeout = this._kvTimeout(options)
-
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.get.bind(this._conn),
           {
-            id: cppDocId,
-            timeout,
+            id: req.id,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
           },
@@ -1014,7 +1069,7 @@ export class Collection {
 
         const toResult = () =>
           new GetResult({
-            content: transcoder.decode(resp.value, resp.flags),
+            content: req.transcoder.decode(resp.value, resp.flags),
             cas: resp.cas,
           })
         return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
@@ -1137,18 +1192,30 @@ export class Collection {
 
     const obsReqHandler = this._requestHandler(KeyValueOp.Exists, options)
     try {
-      const cppDocId = this._cppDocId(key)
-      const timeout = this._kvTimeout(options)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+      const req: KvRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+      }
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.exists(req),
+          callback
+        )
+      }
 
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.exists.bind(this._conn),
           {
-            id: cppDocId,
+            id: req.id,
             partition: 0,
             opaque: 0,
-            timeout,
+            timeout: req.timeout,
           },
           obsReqHandler
         )
@@ -1174,6 +1241,56 @@ export class Collection {
       obsReqHandler?.endWithError(e)
       throw e
     }
+  }
+
+  /**
+   * A replica read's request, for the backend.
+   *
+   * @internal
+   */
+  _replicaReadRequest(
+    key: string,
+    obsReqHandler: ObservableRequestHandler | null,
+    options: {
+      transcoder?: Transcoder
+      timeout?: number
+      readPreference?: ReadPreference
+    }
+  ): KvReplicaReadRequest {
+    const req: KvReplicaReadRequest = {
+      id: this._cppDocId(key),
+      timeout: this._kvTimeout(options),
+      obs: obsReqHandler,
+      transcoder: this._transcoder(options),
+      readPreference: options.readPreference,
+    }
+    obsReqHandler?.setRequestKeyValueAttributes(req.id)
+    return req
+  }
+
+  /**
+   * A replica lookup-in's request, for the backend.
+   *
+   * @internal
+   */
+  _lookupInReplicaRequest(
+    key: string,
+    specs: LookupInSpec[],
+    obsReqHandler: ObservableRequestHandler | null,
+    options: {
+      timeout?: number
+      readPreference?: ReadPreference
+    }
+  ): KvLookupInReplicaRequest {
+    const req: KvLookupInReplicaRequest = {
+      id: this._cppDocId(key),
+      timeout: this._kvTimeout(options),
+      obs: obsReqHandler,
+      specs,
+      readPreference: options.readPreference,
+    }
+    obsReqHandler?.setRequestKeyValueAttributes(req.id)
+    return req
   }
 
   /**
@@ -1305,6 +1422,16 @@ export class Collection {
       options
     )
     try {
+      const backend = this.cluster.backend
+      if (backend) {
+        const req = this._replicaReadRequest(key, obsReqHandler, options)
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.getAnyReplica(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const replicas = await this._getReplica(
           key,
@@ -1416,6 +1543,16 @@ export class Collection {
       options
     )
     try {
+      const backend = this.cluster.backend
+      if (backend) {
+        const req = this._replicaReadRequest(key, obsReqHandler, options)
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.getAllReplicas(req),
+          callback
+        )
+      }
+
       return this._getReplica(
         key,
         KeyValueOp.GetAllReplicas,
@@ -1450,24 +1587,43 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Insert, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
       const transcoder = this._transcoder(options)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
       const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
-      const insertReq = {
-        id: cppDocId,
-        value: bytesBuf,
-        flags: flags,
-        expiry: expiry,
+      const req: KvInsertRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        value: bytesBuf,
+        flags,
+        expiry,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.insert(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const insertReq = {
+        id: req.id,
+        value: req.value,
+        flags: req.flags,
+        expiry: req.expiry,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -1475,13 +1631,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.insertWithLegacyDurability.bind(this._conn),
             {
               ...insertReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -1534,26 +1690,45 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Upsert, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
-      const preserve_expiry = options.preserveExpiry
       const transcoder = this._transcoder(options)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
       const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
-      const upsertReq = {
-        id: cppDocId,
-        value: bytesBuf,
-        flags: flags,
-        expiry: expiry,
-        preserve_expiry: preserve_expiry || false,
+      const req: KvUpsertRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        value: bytesBuf,
+        flags,
+        expiry,
+        preserveExpiry: options.preserveExpiry || false,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.upsert(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const upsertReq = {
+        id: req.id,
+        value: req.value,
+        flags: req.flags,
+        expiry: req.expiry,
+        preserve_expiry: req.preserveExpiry,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -1561,13 +1736,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.upsertWithLegacyDurability.bind(this._conn),
             {
               ...upsertReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -1619,28 +1794,47 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Replace, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
       const expiry = parseExpiry(options.expiry)
-      const cas = options.cas
-      const preserve_expiry = options.preserveExpiry
       const transcoder = this._transcoder(options)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
       const [bytesBuf, flags] = this._encode(value, transcoder, obsReqHandler)
 
-      const replaceReq = {
-        id: cppDocId,
-        value: bytesBuf,
-        flags: flags,
-        expiry,
-        cas: cas || zeroCas,
-        preserve_expiry: preserve_expiry || false,
+      const req: KvReplaceRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        value: bytesBuf,
+        flags,
+        expiry,
+        preserveExpiry: options.preserveExpiry || false,
+        cas: options.cas,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.replace(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const replaceReq = {
+        id: req.id,
+        value: req.value,
+        flags: req.flags,
+        expiry: req.expiry,
+        cas: req.cas || zeroCas,
+        preserve_expiry: req.preserveExpiry,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -1648,13 +1842,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.replaceWithLegacyDurability.bind(this._conn),
             {
               ...replaceReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -1703,20 +1897,36 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Remove, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
-      const cas = options.cas
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
-      const removeReq = {
-        id: cppDocId,
-        cas: cas || zeroCas,
+      const req: KvRemoveRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        cas: options.cas,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.remove(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const removeReq = {
+        id: req.id,
+        cas: req.cas || zeroCas,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -1724,13 +1934,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.removeWithLegacyDurability.bind(this._conn),
             {
               ...removeReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -1787,18 +1997,32 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.GetAndTouch, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
-      const transcoder = this._transcoder(options)
-      const timeout = this._kvTimeout(options)
+      const req: KvGetAndTouchRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        transcoder: this._transcoder(options),
+        expiry: parseExpiry(expiry),
+      }
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.getAndTouch(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.getAndTouch.bind(this._conn),
           {
-            id: cppDocId,
-            expiry: parseExpiry(expiry),
-            timeout,
+            id: req.id,
+            expiry: req.expiry,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
           },
@@ -1812,7 +2036,7 @@ export class Collection {
 
         const toResult = () =>
           new GetResult({
-            content: transcoder.decode(resp.value, resp.flags),
+            content: req.transcoder.decode(resp.value, resp.flags),
             cas: resp.cas,
           })
         return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
@@ -1849,17 +2073,31 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Touch, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
-      const timeout = this._kvTimeout(options)
+      const req: KvTouchRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        expiry: parseExpiry(expiry),
+      }
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.touch(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.touch.bind(this._conn),
           {
-            id: cppDocId,
-            expiry: parseExpiry(expiry),
-            timeout,
+            id: req.id,
+            expiry: req.expiry,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
           },
@@ -1903,18 +2141,32 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.GetAndLock, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
-      const transcoder = this._transcoder(options)
-      const timeout = this._kvTimeout(options)
+      const req: KvGetAndLockRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        transcoder: this._transcoder(options),
+        lockTime,
+      }
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.getAndLock(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.getAndLock.bind(this._conn),
           {
-            id: cppDocId,
-            lock_time: lockTime,
-            timeout,
+            id: req.id,
+            lock_time: req.lockTime,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
           },
@@ -1928,7 +2180,7 @@ export class Collection {
 
         const toResult = () =>
           new GetResult({
-            content: transcoder.decode(resp.value, resp.flags),
+            content: req.transcoder.decode(resp.value, resp.flags),
             cas: resp.cas,
           })
         return obsReqHandler ? obsReqHandler.endAfter(toResult) : toResult()
@@ -1960,17 +2212,31 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Unlock, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
-      const timeout = this._kvTimeout(options)
+      const req: KvUnlockRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        cas,
+      }
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.unlock(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const [err, _] = await wrapObservableBindingCall(
           this._conn.unlock.bind(this._conn),
           {
-            id: cppDocId,
-            cas,
-            timeout,
+            id: req.id,
+            cas: req.cas,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
           },
@@ -2135,6 +2401,22 @@ export class Collection {
       )
     }
 
+    const backend = this.cluster.backend
+    if (backend) {
+      const req: KvScanRequest = {
+        collection: this,
+        scanType,
+        transcoder,
+        timeout,
+        idsOnly,
+        consistentWith: options.consistentWith,
+        batchByteLimit,
+        batchItemLimit,
+        concurrency,
+      }
+      return this._onBackend(null, () => backend.kv.scan(req), callback)
+    }
+
     const orchestratorOptions = {
       ids_only: idsOnly,
       consistent_with: mutationStateToCpp(options.consistentWith),
@@ -2174,23 +2456,35 @@ export class Collection {
           new Error('At least one lookup spec must be provided.')
         )
       }
-      const cppDocId = this._cppDocId(key)
+      const req: KvLookupInRequest = {
+        id: this._cppDocId(key),
+        timeout: this._kvTimeout(options),
+        obs: obsReqHandler,
+        specs,
+        accessDeleted: options.accessDeleted || false,
+      }
+      obsReqHandler?.setRequestKeyValueAttributes(req.id)
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.lookupIn(req),
+          callback
+        )
+      }
+
       const cppSpecs = specs.map((spec, i) => lookupInSpecToCpp(spec, i))
-
-      const timeout = this._kvTimeout(options)
-      const accessDeleted = options.accessDeleted || false
-
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId)
       return PromiseHelper.wrapAsync(async () => {
         const [err, resp] = await wrapObservableBindingCall(
           this._conn.lookupIn.bind(this._conn),
           {
-            id: cppDocId,
+            id: req.id,
             specs: cppSpecs,
-            timeout,
+            timeout: req.timeout,
             partition: 0,
             opaque: 0,
-            access_deleted: accessDeleted,
+            access_deleted: req.accessDeleted,
           },
           obsReqHandler
         )
@@ -2408,6 +2702,21 @@ export class Collection {
       options
     )
     try {
+      const backend = this.cluster.backend
+      if (backend) {
+        const req = this._lookupInReplicaRequest(
+          key,
+          specs,
+          obsReqHandler,
+          options
+        )
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.lookupInAnyReplica(req),
+          callback
+        )
+      }
+
       return PromiseHelper.wrapAsync(async () => {
         const replicas = await this._lookupInReplica(
           key,
@@ -2448,6 +2757,21 @@ export class Collection {
       options
     )
     try {
+      const backend = this.cluster.backend
+      if (backend) {
+        const req = this._lookupInReplicaRequest(
+          key,
+          specs,
+          obsReqHandler,
+          options
+        )
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.lookupInAllReplicas(req),
+          callback
+        )
+      }
+
       return this._lookupInReplica(
         key,
         KeyValueOp.LookupInAllReplicas,
@@ -2490,11 +2814,10 @@ export class Collection {
         )
       }
 
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
 
-      const cppSpecs: CppImplSubdocCommand[] = []
+      const encodedSpecs: EncodedMutateInSpec[] = []
       for (let i = 0; i < specs.length; ++i) {
         let value: Buffer | undefined = undefined
         if (specs[i]._data) {
@@ -2504,29 +2827,50 @@ export class Collection {
           }) ?? [this._subdocEncode(specs[i]._data), 0]
           value = bytesValue
         }
-        cppSpecs.push(mutateInSpecToCpp(specs[i], value, 0))
+        encodedSpecs.push({ spec: specs[i], value })
       }
 
-      const storeSemantics = options.upsertDocument
-        ? StoreSemantics.Upsert
-        : options.storeSemantics
-      const expiry = parseExpiry(options.expiry)
-      const preserveExpiry = options.preserveExpiry
-      const cas = options.cas
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
-      const timeout = this._mutationTimeout(options)
+      const req: KvMutateInRequest = {
+        id,
+        timeout: this._mutationTimeout(options),
+        obs: obsReqHandler,
+        specs: encodedSpecs,
+        storeSemantics: options.upsertDocument
+          ? StoreSemantics.Upsert
+          : options.storeSemantics,
+        expiry: parseExpiry(options.expiry),
+        preserveExpiry: options.preserveExpiry || false,
+        cas: options.cas,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
 
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.mutateIn(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const cppSpecs: CppImplSubdocCommand[] = req.specs.map(
+        ({ spec, value }) => mutateInSpecToCpp(spec, value, 0)
+      )
+      const persistTo = req.persistTo
+      const replicateTo = req.replicateTo
       const mutateInReq = {
-        id: cppDocId,
-        store_semantics: storeSemanticToCpp(storeSemantics),
+        id: req.id,
+        store_semantics: storeSemanticToCpp(req.storeSemantics),
         specs: cppSpecs,
-        expiry,
-        preserve_expiry: preserveExpiry || false,
-        cas: cas || zeroCas,
-        timeout,
+        expiry: req.expiry,
+        preserve_expiry: req.preserveExpiry,
+        cas: req.cas || zeroCas,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
         access_deleted: false,
@@ -2648,22 +2992,40 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Increment, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
-      const initial_value = options.initial
       const expiry = parseExpiry(options.expiry)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
-      const incrementReq = {
-        id: cppDocId,
-        delta,
-        initial_value,
-        expiry: expiry,
+      const req: KvCounterRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        delta,
+        initial: options.initial,
+        expiry,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.increment(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const incrementReq = {
+        id: req.id,
+        delta: req.delta,
+        initial_value: req.initial,
+        expiry: req.expiry,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -2671,13 +3033,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.incrementWithLegacyDurability.bind(this._conn),
             {
               ...incrementReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -2728,22 +3090,40 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Decrement, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
-      const initial_value = options.initial
       const expiry = parseExpiry(options.expiry)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
       const timeout = this._mutationTimeout(options)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
-      const decrementReq = {
-        id: cppDocId,
-        delta,
-        initial_value,
-        expiry: expiry,
+      const req: KvCounterRequest = {
+        id,
         timeout,
+        obs: obsReqHandler,
+        delta,
+        initial: options.initial,
+        expiry,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
+      }
+
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.decrement(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
+      const decrementReq = {
+        id: req.id,
+        delta: req.delta,
+        initial_value: req.initial,
+        expiry: req.expiry,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -2751,13 +3131,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.decrementWithLegacyDurability.bind(this._conn),
             {
               ...decrementReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -2808,24 +3188,37 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Append, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
-      const cas = options.cas
       const timeout = this._mutationTimeout(options)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
-      if (!Buffer.isBuffer(value)) {
-        value = Buffer.from(value)
+      const req: KvAppendRequest = {
+        id,
+        timeout,
+        obs: obsReqHandler,
+        value: Buffer.isBuffer(value) ? value : Buffer.from(value),
+        cas: options.cas,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
       }
 
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.append(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
       const appendReq = {
-        id: cppDocId,
-        value,
-        cas: cas || zeroCas,
-        timeout,
+        id: req.id,
+        value: req.value,
+        cas: req.cas || zeroCas,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -2833,13 +3226,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.appendWithLegacyDurability.bind(this._conn),
             {
               ...appendReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )
@@ -2886,24 +3279,37 @@ export class Collection {
     const obsReqHandler = this._requestHandler(KeyValueOp.Prepend, options)
 
     try {
-      const cppDocId = this._cppDocId(key)
+      const id = this._cppDocId(key)
       const durability = durabilityLevelOf(options.durabilityLevel)
-      const cppDurability = durabilityToCpp(durability)
-      const persistTo = options.durabilityPersistTo
-      const replicateTo = options.durabilityReplicateTo
-      const cas = options.cas
       const timeout = this._mutationTimeout(options)
-      obsReqHandler?.setRequestKeyValueAttributes(cppDocId, durability)
+      obsReqHandler?.setRequestKeyValueAttributes(id, durability)
 
-      if (!Buffer.isBuffer(value)) {
-        value = Buffer.from(value)
+      const req: KvPrependRequest = {
+        id,
+        timeout,
+        obs: obsReqHandler,
+        value: Buffer.isBuffer(value) ? value : Buffer.from(value),
+        cas: options.cas,
+        durabilityLevel: durability ?? DurabilityLevel.None,
+        persistTo: options.durabilityPersistTo,
+        replicateTo: options.durabilityReplicateTo,
       }
 
+      const backend = this.cluster.backend
+      if (backend) {
+        return this._onBackend(
+          obsReqHandler,
+          () => backend.kv.prepend(req),
+          callback
+        )
+      }
+
+      const cppDurability = durabilityToCpp(req.durabilityLevel)
       const prependReq = {
-        id: cppDocId,
-        value,
-        cas: cas || zeroCas,
-        timeout,
+        id: req.id,
+        value: req.value,
+        cas: req.cas || zeroCas,
+        timeout: req.timeout,
         partition: 0,
         opaque: 0,
       }
@@ -2911,13 +3317,13 @@ export class Collection {
       return PromiseHelper.wrapAsync(async () => {
         let err = null
         let resp = null
-        if (persistTo || replicateTo) {
+        if (req.persistTo || req.replicateTo) {
           ;[err, resp] = await wrapObservableBindingCall(
             this._conn.prependWithLegacyDurability.bind(this._conn),
             {
               ...prependReq,
-              persist_to: persistToToCpp(persistTo),
-              replicate_to: replicateToToCpp(replicateTo),
+              persist_to: persistToToCpp(req.persistTo),
+              replicate_to: replicateToToCpp(req.replicateTo),
             },
             obsReqHandler
           )

@@ -1,9 +1,12 @@
 import { expect } from 'vitest'
 
-import { KeyValueErrorContext } from '../../../lib/errorcontexts'
+import {
+  GenericErrorContext,
+  KeyValueErrorContext,
+} from '../../../lib/errorcontexts'
 import { DocumentNotFoundError } from '../../../lib/errors'
 import { expectCouchbaseError } from '../../asserts/errors'
-import { ServerFeature } from '../../infra/capabilities'
+import { ServerFeature, isClassic } from '../../infra/capabilities'
 import { CollectionStrategy } from '../../infra/requirements'
 import { defineSuite } from '../../infra/suite'
 
@@ -25,8 +28,9 @@ defineSuite(
         DocumentNotFoundError,
         ctx
       )
+      // Over couchbase2 the context is the gateway's, whatever the operation.
       expect(err.context, 'error context type').toBeInstanceOf(
-        KeyValueErrorContext
+        isClassic(env.capabilities) ? KeyValueErrorContext : GenericErrorContext
       )
     })
   }

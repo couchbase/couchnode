@@ -266,11 +266,26 @@ export const PROTOCOL_GAPS: Readonly<
     [ServerFeature.ScopeEventingFunctionManagement]: Object.freeze({
       note: 'no admin service for eventing',
     }),
+    [ServerFeature.Replicas]: Object.freeze({
+      note: 'the SDK refuses replica reads over couchbase2, as the C++ core does; the gateway has no any-replica read',
+    }),
+    [ServerFeature.SubdocReadReplica]: Object.freeze({
+      note: 'the gateway has no replica lookup, so the SDK refuses it',
+    }),
+    [ServerFeature.RangeScan]: Object.freeze({
+      note: 'the key-value service has no scan, so the SDK refuses it',
+    }),
     [ServerFeature.Transactions]: Object.freeze({
       note: 'the SDK offers no transactions over couchbase2',
     }),
     [ServerFeature.BinaryTransactions]: Object.freeze({
       note: 'the SDK offers no transactions over couchbase2',
+    }),
+    [ServerFeature.ClientDurability]: Object.freeze({
+      note: 'the protos have no observe based durability, so the SDK refuses persistTo and replicateTo',
+    }),
+    [ServerFeature.MutationMacros]: Object.freeze({
+      note: 'the gateway would store a mutation macro as written, so the SDK refuses it',
     }),
     [ServerFeature.Diagnostics]: Object.freeze({
       note: 'the gateway reports no per-endpoint state, so the SDK refuses ping and diagnostics, and readiness has no services to filter',

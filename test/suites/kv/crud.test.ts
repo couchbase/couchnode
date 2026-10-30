@@ -28,7 +28,10 @@ import {
   InvalidDurabilityReplicateToLevel,
   ReplicaIndexOutOfBoundsError,
 } from '../../../lib/errors'
-import { KeyValueErrorContext } from '../../../lib/errorcontexts'
+import {
+  GenericErrorContext,
+  KeyValueErrorContext,
+} from '../../../lib/errorcontexts'
 import { DurabilityLevel, ReadPreference } from '../../../lib/generaltypes'
 import { MutationToken } from '../../../lib/mutationstate'
 import {
@@ -48,7 +51,7 @@ import {
 } from '../../asserts/errors'
 import { assertDocEquals, assertMutationResult } from '../../asserts/kv'
 import { awaitCallback, settleCallback, Settled } from '../../infra/callbacks'
-import { ServerFeature } from '../../infra/capabilities'
+import { ServerFeature, isClassic } from '../../infra/capabilities'
 import { DocBatch } from '../../infra/data/loader'
 import { TestEnv } from '../../infra/env'
 import {
@@ -284,9 +287,15 @@ function macroDocsFor(
  * assert. The lookup-in macro block is unaffected.
  */
 const MUTATE_IN_MACROS = {
-  features: [ServerFeature.Xattr],
+  features: [ServerFeature.Xattr, ServerFeature.MutationMacros],
   limitations: ['gocaves-subdoc-mutation-macros'],
 } as const
+
+/** Observe based durability, which reads the bucket's replica count. */
+const CLIENT_DURABILITY = [
+  ServerFeature.BucketManagement,
+  ServerFeature.ClientDurability,
+]
 
 defineSuite(
   '#crud',
@@ -895,7 +904,7 @@ defineSuite(
         })
       })
 
-      group('#clientDurability', [ServerFeature.BucketManagement], () => {
+      group('#clientDurability', CLIENT_DURABILITY, () => {
         test(
           'should insert w/ client durability',
           OBSERVE_DEADLINE_OPTS,
@@ -1805,7 +1814,7 @@ defineSuite(
         })
       })
 
-      group('#clientDurability', [ServerFeature.BucketManagement], () => {
+      group('#clientDurability', CLIENT_DURABILITY, () => {
         const seedDurabilityKey = (env: TestEnv, collection: Collection) =>
           seededKey(env, collection, 'binary-clidur', (key) =>
             collection.insert(key, 14)
@@ -2715,7 +2724,7 @@ defineSuite(
         })
       })
 
-      group('#clientDurability', [ServerFeature.BucketManagement], () => {
+      group('#clientDurability', CLIENT_DURABILITY, () => {
         test('should mutateIn successfully w/ client durability', async ({
           collection,
           collectionLease,
@@ -2915,6 +2924,24 @@ defineSuite(
         DocumentNotFoundError,
         env.ctx({ op: 'get', key, collection: collection.name })
       )
+      const bucket = collection.scope.bucket.name
+      const scope = collection.scope.name
+
+      if (!isClassic(env.capabilities)) {
+        // The gateway's context names the document as a resource rather than
+        // field by field.
+        expect(err.context).toBeInstanceOf(GenericErrorContext)
+        const gctx = err.context as GenericErrorContext
+        expect(gctx.resource_type).toBe('document')
+        expect(gctx.resource_name).toBe(
+          `${bucket}/${scope}/${collection.name}/${key}`
+        )
+        expect(gctx.status_code).toBeTypeOf('number')
+        expect(gctx.last_dispatched_to).toMatch(/:\d+$/)
+        expect(gctx.retry_attempts).toBeTypeOf('number')
+        return
+      }
+
       // A context of any other class reads as missing, and fails the
       // expectations below on the field it lacks.
       const ctx =
@@ -2924,12 +2951,7 @@ defineSuite(
       // scope, collection and key.
       expectErrorContext(
         err,
-        {
-          key,
-          bucket: collection.scope.bucket.name,
-          scope: collection.scope.name,
-          collection: collection.name,
-        },
+        { key, bucket, scope, collection: collection.name },
         env.ctx({ op: 'get', key, collection: collection.name })
       )
 
