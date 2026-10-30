@@ -547,6 +547,8 @@ export interface Backend {
  */
 export type ImplementedBackend = Pick<
   Backend,
+  | 'buckets'
+  | 'collections'
   | 'waitUntilReady'
   | 'updateCredentials'
   | 'close'

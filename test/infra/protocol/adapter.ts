@@ -2,15 +2,16 @@
 //
 // **A test-infra operation that reaches outside the SDK's public surface
 // belongs here.** Everything else needs no seam, which is why the same suites
-// can run under a second protocol without being forked. Both members are
-// classic-only: `probe` uses the core's `managementClusterDescribe`, which does
-// not exist under `couchbase2` (so it throws), and readiness is
-// `consistency.ts`'s per-node HTTP poll.
+// can run under a second protocol without being forked. Under classic, `probe`
+// uses the core's `managementClusterDescribe` and readiness is
+// `consistency.ts`'s per-node HTTP poll; under couchbase2 both ask the gateway
+// (`couchbase2.ts`).
 
 import type { Cluster } from '../../../lib/cluster'
 import { ClusterCapabilities, TestProtocol } from '../capabilities'
 import type { ConsistencyOptions, ConsistencyUtils } from '../consistency'
 import { CapabilitiesInput, probeCapabilities } from '../probe'
+import { Couchbase2ProtocolAdapter } from './couchbase2'
 
 /**
  * Everything protocol-bound. The readiness members mirror `ConsistencyUtils`
@@ -133,23 +134,19 @@ export class ClassicProtocolAdapter implements ProtocolAdapter {
 }
 
 /**
- * The registry. Adding `couchbase2` is a case here and an implementation file.
- * It throws rather than falling back to classic, which would poll a gateway's
- * nonexistent management port and report the timeouts as ordinary flake.
+ * The registry. A couchbase2 run never falls back to classic, which would poll a
+ * gateway's nonexistent management port and report the timeouts as ordinary
+ * flake.
  */
 export function adapterFor(
   protocol: TestProtocol,
-  consistency: ConsistencyUtils
+  consistency: ConsistencyUtils,
+  cluster: Cluster
 ): ProtocolAdapter {
   switch (protocol) {
     case TestProtocol.Classic:
       return new ClassicProtocolAdapter(consistency)
     case TestProtocol.Couchbase2:
-      throw new Error(
-        'couchbase2 has no ProtocolAdapter implementation yet. The capability ' +
-          'model, the gap map and this seam are registered; connection ' +
-          'handling and the adapter itself belong to the Cloud Native Gateway ' +
-          'work.'
-      )
+      return new Couchbase2ProtocolAdapter(cluster)
   }
 }

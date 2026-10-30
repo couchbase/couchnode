@@ -25,6 +25,7 @@ import {
   PromiseHelper,
   callbackOf,
   optionsOf,
+  runOnBackend,
 } from './utilities'
 
 /**
@@ -658,6 +659,17 @@ export class BucketManager {
 
     try {
       const timeout = options.timeout || this._cluster.managementTimeout
+
+      const backend = this._cluster.backend
+      if (backend) {
+        const req = { timeout, obs: obsReqHandler }
+        return runOnBackend(
+          obsReqHandler,
+          () => backend.buckets.createBucket(settings, req),
+          callback
+        )
+      }
+
       const bucketData = CreateBucketSettings._toCppData(settings)
 
       return PromiseHelper.wrapAsync(async () => {
@@ -708,6 +720,17 @@ export class BucketManager {
 
     try {
       const timeout = options.timeout || this._cluster.managementTimeout
+
+      const backend = this._cluster.backend
+      if (backend) {
+        const req = { timeout, obs: obsReqHandler }
+        return runOnBackend(
+          obsReqHandler,
+          () => backend.buckets.updateBucket(settings, req),
+          callback
+        )
+      }
+
       const bucketData = BucketSettings._toCppData(settings)
       return PromiseHelper.wrapAsync(async () => {
         const [err, _] = await wrapObservableBindingCall(
@@ -757,6 +780,16 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.buckets.dropBucket(bucketName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementBucketDrop.bind(this._cluster.conn),
@@ -801,6 +834,16 @@ export class BucketManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.buckets.getBucket(bucketName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
         this._cluster.conn.managementBucketGet.bind(this._cluster.conn),
@@ -844,6 +887,16 @@ export class BucketManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.buckets.getAllBuckets(req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
@@ -891,6 +944,16 @@ export class BucketManager {
     obsReqHandler.setRequestHttpAttributes({ bucketName: bucketName })
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.buckets.flushBucket(bucketName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(

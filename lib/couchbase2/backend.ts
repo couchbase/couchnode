@@ -15,6 +15,8 @@ import {
   channelSettings,
   openChannel,
 } from './channel'
+import { Couchbase2Buckets } from './buckets'
+import { Couchbase2Collections } from './collections'
 import { parseConnStr } from './connstr'
 import type { HealthClient } from './generated/grpc/health/v1/Health'
 import { Couchbase2Op, RequestContext } from './requestcontext'
@@ -121,6 +123,16 @@ export class Couchbase2Backend implements ImplementedBackend {
    */
   readonly streams = new OpenStreams()
 
+  /**
+   * Bucket management.
+   */
+  readonly buckets: Couchbase2Buckets
+
+  /**
+   * Scope and collection management.
+   */
+  readonly collections: Couchbase2Collections
+
   private readonly _channel: grpc.Channel
   private readonly _address: GatewayAddress
   private readonly _logger: CouchbaseLogger
@@ -177,6 +189,22 @@ export class Couchbase2Backend implements ImplementedBackend {
       this.target,
       insecure,
       stubOptions
+    )
+    this.buckets = new Couchbase2Buckets(
+      this,
+      new schema.couchbase.admin.bucket.v1.BucketAdminService(
+        this.target,
+        insecure,
+        stubOptions
+      )
+    )
+    this.collections = new Couchbase2Collections(
+      this,
+      new schema.couchbase.admin.collection.v1.CollectionAdminService(
+        this.target,
+        insecure,
+        stubOptions
+      )
     )
   }
 

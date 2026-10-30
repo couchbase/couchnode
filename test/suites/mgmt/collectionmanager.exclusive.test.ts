@@ -10,6 +10,7 @@ import type {
 import {
   CollectionExistsError,
   CollectionNotFoundError,
+  CouchbaseError,
   FeatureNotAvailableError,
   InvalidArgumentError,
   ScopeExistsError,
@@ -19,7 +20,7 @@ import { AssertCtx, withCtx } from '../../asserts/ctx'
 import { expectDefined } from '../../asserts/defined'
 import { expectThrows } from '../../asserts/errors'
 import { awaitCallback } from '../../infra/callbacks'
-import { ServerFeature } from '../../infra/capabilities'
+import { isClassic, ServerFeature } from '../../infra/capabilities'
 import { limits } from '../../infra/limitations'
 import { TestEnv } from '../../infra/env'
 import { BucketLease } from '../../infra/leases/bucket-lease'
@@ -598,6 +599,18 @@ defineSuite(
           withCtx('maxExpiry as created', c)
         ).toStrictEqual(5)
 
+        if (!isClassic(env.capabilities)) {
+          // An update with no maximum expiry leaves it unchanged, so over
+          // couchbase2 there is no way to ask for the bucket's.
+          await expectThrows(
+            () => manager.updateCollection(collection, scope, { maxExpiry: 0 }),
+            FeatureNotAvailableError,
+            undefined,
+            c
+          )
+          return
+        }
+
         await manager.updateCollection(collection, scope, { maxExpiry: 0 })
         const updated = await settledCollection(
           manager,
@@ -715,9 +728,14 @@ defineSuite(
         await manager.createScope(scope)
         await env.protocol.waitUntilScopePresent(lease.bucketName, scope)
 
+        // The gateway answers this create with an unexplained UNKNOWN, where
+        // it answers the update with the server's refusal, so over couchbase2
+        // any failure passes.
         await expectThrows(
           () => manager.createCollection(collection, scope, { history: true }),
-          FeatureNotAvailableError,
+          isClassic(env.capabilities)
+            ? FeatureNotAvailableError
+            : CouchbaseError,
           undefined,
           c
         )
@@ -815,14 +833,17 @@ defineSuite(
 
         await manager.updateCollection(collection, scope, { history: false })
 
+        // The gateway leaves a collection's history out when it is off, where
+        // classic reports false.
+        const off = isClassic(env.capabilities) ? false : undefined
         const found = await settledCollection(
           manager,
           scope,
           collection,
-          (spec) => spec.history === false,
+          (spec) => spec.history === off,
           c
         )
-        expect(found.history, withCtx('history', c)).toBe(false)
+        expect(found.history, withCtx('history', c)).toBe(off)
 
         await lease.release()
       },

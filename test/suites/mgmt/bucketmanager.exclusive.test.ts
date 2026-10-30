@@ -16,7 +16,7 @@ import {
 } from '../../../lib/errors'
 import { AssertCtx, withCtx } from '../../asserts/ctx'
 import { expectThrows } from '../../asserts/errors'
-import { ServerFeature } from '../../infra/capabilities'
+import { isClassic, ServerFeature } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import { tryNTimes } from '../../infra/retry'
 import { defineSuite } from '../../infra/suite'
@@ -160,7 +160,9 @@ function expectedDefaultBackend(
     expected.historyRetentionBytes = 0
     expected.historyRetentionDuration = 0
     expected.replicaIndexes = undefined
-    expected.numVBuckets = VBUCKETS_8_0
+    expected.numVBuckets = env.supports(ServerFeature.NumVbucketsSetting)
+      ? VBUCKETS_8_0
+      : undefined
   }
 
   return expected
@@ -453,18 +455,21 @@ defineSuite(
         const c = env.ctx(
           bucketCtx(magma, 'updateBucket', 'magma, history off')
         )
+        // The gateway refuses a retention size of zero, which the server reads
+        // as no limit, so over couchbase2 the update sets a larger one.
+        const bytes = isClassic(env.capabilities) ? 0 : 2 * HISTORY_BYTES
 
         await manager.updateBucket({
           name: magma,
           historyRetentionCollectionDefault: false,
-          historyRetentionBytes: 0,
+          historyRetentionBytes: bytes,
           historyRetentionDuration: UPDATED_HISTORY_DURATION_S,
         })
 
         const settings = await manager.getBucket(magma)
         expect(settings, withCtx('bucket settings', c)).toBeTypeOf('object')
         expect(fieldsOf(settings), withCtx('every setting', c)).toStrictEqual(
-          expectedMagma(env, magma, false, 0, UPDATED_HISTORY_DURATION_S)
+          expectedMagma(env, magma, false, bytes, UPDATED_HISTORY_DURATION_S)
         )
 
         // Dropped now rather than at teardown: it is the largest bucket.

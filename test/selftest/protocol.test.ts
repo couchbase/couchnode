@@ -13,7 +13,6 @@ import {
   classifyFeature,
   describeGaps,
   explain,
-  gapFor,
   gateFeatures,
   gateSkips,
   isClassic,
@@ -21,8 +20,12 @@ import {
   supports,
 } from '../infra/capabilities'
 import { TestConfigError, loadTestConfig } from '../infra/config'
+import type { Cluster } from '../../lib/cluster'
+import { BucketNotFoundError, TimeoutError } from '../../lib/errors'
 import { ClassicProtocolAdapter, adapterFor } from '../infra/protocol/adapter'
+import { Couchbase2ProtocolAdapter } from '../infra/protocol/couchbase2'
 import { ConsistencyUtils } from '../infra/consistency'
+import { PollTimeoutError } from '../infra/retry'
 
 const classic: ClassicCapabilities = {
   protocol: TestProtocol.Classic,
@@ -131,10 +134,10 @@ describe('the capability model under couchbase2', () => {
   })
 
   it('is terminal: no version or backend axis is consulted', () => {
-    // RangeScan carries a 7.6 minimum on the classic path. Under couchbase2
+    // ScopeSearch carries a 7.6 minimum on the classic path. Under couchbase2
     // there is no version to compare it against, and the absence must read as
     // "not gated" rather than as "version 0".
-    expect(supports(gateway, ServerFeature.RangeScan)).toBe(true)
+    expect(supports(gateway, ServerFeature.ScopeSearch)).toBe(true)
   })
 
   it('still lets CNFEAT win, which is the gap map’s maintenance workflow', () => {
@@ -154,8 +157,8 @@ describe('the capability model under couchbase2', () => {
     expect(reason).toContain('CNFEAT=+user_management')
   })
 
-  it('says a not-planned gap is unplanned, not impossible', () => {
-    // `not-planned` records the present plan, not a verdict on the future, and
+  it('says a gap is unplanned, not impossible', () => {
+    // A gap records the present plan, not a verdict on the future, and
     // the CNFEAT hint is how to check whether the plan has changed.
     const reason = explain(gateway, ServerFeature.Views)
     expect(reason).toContain('Nothing is currently being built')
@@ -169,21 +172,9 @@ describe('the gap map', () => {
     expect(Object.keys(PROTOCOL_GAPS[TestProtocol.Classic])).toHaveLength(0)
   })
 
-  it('separates the current floor from the worklist', () => {
-    // `not-yet` should shrink; `not-planned` is not expected to, but may.
-    expect(gapFor(TestProtocol.Couchbase2, ServerFeature.Views)?.status).toBe(
-      'not-planned'
-    )
-    expect(
-      gapFor(TestProtocol.Couchbase2, ServerFeature.UserManagement)?.status
-    ).toBe('not-yet')
-  })
-
-  it('summarizes as a pair of counts CI can track', () => {
-    expect(describeGaps(TestProtocol.Couchbase2)).toMatch(
-      /^\d+ not-planned, \d+ not-yet$/
-    )
-    expect(describeGaps(TestProtocol.Classic)).toBe('0 not-planned, 0 not-yet')
+  it('summarizes as a count CI can track', () => {
+    expect(describeGaps(TestProtocol.Couchbase2)).toMatch(/^\d+ features$/)
+    expect(describeGaps(TestProtocol.Classic)).toBe('0 features')
   })
 
   it('every entry carries a note, so no skip is unexplained', () => {
@@ -218,19 +209,20 @@ describe('the classic path is unchanged', () => {
 
 describe('the adapter registry', () => {
   const consistency = {} as ConsistencyUtils
+  const cluster = {} as Cluster
 
   it('hands back the classic adapter for the classic protocol', () => {
-    const adapter = adapterFor(TestProtocol.Classic, consistency)
+    const adapter = adapterFor(TestProtocol.Classic, consistency, cluster)
     expect(adapter).toBeInstanceOf(ClassicProtocolAdapter)
     expect(adapter.protocol).toBe(TestProtocol.Classic)
   })
 
-  it('throws for couchbase2 rather than falling back to classic', () => {
-    // A silent fallback would run per-node management HTTP against a gateway
-    // with no management port, and report the timeouts as ordinary flake.
-    expect(() => adapterFor(TestProtocol.Couchbase2, consistency)).toThrow(
-      /no ProtocolAdapter implementation yet/
-    )
+  it('hands back the gateway adapter for couchbase2, never classic', () => {
+    // A fallback would run per-node management HTTP against a gateway with no
+    // management port, and report the timeouts as ordinary flake.
+    const adapter = adapterFor(TestProtocol.Couchbase2, consistency, cluster)
+    expect(adapter).toBeInstanceOf(Couchbase2ProtocolAdapter)
+    expect(adapter.protocol).toBe(TestProtocol.Couchbase2)
   })
 
   it('forwards every readiness member to the consistency helpers', () => {
@@ -267,5 +259,88 @@ describe('the adapter registry', () => {
         'waitUntilDesignDocumentDropped',
       ])
     })
+  })
+})
+
+describe('the couchbase2 adapter', () => {
+  const FAST = { deadlineMs: 300 }
+
+  /**
+   * A cluster whose managers answer from `answers`, one per call, the last
+   * repeating. An `Error` is thrown; anything else is returned.
+   */
+  function gateway(answers: { bucket?: unknown[]; scopes?: unknown[] }) {
+    const next = async (list: unknown[] | undefined) => {
+      const answer = list && list.length > 1 ? list.shift() : list?.[0]
+      if (answer instanceof Error) {
+        throw answer
+      }
+      return answer
+    }
+    return {
+      buckets: () => ({ getBucket: () => next(answers.bucket) }),
+      bucket: () => ({
+        collections: () => ({ getAllScopes: () => next(answers.scopes) }),
+      }),
+    } as unknown as Cluster
+  }
+
+  const scopes = (...names: [string, string[]][]) =>
+    names.map(([name, collections]) => ({
+      name,
+      collections: collections.map((c) => ({ name: c })),
+    }))
+
+  it('waits for a bucket through its manager, reading other errors as not yet', async () => {
+    const adapter = new Couchbase2ProtocolAdapter(
+      gateway({
+        bucket: [new BucketNotFoundError(), new TimeoutError(), { name: 'b' }],
+      })
+    )
+    await adapter.waitUntilBucketPresent('b', FAST)
+  })
+
+  it('reads a bucket not found as dropped', async () => {
+    const adapter = new Couchbase2ProtocolAdapter(
+      gateway({ bucket: [{ name: 'b' }, new BucketNotFoundError()] })
+    )
+    await adapter.waitUntilBucketDropped('b', FAST)
+  })
+
+  it('waits for a scope and a collection in the scope listing', async () => {
+    const adapter = new Couchbase2ProtocolAdapter(
+      gateway({
+        scopes: [
+          scopes(['_default', ['_default']]),
+          scopes(['_default', ['_default']], ['s', []]),
+          scopes(['_default', ['_default']], ['s', ['c']]),
+        ],
+      })
+    )
+    await adapter.waitUntilScopePresent('b', 's', FAST)
+    await adapter.waitUntilCollectionPresent('b', 's', 'c', FAST)
+  })
+
+  it('names what it waited for and what it last saw when it times out', async () => {
+    const adapter = new Couchbase2ProtocolAdapter(
+      gateway({ scopes: [scopes(['s', ['c']])] })
+    )
+    const err = await adapter
+      .waitUntilCollectionDropped('b', 's', 'c', FAST)
+      .catch((e: unknown) => e)
+    expect(err).toBeInstanceOf(PollTimeoutError)
+    expect((err as Error).message).toMatch(
+      /collection s\.c on b to be dropped through the gateway.*still listed/
+    )
+  })
+
+  it('refuses the design document waits, which no couchbase2 suite reaches', async () => {
+    const adapter = new Couchbase2ProtocolAdapter(gateway({}))
+    await expect(adapter.waitUntilDesignDocumentPresent()).rejects.toThrow(
+      /no couchbase2 equivalent/
+    )
+    await expect(adapter.waitUntilDesignDocumentDropped()).rejects.toThrow(
+      /no couchbase2 equivalent/
+    )
   })
 })

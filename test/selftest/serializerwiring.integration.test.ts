@@ -9,7 +9,7 @@ import { execFileSync } from 'child_process'
 import { join } from 'path'
 import { describe, expect, inject, it } from 'vitest'
 
-import { ServerFeature, supports } from '../infra/capabilities'
+import { ServerFeature, isClassic, supports } from '../infra/capabilities'
 import { packageBin } from '../infra/nodebin'
 
 const state = inject('runState')
@@ -47,16 +47,27 @@ const canFail =
   state?.kind === 'ready' &&
   supports(state.capabilities, ServerFeature.KeyValue)
 
+/**
+ * Over couchbase2 the context is the gateway's, whatever the operation, and it
+ * names the document as one resource rather than field by field.
+ */
+const GATEWAY = state?.kind === 'ready' && !isClassic(state.capabilities)
+const CONTEXT_CLASS = GATEWAY ? 'GenericErrorContext' : 'KeyValueErrorContext'
+const DOCUMENT_FIELDS = GATEWAY
+  ? [/resource_name=\S+\/\S+/]
+  : [/key=\S+/, /bucket=\S+/]
+
 describe.skipIf(!canFail)('the serializer is installed', () => {
   it('reports the context of an error no test asserted on', () => {
     const output = runFailingFixture()
 
     expect(output).toContain('DocumentNotFoundError')
-    expect(output).toContain('couchbase context (KeyValueErrorContext)')
+    expect(output).toContain(`couchbase context (${CONTEXT_CLASS})`)
     // The document the operation was aimed at, and the fields the server
     // supplies.
-    expect(output).toMatch(/key=\S+/)
-    expect(output).toMatch(/bucket=\S+/)
+    for (const field of DOCUMENT_FIELDS) {
+      expect(output).toMatch(field)
+    }
     expect(output).toMatch(/status_code=\d+/)
     expect(output).toMatch(/last_dispatched_to=\S+/)
   }, 180_000)

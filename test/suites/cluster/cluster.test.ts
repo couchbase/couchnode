@@ -16,7 +16,7 @@ import { NoOpMeter, NoOpTracer } from '../../../lib/observability'
 import { ThresholdLoggingTracer } from '../../../lib/thresholdlogging'
 import { withCtx } from '../../asserts/ctx'
 import { expectThrows } from '../../asserts/errors'
-import { ServerFeature } from '../../infra/capabilities'
+import { ServerFeature, isClassic } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import { CollectionStrategy } from '../../infra/requirements'
 import { defineSuite } from '../../infra/suite'
@@ -206,8 +206,19 @@ defineSuite(
     })
 
     test('should error with AuthenticationFailureError', async ({ env }) => {
+      // A couchbase2 connection opens lazily, so its first request is where
+      // the gateway refuses the credentials.
+      const connect = isClassic(env.capabilities)
+        ? () => env.openCluster({ username: 'wrongUsername' })
+        : async () => {
+            const cluster = await env.openCluster({ username: 'wrongUsername' })
+            await cluster
+              .bucket(env.config.bucket)
+              .defaultCollection()
+              .exists(env.key())
+          }
       await expectThrows(
-        () => env.openCluster({ username: 'wrongUsername' }),
+        connect,
         AuthenticationFailureError,
         undefined,
         env.ctx({ op: 'connect', extra: 'username=wrongUsername' })

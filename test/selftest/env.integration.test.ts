@@ -10,6 +10,7 @@ import {
   ClassicCapabilities,
   ClusterCapabilities,
   ServerFeature,
+  TestProtocol,
   formatVersion,
   isClassic,
   parseVersion,
@@ -69,8 +70,11 @@ defineSuite(
     test('pre-seeds the assertion context', async ({ env }) => {
       const c = env.ctx({ op: 'get' })
       expect(c.bucket).toBe(env.config.bucket)
+      // Left out under couchbase2, which has no detectable version.
       expect(c.serverVersion).toBe(
-        formatVersion(classicOnly(capabilities).version)
+        isClassic(capabilities)
+          ? formatVersion(capabilities.version)
+          : undefined
       )
       expect(c.op).toBe('get')
     })
@@ -78,15 +82,23 @@ defineSuite(
     test('owns any extra connection it hands out', async ({ env }) => {
       // Closed by the env's teardown even if the test throws here.
       const extra = await env.openCluster()
-      const ping = await extra.ping()
-      expect(Object.keys(ping.services).length).toBeGreaterThan(0)
+      if (env.supports(ServerFeature.Diagnostics)) {
+        const ping = await extra.ping()
+        expect(Object.keys(ping.services).length).toBeGreaterThan(0)
+      } else {
+        const res = await extra
+          .bucket(env.config.bucket)
+          .defaultCollection()
+          .exists(env.key())
+        expect(res.exists).toBe(false)
+      }
     })
   }
 )
 
 defineSuite(
   'infra: detected server version',
-  { features: [ServerFeature.KeyValue] },
+  { features: [ServerFeature.KeyValue], protocols: [TestProtocol.Classic] },
   ({ test, capabilities }) => {
     test.skipIf(onMock(capabilities))(
       'comes from the cluster, not from a default',

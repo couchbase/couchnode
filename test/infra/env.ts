@@ -93,16 +93,17 @@ export class TestEnv {
         managementHost(opts.connection.connectionString),
         `${opts.connection.username ?? ''}:${opts.connection.password ?? ''}`
       )
-      // couchbase2 has no mock: it runs against a real gateway or not at all.
+      // The node list is classic only: a gateway publishes no management port,
+      // so under couchbase2 it stays empty, as it does on a mock.
       await consistency.waitForConfig(
-        isClassic(opts.capabilities) && opts.capabilities.backend !== 'none'
+        !isClassic(opts.capabilities) || opts.capabilities.backend !== 'none'
       )
 
       env = new TestEnv(
         cluster,
         bucket,
         consistency,
-        adapterFor(opts.config.protocol, consistency),
+        adapterFor(opts.config.protocol, consistency, cluster),
         opts.config,
         opts.capabilities,
         opts.connection,

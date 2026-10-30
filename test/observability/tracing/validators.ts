@@ -14,6 +14,12 @@
 //
 // The `create*Validator` functions pick the validator matching the tracer, so
 // a suite body is written once and runs against all three tracer kinds.
+//
+// Over couchbase2 a dispatch is a gRPC call. Its span is named for the RPC
+// rather than `dispatch_to_server` and carries only the gateway's address: no
+// local or operation id, server duration or local socket. A call ending with
+// any status but OK marks its span failed, so every retried attempt fails; the
+// operation's span, not the dispatch's status, carries the error message.
 
 import { expect } from 'vitest'
 
@@ -44,6 +50,43 @@ import {
 } from './tracingtypes'
 
 const DISPATCH_SPAN_NAME = OpAttributeName.DispatchSpanName
+
+/** A couchbase2 dispatch span's name: the RPC, `<service>/<method>`. */
+const GRPC_DISPATCH_SPAN =
+  /^couchbase\.[a-z.]+\.v1\.[A-Za-z]+Service\/[A-Za-z]+$/
+
+function isDispatchSpan(span: { name: string }, couchbase2: boolean): boolean {
+  return couchbase2
+    ? GRPC_DISPATCH_SPAN.test(span.name)
+    : span.name === DISPATCH_SPAN_NAME
+}
+
+/**
+ * Whether a dispatch is expected to have failed: true and false are asserted
+ * over couchbase2, undefined is either. A classic dispatch span records no
+ * status of its own, so nothing is asserted there.
+ */
+type DispatchFailed = boolean | undefined
+
+/**
+ * The attempts before the last were retried, so failed. The last failed when
+ * the operation did, unless `lastMayPass`: an operation can fail on an answer
+ * its call returned with OK.
+ */
+function dispatchFailed(
+  index: number,
+  count: number,
+  operationFailed: boolean,
+  lastMayPass: boolean
+): DispatchFailed {
+  if (index < count - 1) {
+    return true
+  }
+  if (!operationFailed) {
+    return false
+  }
+  return lastMayPass ? undefined : true
+}
 
 const ENCODING_SPAN_NAME = OpAttributeName.EncodingSpanName
 
@@ -305,9 +348,16 @@ abstract class BaseSpanValidator extends BaseValidator {
     protected readonly collectionDetails: CollectionDetails | undefined,
     protected readonly clusterName: ClusterName,
     /** A mock can report a zero server duration for a fast operation. */
-    private readonly mockBackend = false
+    private readonly mockBackend: boolean,
+    protected readonly couchbase2: boolean
   ) {
     super(recordingTracer)
+  }
+
+  protected dispatchChildren(span: TestSpan): TestSpan[] {
+    return span.children.filter((child) =>
+      isDispatchSpan(child, this.couchbase2)
+    )
   }
 
   protected validateHrTime(
@@ -377,14 +427,9 @@ abstract class BaseSpanValidator extends BaseValidator {
   protected validateDispatchSpanCommon(
     span: TestSpan,
     parentSpan: TestSpan,
-    spanName: string
+    failed: DispatchFailed
   ): void {
     const at = spanCtx(span, `dispatch of ${parentSpan.name}`)
-    this.validateBaseSpanProperties(span, spanName)
-    expect(
-      span.attributes[DispatchAttributeName.NetworkTransport],
-      withCtx(DispatchAttributeName.NetworkTransport, at)
-    ).toBe('tcp')
     expectNonEmptyString(
       span.attributes[DispatchAttributeName.ServerAddress],
       DispatchAttributeName.ServerAddress,
@@ -394,6 +439,26 @@ abstract class BaseSpanValidator extends BaseValidator {
       span.attributes[DispatchAttributeName.ServerPort],
       withCtx(DispatchAttributeName.ServerPort, at)
     ).toBeTypeOf('number')
+    expect(span.parentSpan, withCtx('dispatch span parent', at)).toBe(
+      parentSpan
+    )
+
+    if (this.couchbase2) {
+      this.validateBaseSpanProperties(span, span.name)
+      if (failed !== undefined) {
+        expect(
+          span.status.code === SpanStatusCode.ERROR,
+          withCtx('failed', at)
+        ).toBe(failed)
+      }
+      return
+    }
+
+    this.validateBaseSpanProperties(span, DISPATCH_SPAN_NAME)
+    expect(
+      span.attributes[DispatchAttributeName.NetworkTransport],
+      withCtx(DispatchAttributeName.NetworkTransport, at)
+    ).toBe('tcp')
     expectNonEmptyString(
       span.attributes[DispatchAttributeName.PeerAddress],
       DispatchAttributeName.PeerAddress,
@@ -403,18 +468,22 @@ abstract class BaseSpanValidator extends BaseValidator {
       span.attributes[DispatchAttributeName.PeerPort],
       withCtx(DispatchAttributeName.PeerPort, at)
     ).toBeTypeOf('number')
-    expect(span.parentSpan, withCtx('dispatch span parent', at)).toBe(
-      parentSpan
-    )
   }
 
   /**
-   * A key-value dispatch span also carries a local id, an operation id and a
-   * server duration, all taken from the memcached response.
+   * A classic key-value dispatch span also carries a local id, an operation id
+   * and a server duration, all taken from the memcached response.
    */
-  protected validateKvDispatchSpan(span: TestSpan, parentSpan: TestSpan): void {
+  protected validateKvDispatchSpan(
+    span: TestSpan,
+    parentSpan: TestSpan,
+    failed: DispatchFailed
+  ): void {
     const at = spanCtx(span, 'dispatch')
-    this.validateDispatchSpanCommon(span, parentSpan, DISPATCH_SPAN_NAME)
+    this.validateDispatchSpanCommon(span, parentSpan, failed)
+    if (this.couchbase2) {
+      return
+    }
     expectNonEmptyString(
       span.attributes[DispatchAttributeName.LocalId],
       DispatchAttributeName.LocalId,
@@ -448,24 +517,43 @@ class HttpSpanValidator extends BaseSpanValidator {
   constructor(
     tracer: TestTracer,
     collectionDetails: CollectionDetails | undefined,
-    clusterName: ClusterName
+    clusterName: ClusterName,
+    couchbase2: boolean
   ) {
-    super(tracer, collectionDetails, clusterName)
+    super(tracer, collectionDetails, clusterName, false, couchbase2)
+  }
+
+  /**
+   * Only a succeeding operation's last call is known to have succeeded. A
+   * manager can fail on what a call returned, as `getBucket` fails on a
+   * listing that lacks the bucket, and a call before the last may be a poll
+   * that succeeded rather than a retry, as each of a watch's waits is.
+   */
+  private validateDispatchSpansOf(
+    span: TestSpan,
+    operationFailed: boolean
+  ): TestSpan[] {
+    const dispatchSpans = this.dispatchChildren(span)
+    dispatchSpans.forEach((dispatchSpan, i) =>
+      this.validateDispatchSpanCommon(
+        dispatchSpan,
+        span,
+        i === dispatchSpans.length - 1 && !operationFailed ? false : undefined
+      )
+    )
+    return dispatchSpans
   }
 
   private validateDispatchSpans(span: TestSpan): void {
-    const dispatchSpans = span.children.filter(
-      (child) => child.name === DISPATCH_SPAN_NAME
+    const dispatchSpans = this.validateDispatchSpansOf(
+      span,
+      this.expected.validateError
     )
     if (!this.expected.validateError && !this.expected.errorBeforeDispatch) {
       expect(
         dispatchSpans.length,
         withCtx('a dispatch span is expected', spanCtx(span))
       ).toBeGreaterThanOrEqual(1)
-    }
-
-    for (const dispatchSpan of dispatchSpans) {
-      this.validateDispatchSpanCommon(dispatchSpan, span, DISPATCH_SPAN_NAME)
     }
   }
 
@@ -582,11 +670,7 @@ class HttpSpanValidator extends BaseSpanValidator {
         withCtx(`a span is expected for nested op ${spanName}`, at)
       ).not.toHaveLength(0)
 
-      dispatchSpans.push(
-        ...childSpans[0].children.filter(
-          (child) => child.name === DISPATCH_SPAN_NAME
-        )
-      )
+      dispatchSpans.push(...this.dispatchChildren(childSpans[0]))
 
       this.validateSingleSpanWithAttrs(childSpans[0], spanName, span, false)
     }
@@ -618,18 +702,12 @@ class HttpSpanValidator extends BaseSpanValidator {
       withCtx('the span should have children', at)
     ).not.toHaveLength(0)
 
-    const dispatchSpans = span.children.filter(
-      (child) => child.name === DISPATCH_SPAN_NAME
-    )
+    const dispatchSpans = this.validateDispatchSpansOf(span, validateError)
     if (!validateError) {
       expect(
         dispatchSpans.length,
         withCtx('a dispatch span is expected', at)
       ).toBeGreaterThanOrEqual(1)
-    }
-
-    for (const dispatchSpan of dispatchSpans) {
-      this.validateDispatchSpanCommon(dispatchSpan, span, DISPATCH_SPAN_NAME)
     }
   }
 
@@ -660,24 +738,32 @@ class KeyValueSpanValidator extends BaseSpanValidator {
     tracer: TestTracer,
     private readonly details: CollectionDetails,
     clusterName: ClusterName,
-    mockBackend: boolean
+    mockBackend: boolean,
+    couchbase2: boolean
   ) {
-    super(tracer, details, clusterName, mockBackend)
+    super(tracer, details, clusterName, mockBackend, couchbase2)
   }
 
   private validateDispatchSpans(span: TestSpan): void {
-    const dispatchSpans = span.children.filter(
-      (child) => child.name === DISPATCH_SPAN_NAME
-    )
+    const dispatchSpans = this.dispatchChildren(span)
     if (!this.expected.validateError) {
       expect(
         dispatchSpans.length,
         withCtx('a dispatch span is expected', spanCtx(span))
       ).toBeGreaterThanOrEqual(1)
     }
-    for (const dispatchSpan of dispatchSpans) {
-      this.validateKvDispatchSpan(dispatchSpan, span)
-    }
+    dispatchSpans.forEach((dispatchSpan, i) =>
+      this.validateKvDispatchSpan(
+        dispatchSpan,
+        span,
+        dispatchFailed(
+          i,
+          dispatchSpans.length,
+          this.expected.validateError,
+          false
+        )
+      )
+    )
   }
 
   /**
@@ -816,11 +902,7 @@ class KeyValueSpanValidator extends BaseSpanValidator {
       }
 
       for (const childSpan of childSpans) {
-        dispatchSpans.push(
-          ...childSpan.children.filter(
-            (child) => child.name === DISPATCH_SPAN_NAME
-          )
-        )
+        dispatchSpans.push(...this.dispatchChildren(childSpan))
         this.validateNestedChildSpan(childSpan, spanName, span)
       }
     }
@@ -850,17 +932,19 @@ class KeyValueSpanValidator extends BaseSpanValidator {
       withCtx('the span should have children', at)
     ).not.toHaveLength(0)
 
-    const dispatchSpans = span.children.filter(
-      (child) => child.name === DISPATCH_SPAN_NAME
-    )
+    const dispatchSpans = this.dispatchChildren(span)
     expect(
       dispatchSpans.length,
       withCtx('a dispatch span is expected', at)
     ).toBeGreaterThanOrEqual(1)
 
-    for (const dispatchSpan of dispatchSpans) {
-      this.validateKvDispatchSpan(dispatchSpan, span)
-    }
+    dispatchSpans.forEach((dispatchSpan, i) =>
+      this.validateKvDispatchSpan(
+        dispatchSpan,
+        span,
+        dispatchFailed(i, dispatchSpans.length, false, false)
+      )
+    )
 
     this.validateEncodingSpans(span, opName)
   }
@@ -891,15 +975,18 @@ class DatastructureSpanValidator extends BaseSpanValidator {
     tracer: TestTracer,
     private readonly details: CollectionDetails,
     clusterName: ClusterName,
-    mockBackend: boolean
+    mockBackend: boolean,
+    couchbase2: boolean
   ) {
-    super(tracer, details, clusterName, mockBackend)
+    super(tracer, details, clusterName, mockBackend, couchbase2)
   }
 
   /**
    * The child's error status follows `childKvOpError()`, not `error()`:
    * `list.getAt(5)` on a two-element list fails, but the lookup it ran
-   * succeeded.
+   * succeeded. A child's last dispatch may have failed either way, because
+   * the first call against a structure that does not exist yet fails before
+   * the structure creates the document and retries.
    */
   private validateChildKvSpan(
     span: TestSpan,
@@ -926,9 +1013,7 @@ class DatastructureSpanValidator extends BaseSpanValidator {
       withCtx('the span should have children', at)
     ).not.toHaveLength(0)
 
-    const dispatchSpans = span.children.filter(
-      (child) => child.name === DISPATCH_SPAN_NAME
-    )
+    const dispatchSpans = this.dispatchChildren(span)
     if (!this.expected.validateError) {
       expect(
         dispatchSpans.length,
@@ -936,9 +1021,13 @@ class DatastructureSpanValidator extends BaseSpanValidator {
       ).toBeGreaterThanOrEqual(1)
     }
 
-    for (const dispatchSpan of dispatchSpans) {
-      this.validateKvDispatchSpan(dispatchSpan, span)
-    }
+    dispatchSpans.forEach((dispatchSpan, i) =>
+      this.validateKvDispatchSpan(
+        dispatchSpan,
+        span,
+        dispatchFailed(i, dispatchSpans.length, true, true)
+      )
+    )
   }
 
   validate(): void {
@@ -981,7 +1070,8 @@ class DatastructureSpanValidator extends BaseSpanValidator {
  */
 abstract class BaseThresholdLoggingValidator extends BaseValidator {
   protected constructor(
-    protected readonly thresholdTracer: ThresholdLoggingTestTracer
+    protected readonly thresholdTracer: ThresholdLoggingTestTracer,
+    protected readonly couchbase2: boolean
   ) {
     super(thresholdTracer)
   }
@@ -994,16 +1084,16 @@ abstract class BaseThresholdLoggingValidator extends BaseValidator {
     return typeof value === 'string' || typeof value === 'number' ? value : null
   }
 
-  protected collectSpansByName(
-    targetName: string,
+  protected collectSpans(
+    matches: (span: ThresholdLoggingTestSpan) => boolean,
     currentSpan: ThresholdLoggingTestSpan
   ): ThresholdLoggingTestSpan[] {
     const found: ThresholdLoggingTestSpan[] = []
-    if (currentSpan.name === targetName) {
+    if (matches(currentSpan)) {
       found.push(currentSpan)
     }
     for (const child of currentSpan.children) {
-      found.push(...this.collectSpansByName(targetName, child))
+      found.push(...this.collectSpans(matches, child))
     }
     return found
   }
@@ -1031,7 +1121,10 @@ abstract class BaseThresholdLoggingValidator extends BaseValidator {
    */
   protected validateDispatchFigures(span: ThresholdLoggingTestSpan): void {
     const at = spanCtx(span, 'dispatch')
-    const dispatchSpans = this.collectSpansByName(DISPATCH_SPAN_NAME, span)
+    const dispatchSpans = this.collectSpans(
+      (s) => isDispatchSpan(s, this.couchbase2),
+      span
+    )
     expect(
       dispatchSpans.length,
       withCtx('a dispatch span is expected', at)
@@ -1057,14 +1150,26 @@ abstract class BaseThresholdLoggingValidator extends BaseValidator {
     expect(span.dispatchDuration, withCtx('dispatchDuration', at)).toBe(
       this.durationOf(lastDispatch)
     )
+    expect(span.remoteSocket, withCtx('remoteSocket', at)).toBe(
+      lastRemoteSocket
+    )
+
+    if (this.couchbase2) {
+      expect(span.localId, withCtx('localId', at)).toBeUndefined()
+      expect(span.operationId, withCtx('operationId', at)).toBeUndefined()
+      expect(span.localSocket, withCtx('localSocket', at)).toBeUndefined()
+      expect(span.serverDuration, withCtx('serverDuration', at)).toBeUndefined()
+      expect(span.totalServerDuration, withCtx('totalServerDuration', at)).toBe(
+        0
+      )
+      return
+    }
+
     expect(span.localId, withCtx('localId', at)).toBe(
       this.attributeOf(lastDispatch, DispatchAttributeName.LocalId)
     )
     expect(span.operationId, withCtx('operationId', at)).toBe(
       this.attributeOf(lastDispatch, DispatchAttributeName.OperationId)
-    )
-    expect(span.remoteSocket, withCtx('remoteSocket', at)).toBe(
-      lastRemoteSocket
     )
     expect(span.localSocket, withCtx('localSocket', at)).toBe(lastLocalSocket)
 
@@ -1132,8 +1237,8 @@ abstract class BaseThresholdLoggingValidator extends BaseValidator {
 }
 
 class HttpThresholdLoggingValidator extends BaseThresholdLoggingValidator {
-  constructor(tracer: ThresholdLoggingTestTracer) {
-    super(tracer)
+  constructor(tracer: ThresholdLoggingTestTracer, couchbase2: boolean) {
+    super(tracer, couchbase2)
   }
 }
 
@@ -1147,9 +1252,10 @@ class HttpThresholdLoggingValidator extends BaseThresholdLoggingValidator {
 class KeyValueThresholdLoggingValidator extends BaseThresholdLoggingValidator {
   constructor(
     tracer: ThresholdLoggingTestTracer,
+    couchbase2: boolean,
     private readonly isDsOp = false
   ) {
-    super(tracer)
+    super(tracer, couchbase2)
   }
 
   protected override validateServiceDispatchFigures(
@@ -1182,7 +1288,10 @@ class KeyValueThresholdLoggingValidator extends BaseThresholdLoggingValidator {
     span: ThresholdLoggingTestSpan
   ): void {
     const at = spanCtx(span, 'encoding')
-    const encodingSpans = this.collectSpansByName(ENCODING_SPAN_NAME, span)
+    const encodingSpans = this.collectSpans(
+      (s) => s.name === ENCODING_SPAN_NAME,
+      span
+    )
     const encodingTotalTime = encodingSpans.reduce(
       (total, encodingSpan) => total + this.durationOf(encodingSpan),
       0
@@ -1265,19 +1374,21 @@ export function createKeyValueValidator(
   tracer: AnyTestTracer,
   collectionDetails: CollectionDetails,
   clusterName: ClusterName,
-  mockBackend = false
+  mockBackend = false,
+  couchbase2 = false
 ): TracingValidator {
   if (tracer instanceof NoOpTestTracer) {
     return new NoOpValidator(tracer)
   }
   if (tracer instanceof ThresholdLoggingTestTracer) {
-    return new KeyValueThresholdLoggingValidator(tracer)
+    return new KeyValueThresholdLoggingValidator(tracer, couchbase2)
   }
   return new KeyValueSpanValidator(
     tracer,
     collectionDetails,
     clusterName,
-    mockBackend
+    mockBackend,
+    couchbase2
   )
 }
 
@@ -1285,34 +1396,42 @@ export function createDatastructureValidator(
   tracer: AnyTestTracer,
   collectionDetails: CollectionDetails,
   clusterName: ClusterName,
-  mockBackend = false
+  mockBackend = false,
+  couchbase2 = false
 ): TracingValidator {
   if (tracer instanceof NoOpTestTracer) {
     return new NoOpValidator(tracer)
   }
   if (tracer instanceof ThresholdLoggingTestTracer) {
-    return new KeyValueThresholdLoggingValidator(tracer, true)
+    return new KeyValueThresholdLoggingValidator(tracer, couchbase2, true)
   }
   return new DatastructureSpanValidator(
     tracer,
     collectionDetails,
     clusterName,
-    mockBackend
+    mockBackend,
+    couchbase2
   )
 }
 
 export function createHttpValidator(
   tracer: AnyTestTracer,
   collectionDetails: CollectionDetails | undefined,
-  clusterName: ClusterName
+  clusterName: ClusterName,
+  couchbase2 = false
 ): TracingValidator {
   if (tracer instanceof NoOpTestTracer) {
     return new NoOpValidator(tracer)
   }
   if (tracer instanceof ThresholdLoggingTestTracer) {
-    return new HttpThresholdLoggingValidator(tracer)
+    return new HttpThresholdLoggingValidator(tracer, couchbase2)
   }
-  return new HttpSpanValidator(tracer, collectionDetails, clusterName)
+  return new HttpSpanValidator(
+    tracer,
+    collectionDetails,
+    clusterName,
+    couchbase2
+  )
 }
 
 function expectKeyspace(

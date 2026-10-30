@@ -102,7 +102,7 @@ describe('feature gating', () => {
     // The supported list is the short one, so a new feature defaults to
     // unsupported. The count is spelled out so widening it is a deliberate edit.
     const unsupported = BACKEND_UNSUPPORTED.gocaves
-    expect(unsupported.length).toBe(ALL_FEATURES.length - 8)
+    expect(unsupported.length).toBe(ALL_FEATURES.length - 11)
   })
 
   it('admits a feature on the exact patch version it requires', () => {

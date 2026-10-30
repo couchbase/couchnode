@@ -28,7 +28,7 @@ import {
 } from '../../../lib/viewindexmanager'
 import { DesignDocumentNamespace } from '../../../lib/viewtypes'
 import { expectThrows } from '../../asserts/errors'
-import { ServerFeature } from '../../infra/capabilities'
+import { isClassic, ServerFeature } from '../../infra/capabilities'
 import { TestEnv } from '../../infra/env'
 import { CollectionStrategy } from '../../infra/requirements'
 import { defineSuite } from '../../infra/suite'
@@ -682,13 +682,14 @@ for (const kind of METER_KINDS) {
                 await qmgr.buildDeferredIndexes()
 
                 // Each poll is a getAll, and the number of polls depends on the
-                // build's progress, so the count is a floor.
-                validator
-                  .reset()
-                  .op(QueryIndexMgmtOp.QueryIndexWatchIndexes)
-                  .nestedOps([QueryIndexMgmtOp.QueryIndexGetAll], {
+                // build's progress, so the count is a floor. Over couchbase2
+                // the gateway waits for the indexes, so nothing is polled.
+                validator.reset().op(QueryIndexMgmtOp.QueryIndexWatchIndexes)
+                if (isClassic(env.capabilities)) {
+                  validator.nestedOps([QueryIndexMgmtOp.QueryIndexGetAll], {
                     atLeast: true,
                   })
+                }
                 await qmgr.watchIndexes(deferred, WATCH_TIMEOUT_MS)
                 validator.validate()
               }

@@ -57,6 +57,8 @@ export interface TracedTarget {
   readonly cluster: Cluster
   readonly clusterName: ClusterName
   readonly mockBackend: boolean
+  /** Whether a dispatch is a gRPC call to the gateway. */
+  readonly couchbase2: boolean
 }
 
 const tracersByEnv = new WeakMap<TestEnv, Map<string, AnyTestTracer>>()
@@ -96,6 +98,7 @@ export async function tracedTarget(
     clusterName: await env.clusterName(),
     mockBackend:
       isClassic(env.capabilities) && env.capabilities.backend !== 'none',
+    couchbase2: !isClassic(env.capabilities),
   }
 }
 

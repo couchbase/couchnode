@@ -10,7 +10,13 @@ import {
   ObservabilityInstruments,
 } from './observabilitytypes'
 import { RequestSpan } from './tracing'
-import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
+import {
+  NodeCallback,
+  PromiseHelper,
+  callbackOf,
+  optionsOf,
+  runOnBackend,
+} from './utilities'
 
 /**
  * Provides options for configuring a collection.
@@ -343,6 +349,16 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.collections.getAllScopes(bucketName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
         this._cluster.conn.managementScopeGetAll.bind(this._cluster.conn),
@@ -479,6 +495,23 @@ export class CollectionManager {
     const maxExpiry = settings?.maxExpiry
     const history = settings?.history
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.collections.createCollection(
+            bucketName,
+            scopeName,
+            collectionName,
+            { maxExpiry, history },
+            req
+          ),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementCollectionCreate.bind(this._cluster.conn),
@@ -532,6 +565,22 @@ export class CollectionManager {
 
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.collections.dropCollection(
+            bucketName,
+            scopeName,
+            collectionName,
+            req
+          ),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
@@ -588,6 +637,23 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.collections.updateCollection(
+            bucketName,
+            scopeName,
+            collectionName,
+            settings,
+            req
+          ),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementCollectionUpdate.bind(this._cluster.conn),
@@ -639,6 +705,16 @@ export class CollectionManager {
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.collections.createScope(bucketName, scopeName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementScopeCreate.bind(this._cluster.conn),
@@ -687,6 +763,16 @@ export class CollectionManager {
 
     const bucketName = this._bucket.name
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.collections.dropScope(bucketName, scopeName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(

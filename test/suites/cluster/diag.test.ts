@@ -53,8 +53,8 @@ defineSuite(
     collection: CollectionStrategy.DefaultCollection,
     features: [ServerFeature.KeyValue],
   },
-  ({ test }) => {
-    describe('#info', () => {
+  ({ test, group }) => {
+    group('#info', [ServerFeature.Diagnostics], () => {
       test('should fetch diagnostics data on a cluster successfully', async ({
         env,
       }) => {
@@ -151,52 +151,56 @@ defineSuite(
         )
       })
 
-      test('should emit a warn when filtering services at cluster scope', async ({
-        env,
-        signal,
-      }) => {
-        const warnings: string[] = []
-        const cluster = await env.openCluster(
-          {},
-          { logger: { warn: (message: string) => warnings.push(message) } }
-        )
-
-        await cluster.waitUntilReady(READY_TIMEOUT_MS, {
-          serviceTypes: [ServiceType.KeyValue],
-        })
-
-        // The SDK logs without awaiting, so the warning can land after
-        // `waitUntilReady` resolves. The poll only waits; the assertion below
-        // is the check.
-        const found = await pollUntil<readonly string[]>(
-          'a warning that kv was ignored at cluster scope',
-          async (ctx) => {
-            const matching = warnings.filter(
-              (m) =>
-                m.includes('ignoring') &&
-                m.includes('kv') &&
-                m.includes('cluster scope')
-            )
-            if (matching.length > 0) {
-              return matching
-            }
-            ctx.note(
-              warnings.length
-                ? `warnings so far: ${warnings.join(' | ')}`
-                : 'no warnings logged'
-            )
-            return undefined
-          },
-          { deadlineMs: WARN_DEADLINE_MS, intervalMs: 50, signal }
-        )
-
-        expect(
-          found.length,
-          withCtx(
-            'warnings about ignoring kv at cluster scope',
-            env.ctx({ op: 'waitUntilReady', extra: 'cluster, kv only' })
+      // The services filtered here are classic's per-service readiness;
+      // couchbase2 waits on the gateway's health, which has none.
+      group('#serviceFiltering', [ServerFeature.Diagnostics], () => {
+        test('should emit a warn when filtering services at cluster scope', async ({
+          env,
+          signal,
+        }) => {
+          const warnings: string[] = []
+          const cluster = await env.openCluster(
+            {},
+            { logger: { warn: (message: string) => warnings.push(message) } }
           )
-        ).toBeGreaterThanOrEqual(1)
+
+          await cluster.waitUntilReady(READY_TIMEOUT_MS, {
+            serviceTypes: [ServiceType.KeyValue],
+          })
+
+          // The SDK logs without awaiting, so the warning can land after
+          // `waitUntilReady` resolves. The poll only waits; the assertion below
+          // is the check.
+          const found = await pollUntil<readonly string[]>(
+            'a warning that kv was ignored at cluster scope',
+            async (ctx) => {
+              const matching = warnings.filter(
+                (m) =>
+                  m.includes('ignoring') &&
+                  m.includes('kv') &&
+                  m.includes('cluster scope')
+              )
+              if (matching.length > 0) {
+                return matching
+              }
+              ctx.note(
+                warnings.length
+                  ? `warnings so far: ${warnings.join(' | ')}`
+                  : 'no warnings logged'
+              )
+              return undefined
+            },
+            { deadlineMs: WARN_DEADLINE_MS, intervalMs: 50, signal }
+          )
+
+          expect(
+            found.length,
+            withCtx(
+              'warnings about ignoring kv at cluster scope',
+              env.ctx({ op: 'waitUntilReady', extra: 'cluster, kv only' })
+            )
+          ).toBeGreaterThanOrEqual(1)
+        })
       })
 
       test('should support node style callbacks', async ({ cluster, env }) => {

@@ -122,6 +122,12 @@ export enum ServerFeature {
    * cluster below this version can have a name and still produce no labels.
    */
   ClusterLabels = 'cluster_labels',
+  /** `persistTo` and `replicateTo`, which the SDK meets by observing replicas. */
+  ClientDurability = 'client_durability',
+  /** A mutate-in value the server expands, such as `${Mutation.CAS}`. */
+  MutationMacros = 'mutation_macros',
+  /** `ping`, `diagnostics`, and the per-service readiness built on them. */
+  Diagnostics = 'diagnostics',
 }
 
 export const ALL_FEATURES: readonly ServerFeature[] = Object.freeze(
@@ -174,6 +180,9 @@ export const FEATURE_MIN_VERSION: Readonly<
   [ServerFeature.ServerGroups]: V(7, 6, 2),
   [ServerFeature.NumVbucketsSetting]: V(7, 6, 2),
   [ServerFeature.ClusterLabels]: V(7, 6, 4),
+  [ServerFeature.ClientDurability]: V(0, 0, 0),
+  [ServerFeature.MutationMacros]: V(0, 0, 0),
+  [ServerFeature.Diagnostics]: V(0, 0, 0),
 })
 
 /**
@@ -203,6 +212,11 @@ const GOCAVES_SUPPORTED: readonly ServerFeature[] = [
   ServerFeature.Replicas,
   ServerFeature.Transactions,
   ServerFeature.ServerDurability,
+  ServerFeature.ClientDurability,
+  // Gated by the `gocaves-subdoc-mutation-macros` limitation instead, which
+  // names the defect.
+  ServerFeature.MutationMacros,
+  ServerFeature.Diagnostics,
 ]
 
 /** Features a backend does not implement, whatever version it claims. */
@@ -216,24 +230,17 @@ export const BACKEND_UNSUPPORTED: Readonly<
 })
 
 /**
- * Why a feature is unavailable under a protocol. The states differ by what you
- * do about them:
- *
- * - `not-yet` is a worklist. When the gateway gains the surface, deleting the
- *   entry is the whole change and the suites run with no edits.
- * - `not-planned` means nothing is being built towards it. It is the one that
- *   may pair with a suite-level `protocols` marker; a `not-yet` must not,
- *   because a marked suite does not come back on its own.
+ * Why a feature is unavailable under a protocol. Deleting the entry is all it
+ * takes to run the feature's suites.
  */
 export interface ProtocolGap {
-  readonly status: 'not-yet' | 'not-planned'
   readonly note: string
 }
 
 /**
- * Derived from the protostellar protos (which admin services exist), not from
- * a run against a gateway, so a run against CNG verifies them. To check an
- * entry, `CNFEAT=+<feature>` overrides this map and runs the suite for real.
+ * Derived from the protostellar protos (which admin services exist) and from
+ * what the SDK refuses over couchbase2, not from a run against a gateway. To
+ * check an entry, `CNFEAT=+<feature>` overrides this map and runs the suite.
  * `classic` is empty: it can serve every feature.
  */
 export const PROTOCOL_GAPS: Readonly<
@@ -242,28 +249,34 @@ export const PROTOCOL_GAPS: Readonly<
   [TestProtocol.Classic]: Object.freeze({}),
   [TestProtocol.Couchbase2]: Object.freeze({
     [ServerFeature.Views]: Object.freeze({
-      status: 'not-planned',
       note: 'there is no design-document admin service, so views fixtures cannot be provisioned',
     }),
     [ServerFeature.SpatialViews]: Object.freeze({
-      status: 'not-planned',
       note: 'spatial views are deprecated and share the absent design-document admin service',
     }),
     [ServerFeature.UserManagement]: Object.freeze({
-      status: 'not-yet',
       note: 'no admin/user service',
     }),
     [ServerFeature.UserGroupManagement]: Object.freeze({
-      status: 'not-yet',
       note: 'no admin/user service',
     }),
     [ServerFeature.Eventing]: Object.freeze({
-      status: 'not-yet',
       note: 'no admin service for eventing',
     }),
     [ServerFeature.ScopeEventingFunctionManagement]: Object.freeze({
-      status: 'not-yet',
       note: 'no admin service for eventing',
+    }),
+    [ServerFeature.Transactions]: Object.freeze({
+      note: 'the SDK offers no transactions over couchbase2',
+    }),
+    [ServerFeature.BinaryTransactions]: Object.freeze({
+      note: 'the SDK offers no transactions over couchbase2',
+    }),
+    [ServerFeature.Diagnostics]: Object.freeze({
+      note: 'the gateway reports no per-endpoint state, so the SDK refuses ping and diagnostics, and readiness has no services to filter',
+    }),
+    [ServerFeature.NumVbucketsSetting]: Object.freeze({
+      note: 'the protos carry no vBucket count, so the SDK neither reports one nor sets one',
     }),
   }),
 })
@@ -275,11 +288,9 @@ export function gapFor(
   return PROTOCOL_GAPS[protocol][feature]
 }
 
-/** `2 not-planned, 4 not-yet`: a number CI can track as the gateway matures. */
+/** `17 features`: a number CI can track as the gateway matures. */
 export function describeGaps(protocol: TestProtocol): string {
-  const entries = Object.values(PROTOCOL_GAPS[protocol])
-  const unplanned = entries.filter((g) => g.status === 'not-planned').length
-  return `${unplanned} not-planned, ${entries.length - unplanned} not-yet`
+  return `${Object.keys(PROTOCOL_GAPS[protocol]).length} features`
 }
 
 /**
@@ -343,6 +354,9 @@ export const FEATURE_SERVICES: Readonly<
   [ServerFeature.ServerGroups]: null,
   [ServerFeature.NumVbucketsSetting]: null,
   [ServerFeature.ClusterLabels]: null,
+  [ServerFeature.ClientDurability]: null,
+  [ServerFeature.MutationMacros]: null,
+  [ServerFeature.Diagnostics]: null,
 })
 
 interface CapabilitiesCommon {
@@ -472,11 +486,8 @@ export function explain(
       return (
         `Feature '${feature}' is not available over ${caps.protocol}: ` +
         `${verdict.gap.note}. ` +
-        (verdict.gap.status === 'not-planned'
-          ? 'Nothing is currently being built towards this; ' +
-            `if that has changed, run it anyway with CNFEAT=+${feature}.`
-          : 'This gap is expected to close as the gateway matures; ' +
-            `run it anyway with CNFEAT=+${feature}.`)
+        'Nothing is currently being built towards this; ' +
+        `if that has changed, run it anyway with CNFEAT=+${feature}.`
       )
   }
   if (!isClassic(caps)) {
@@ -635,11 +646,7 @@ function verdictFields(
     case 'forced-off':
       return { feature, forced: 'off' }
     case 'protocol-gap':
-      return {
-        feature,
-        protocol: caps.protocol,
-        status: verdict.gap.status,
-      }
+      return { feature, protocol: caps.protocol }
   }
   if (!isClassic(caps)) {
     return { feature, protocol: caps.protocol }

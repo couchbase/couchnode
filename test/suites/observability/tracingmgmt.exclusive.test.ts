@@ -24,7 +24,7 @@ import {
   DesignDocumentView,
 } from '../../../lib/viewindexmanager'
 import { DesignDocumentNamespace } from '../../../lib/viewtypes'
-import { ServerFeature } from '../../infra/capabilities'
+import { isClassic, ServerFeature } from '../../infra/capabilities'
 import { CollectionStrategy } from '../../infra/requirements'
 import { defineSuite } from '../../infra/suite'
 import {
@@ -683,7 +683,12 @@ for (const kind of TRACER_KINDS) {
                     mode,
                     QueryIndexMgmtOp.QueryIndexWatchIndexes,
                     (o) => qmgr.watchIndexes(deferred, WATCH_TIMEOUT_MS, o),
-                    (v) => v.nestedOps([QueryIndexMgmtOp.QueryIndexGetAll])
+                    // Over couchbase2 the gateway waits for the indexes, so
+                    // there is no listing to poll.
+                    (v) =>
+                      isClassic(env.capabilities)
+                        ? v.nestedOps([QueryIndexMgmtOp.QueryIndexGetAll])
+                        : v
                   )
                 }
               )

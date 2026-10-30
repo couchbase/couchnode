@@ -8,7 +8,7 @@
 
 import type { TestProject } from 'vitest/node'
 
-import { formatVersion } from './infra/capabilities'
+import { TestProtocol, formatVersion } from './infra/capabilities'
 import { TestConfig, hasNoCluster, loadTestConfig } from './infra/config'
 import { ClusterConnection } from './infra/env'
 import { GoCavesBackend } from './infra/mock/gocaves'
@@ -20,6 +20,7 @@ import {
   openProbeConnection,
   probeCapabilities,
 } from './infra/probe'
+import { Couchbase2ProtocolAdapter } from './infra/protocol/couchbase2'
 import { RunState } from './infra/runstate'
 import {
   createRunLog,
@@ -81,12 +82,19 @@ export default async function setup(
         password: config.password,
       }
       const probeCluster = await openProbeConnection(connection)
+      const input = {
+        backend: 'none',
+        overrides: config.featureOverrides,
+        versionOverride: config.versionOverride,
+      } as const
       try {
-        capabilities = await probeCapabilities(probeCluster, {
-          backend: 'none',
-          overrides: config.featureOverrides,
-          versionOverride: config.versionOverride,
-        })
+        capabilities =
+          config.protocol === TestProtocol.Couchbase2
+            ? await new Couchbase2ProtocolAdapter(probeCluster).probe(
+                probeCluster,
+                input
+              )
+            : await probeCapabilities(probeCluster, input)
       } finally {
         await probeCluster.close()
       }
