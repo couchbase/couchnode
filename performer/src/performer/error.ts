@@ -128,6 +128,8 @@ export class SdkError {
         return CouchbaseExceptionTypePb.SDK_PATH_TOO_DEEP_EXCEPTION;
       case "ValueTooDeepError":
         return CouchbaseExceptionTypePb.SDK_VALUE_TOO_DEEP_EXCEPTION;
+      case "DocumentTooDeepError":
+        return CouchbaseExceptionTypePb.SDK_DOCUMENT_TOO_DEEP_EXCEPTION;
       case "ValueInvalidError":
         return CouchbaseExceptionTypePb.SDK_VALUE_INVALID_EXCEPTION;
       case "DocumentNotJsonError":

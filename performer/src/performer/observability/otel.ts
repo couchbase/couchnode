@@ -59,6 +59,12 @@ export function getAttributesMap(
   return attributes;
 }
 
+// The OTLP gRPC exporters read the scheme to decide on TLS, and export nothing,
+// without an error, to an endpoint given without one.
+function otlpUrl(endpoint: string): string {
+  return /^https?:\/\//.test(endpoint) ? endpoint : `http://${endpoint}`;
+}
+
 export function createResource(
   resourceMap: jspb.Map<string, AttributePb>,
 ): Resource {
@@ -71,12 +77,8 @@ export function createResource(
 export function createTracerProvider(
   tracingConfig: TracingConfigPb,
 ): TracerProvider {
-  const endpointHostname = tracingConfig.getEndpointHostname();
-  // gRPC wants host:port w/o scheme
-  const grpcHost = endpointHostname.replace(/^https?:\/\//, "");
-
   const exporter = new OTLPTraceExporter({
-    url: grpcHost,
+    url: otlpUrl(tracingConfig.getEndpointHostname()),
   });
 
   const spanProcessor = tracingConfig.getBatching()
@@ -112,12 +114,8 @@ export function createTracerProvider(
 export function createMeterProvider(
   metricsConfig: MetricsConfigPb,
 ): MeterProvider {
-  const endpointHostname = metricsConfig.getEndpointHostname();
-  // gRPC wants host:port w/o scheme
-  const grpcHost = endpointHostname.replace(/^https?:\/\//, "");
-
   const exporter = new OTLPMetricExporter({
-    url: grpcHost,
+    url: otlpUrl(metricsConfig.getEndpointHostname()),
   });
 
   const metricReader = new PeriodicExportingMetricReader({

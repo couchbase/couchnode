@@ -27,10 +27,10 @@ export class SdkCommandQueryOptions {
       }
     }
 
-    if (Object.keys(options.getRawMap()).length > 0) {
+    if (options.getRawMap().getLength() > 0) {
       const raw: { [key: string]: any } = {};
-      options.getRawMap().forEach((k, v) => {
-        raw[k] = v;
+      options.getRawMap().forEach((value, key) => {
+        raw[key] = value;
       });
       opts.raw = raw;
     }
@@ -61,7 +61,7 @@ export class SdkCommandQueryOptions {
 
     if (options.getParametersPositionalList().length > 0) {
       opts.parameters = options.getParametersPositionalList();
-    } else if (Object.keys(options.getParametersNamedMap()).length > 0) {
+    } else if (options.getParametersNamedMap().getLength() > 0) {
       const params: { [key: string]: any } = {};
       options.getParametersNamedMap().forEach((entry, key) => {
         params[key] = entry;
