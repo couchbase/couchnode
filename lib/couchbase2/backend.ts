@@ -20,9 +20,11 @@ import { Couchbase2Collections } from './collections'
 import { parseConnStr } from './connstr'
 import type { HealthClient } from './generated/grpc/health/v1/Health'
 import { Couchbase2Kv } from './kv'
+import { Couchbase2QueryIndexes } from './queryindexes'
 import { Couchbase2Op, RequestContext } from './requestcontext'
 import { retryUnary } from './retry'
 import { loadSchema } from './schema'
+import { Couchbase2SearchIndexes } from './searchindexes'
 import { OpenStreams } from './streaming'
 import type { GatewayAddress } from './tracing'
 
@@ -139,6 +141,16 @@ export class Couchbase2Backend implements ImplementedBackend {
    */
   readonly collections: Couchbase2Collections
 
+  /**
+   * Query index management.
+   */
+  readonly queryIndexes: Couchbase2QueryIndexes
+
+  /**
+   * Search index management.
+   */
+  readonly searchIndexes: Couchbase2SearchIndexes
+
   private readonly _channel: grpc.Channel
   private readonly _address: GatewayAddress
   private readonly _logger: CouchbaseLogger
@@ -211,6 +223,22 @@ export class Couchbase2Backend implements ImplementedBackend {
     this.collections = new Couchbase2Collections(
       this,
       new schema.couchbase.admin.collection.v1.CollectionAdminService(
+        this.target,
+        insecure,
+        stubOptions
+      )
+    )
+    this.queryIndexes = new Couchbase2QueryIndexes(
+      this,
+      new schema.couchbase.admin.query.v1.QueryAdminService(
+        this.target,
+        insecure,
+        stubOptions
+      )
+    )
+    this.searchIndexes = new Couchbase2SearchIndexes(
+      this,
+      new schema.couchbase.admin.search.v1.SearchAdminService(
         this.target,
         insecure,
         stubOptions

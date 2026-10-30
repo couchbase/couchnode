@@ -550,6 +550,8 @@ export type ImplementedBackend = Pick<
   | 'kv'
   | 'buckets'
   | 'collections'
+  | 'queryIndexes'
+  | 'searchIndexes'
   | 'waitUntilReady'
   | 'updateCredentials'
   | 'close'

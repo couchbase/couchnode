@@ -556,6 +556,7 @@ export function isNoopObservabilityInstruments(
 export class ObservableRequestHandler {
   private _opType: OpType
   private _requestHasEnded: boolean
+  private readonly _observabilityInstruments: ObservabilityInstruments
   private readonly _tracerImpl: TracerImpl
   private readonly _meterImpl: MeterImpl
 
@@ -566,6 +567,7 @@ export class ObservableRequestHandler {
   ) {
     this._opType = opType
     this._requestHasEnded = false
+    this._observabilityInstruments = observabilityInstruments
     const startTime = timeInputToHiResTime()
     if (
       !observabilityInstruments.tracer ||
@@ -596,6 +598,20 @@ export class ObservableRequestHandler {
    */
   get opType(): OpType {
     return this._opType
+  }
+
+  /**
+   * Starts a handler for an operation nested in this one, whose span is a
+   * child of this handler's span.
+   *
+   * @internal
+   */
+  child(opType: OpType): ObservableRequestHandler {
+    return new ObservableRequestHandler(
+      opType,
+      this._observabilityInstruments,
+      this.wrappedSpan
+    )
   }
 
   /**

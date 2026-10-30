@@ -198,6 +198,7 @@ export enum QueryIndexMgmtOp {
   QueryIndexGetAll = 'manager_query_get_all_indexes',
   QueryIndexGetAllDeferred = 'manager_query_get_all_deferred_indexes',
   QueryIndexWatchIndexes = 'manager_query_watch_indexes',
+  QueryIndexWaitForIndexOnline = 'manager_query_wait_for_index_online',
 }
 
 /**

@@ -1,5 +1,11 @@
 import { Cluster } from './cluster'
-import { NodeCallback, PromiseHelper, callbackOf, optionsOf } from './utilities'
+import {
+  NodeCallback,
+  PromiseHelper,
+  callbackOf,
+  optionsOf,
+  runOnBackend,
+} from './utilities'
 import { CppManagementSearchIndex } from './binding'
 import { wrapObservableBindingCall } from './observability'
 import { ObservableRequestHandler } from './observabilityhandler'
@@ -404,6 +410,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.getIndex(indexName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexGet.bind(this._cluster.conn),
@@ -443,6 +459,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.getAllIndexes(req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
@@ -489,6 +515,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.upsertIndex(indexDefinition, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexUpsert.bind(this._cluster.conn),
@@ -531,6 +567,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.dropIndex(indexName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexDrop.bind(this._cluster.conn),
@@ -572,6 +618,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.getIndexedDocumentsCount(indexName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
@@ -618,6 +674,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.pauseIngest(indexName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexControlIngest.bind(
@@ -662,6 +728,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.resumeIngest(indexName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
@@ -708,6 +784,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.allowQuerying(indexName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexControlQuery.bind(
@@ -752,6 +838,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.disallowQuerying(indexName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
@@ -798,6 +894,16 @@ export class SearchIndexManager {
 
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.freezePlan(indexName, req),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementSearchIndexControlPlanFreeze.bind(
@@ -842,6 +948,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.unfreezePlan(indexName, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
@@ -889,6 +1005,16 @@ export class SearchIndexManager {
     obsReqHandler.setRequestHttpAttributes()
 
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () => backend.searchIndexes.analyzeDocument(indexName, document, req),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(

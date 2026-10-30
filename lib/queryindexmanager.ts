@@ -1,3 +1,4 @@
+import type { QueryIndexKeyspace } from './backends'
 import { CppQueryContext } from './binding'
 import { Cluster } from './cluster'
 import { Collection } from './collection'
@@ -19,6 +20,7 @@ import {
   PromiseHelper,
   callbackOf,
   optionsOf,
+  runOnBackend,
 } from './utilities'
 
 /**
@@ -354,6 +356,20 @@ export interface WatchQueryIndexOptions {
 }
 
 /**
+ * The keyspace a request addresses, for a cluster's backend.
+ */
+function keyspaceOf(
+  bucketName: string,
+  options: { scopeName?: string; collectionName?: string }
+): QueryIndexKeyspace {
+  return {
+    bucketName,
+    scopeName: options.scopeName,
+    collectionName: options.collectionName,
+  }
+}
+
+/**
  * @internal
  */
 class InternalQueryIndexManager {
@@ -399,6 +415,36 @@ class InternalQueryIndexManager {
     callback?: NodeCallback<void>
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const keyspace = keyspaceOf(bucketName, options)
+      const settings = {
+        ignoreIfExists: options.ignoreIfExists || false,
+        numReplicas: options.numReplicas,
+        deferred: options.deferred,
+      }
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          isPrimary
+            ? backend.queryIndexes.createPrimaryIndex(
+                keyspace,
+                options.name,
+                settings,
+                req
+              )
+            : backend.queryIndexes.createIndex(
+                keyspace,
+                options.name || '',
+                options.keys || [],
+                settings,
+                req
+              ),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
@@ -448,6 +494,31 @@ class InternalQueryIndexManager {
   ): Promise<void> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const keyspace = keyspaceOf(bucketName, options)
+      const ignoreIfNotExists = options.ignoreIfNotExists || false
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          isPrimary
+            ? backend.queryIndexes.dropPrimaryIndex(
+                keyspace,
+                options.name,
+                ignoreIfNotExists,
+                req
+              )
+            : backend.queryIndexes.dropIndex(
+                keyspace,
+                options.name || '',
+                ignoreIfNotExists,
+                req
+              ),
+        callback
+      )
+    }
+
     // BUG(JSCBC-1066): We need to use a normal drop index for named primary indexes.
     if (options.name) {
       isPrimary = false
@@ -492,6 +563,20 @@ class InternalQueryIndexManager {
     callback?: NodeCallback<QueryIndex[]>
   ): Promise<QueryIndex[]> {
     const timeout = options.timeout || this._cluster.managementTimeout
+
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.queryIndexes.getAllIndexes(
+            keyspaceOf(bucketName, options),
+            req
+          ),
+        callback
+      )
+    }
 
     return PromiseHelper.wrapAsync(async () => {
       const [err, resp] = await wrapObservableBindingCall(
@@ -546,6 +631,20 @@ class InternalQueryIndexManager {
   ): Promise<string[]> {
     const timeout = options.timeout || this._cluster.managementTimeout
 
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.queryIndexes.buildDeferredIndexes(
+            keyspaceOf(bucketName, options),
+            req
+          ),
+        callback
+      )
+    }
+
     return PromiseHelper.wrapAsync(async () => {
       const [err, _] = await wrapObservableBindingCall(
         this._cluster.conn.managementQueryIndexBuildDeferred.bind(
@@ -586,6 +685,23 @@ class InternalQueryIndexManager {
     obsReqHandler: ObservableRequestHandler,
     callback?: NodeCallback<void>
   ): Promise<void> {
+    const backend = this._cluster.backend
+    if (backend) {
+      const req = { timeout, obs: obsReqHandler }
+      return runOnBackend(
+        obsReqHandler,
+        () =>
+          backend.queryIndexes.watchIndexes(
+            keyspaceOf(bucketName, options),
+            indexNames,
+            options.watchPrimary || false,
+            timeout,
+            req
+          ),
+        callback
+      )
+    }
+
     if (options.watchPrimary) {
       indexNames = [...indexNames, '#primary']
     }
