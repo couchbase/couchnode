@@ -25,6 +25,7 @@ import { Couchbase2QueryIndexes } from './queryindexes'
 import { Couchbase2Op, RequestContext } from './requestcontext'
 import { retryUnary } from './retry'
 import { loadSchema } from './schema'
+import { Couchbase2Search } from './search'
 import { Couchbase2SearchIndexes } from './searchindexes'
 import { OpenStreams } from './streaming'
 import type { GatewayAddress } from './tracing'
@@ -45,6 +46,11 @@ export const WAIT_UNTIL_READY: Couchbase2Op = {
  * The cluster's default query timeout, in milliseconds.
  */
 const DEFAULT_QUERY_TIMEOUT_MS = 75000
+
+/**
+ * The cluster's default search timeout, in milliseconds.
+ */
+const DEFAULT_SEARCH_TIMEOUT_MS = 75000
 
 /**
  * What a couchbase2 cluster is built from.
@@ -77,6 +83,12 @@ export interface Couchbase2BackendOptions {
    * cluster's default when unset.
    */
   queryTimeout?: number
+
+  /**
+   * The timeout of a search that does not set its own, in milliseconds;
+   * the cluster's default when unset.
+   */
+  searchTimeout?: number
 
   /**
    * The cluster options that were set and that a couchbase2 connection does
@@ -144,6 +156,11 @@ export class Couchbase2Backend implements ImplementedBackend {
   readonly queryTimeout: number
 
   /**
+   * The timeout of a search that does not set its own, in milliseconds.
+   */
+  readonly searchTimeout: number
+
+  /**
    * Key-value operations.
    */
   readonly kv: Couchbase2Kv
@@ -152,6 +169,11 @@ export class Couchbase2Backend implements ImplementedBackend {
    * SQL++ queries.
    */
   readonly query: Couchbase2Query
+
+  /**
+   * Searches.
+   */
+  readonly search: Couchbase2Search
 
   /**
    * Bucket management.
@@ -194,6 +216,7 @@ export class Couchbase2Backend implements ImplementedBackend {
     )
     this._logger = options.logger
     this.queryTimeout = options.queryTimeout ?? DEFAULT_QUERY_TIMEOUT_MS
+    this.searchTimeout = options.searchTimeout ?? DEFAULT_SEARCH_TIMEOUT_MS
     this.target = settings.target
     this._address = {
       host: connStr.host.replace(/^\[(.*)\]$/, '$1'),
@@ -238,6 +261,14 @@ export class Couchbase2Backend implements ImplementedBackend {
     this.query = new Couchbase2Query(
       this,
       new schema.couchbase.query.v1.QueryService(
+        this.target,
+        insecure,
+        stubOptions
+      )
+    )
+    this.search = new Couchbase2Search(
+      this,
+      new schema.couchbase.search.v1.SearchService(
         this.target,
         insecure,
         stubOptions

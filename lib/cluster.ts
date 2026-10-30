@@ -957,9 +957,21 @@ export class Cluster {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new SearchExecutor(this)
-
     const options_ = options
+    const backend = this._backend
+    if (backend) {
+      const obs = this._streamingRequestHandler(
+        StreamingOp.Search,
+        options_.parentSpan,
+        {}
+      )
+      return PromiseHelper.wrapAsync(
+        () => backend.search.search(indexName, query, options_, undefined, obs),
+        callback
+      )
+    }
+
+    const exec = new SearchExecutor(this)
     return PromiseHelper.wrapAsync(
       () => exec.query(indexName, query, options_),
       callback
@@ -984,9 +996,22 @@ export class Cluster {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new SearchExecutor(this)
-
     const options_ = options
+    const backend = this._backend
+    if (backend) {
+      const obs = this._streamingRequestHandler(
+        StreamingOp.Search,
+        options_.parentSpan,
+        {}
+      )
+      return PromiseHelper.wrapAsync(
+        () =>
+          backend.search.search(indexName, request, options_, undefined, obs),
+        callback
+      )
+    }
+
+    const exec = new SearchExecutor(this)
     return PromiseHelper.wrapAsync(
       () => exec.query(indexName, request, options_),
       callback
@@ -1370,6 +1395,7 @@ export class Cluster {
       trustStorePath: this._trustStorePath,
       logger: this._logger,
       queryTimeout: this._queryTimeout,
+      searchTimeout: this._searchTimeout,
       ignoredConnectOptions,
       logRedaction: this._logRedaction,
     })

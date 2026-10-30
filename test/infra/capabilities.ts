@@ -293,6 +293,9 @@ export const PROTOCOL_GAPS: Readonly<
     [ServerFeature.Diagnostics]: Object.freeze({
       note: 'the gateway reports no per-endpoint state, so the SDK refuses ping and diagnostics, and readiness has no services to filter',
     }),
+    [ServerFeature.VectorSearch]: Object.freeze({
+      note: 'the gateway cannot carry a vector query yet, so the SDK refuses it',
+    }),
     [ServerFeature.NumVbucketsSetting]: Object.freeze({
       note: 'the protos carry no vBucket count, so the SDK neither reports one nor sets one',
     }),

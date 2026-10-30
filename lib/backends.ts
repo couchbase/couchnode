@@ -549,6 +549,7 @@ export type ImplementedBackend = Pick<
   Backend,
   | 'kv'
   | 'query'
+  | 'search'
   | 'buckets'
   | 'collections'
   | 'queryIndexes'

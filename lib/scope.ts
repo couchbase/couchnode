@@ -214,9 +214,22 @@ export class Scope {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new SearchExecutor(this.cluster, this._bucket.name, this._name)
-
     const options_ = options
+    const backend = this.cluster.backend
+    if (backend) {
+      const scope = { bucketName: this._bucket.name, scopeName: this._name }
+      const obs = this.cluster._streamingRequestHandler(
+        StreamingOp.Search,
+        options_.parentSpan,
+        { bucketName: scope.bucketName, scopeName: scope.scopeName }
+      )
+      return PromiseHelper.wrapAsync(
+        () => backend.search.search(indexName, request, options_, scope, obs),
+        callback
+      )
+    }
+
+    const exec = new SearchExecutor(this.cluster, this._bucket.name, this._name)
     return PromiseHelper.wrapAsync(
       () => exec.query(indexName, request, options_),
       callback
