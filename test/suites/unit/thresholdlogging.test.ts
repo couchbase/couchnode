@@ -196,6 +196,46 @@ describe('Threshold Logging', () => {
     })
   })
 
+  describe('#marked-dispatch', () => {
+    it('should count a span marked as a dispatch whatever its name', () => {
+      const tracer = newTracer(TRACING_CONFIG)
+
+      const parentSpan = new ThresholdLoggingSpan(
+        'get',
+        tracer,
+        undefined,
+        createHiResTime(0, 0)
+      )
+      parentSpan.setAttribute(OpAttributeName.Service, 'kv')
+
+      // Two attempts, as a couchbase2 request that retried once makes.
+      const attempts: [number, number][] = [
+        [100_000, 300_000],
+        [400_000, 900_000],
+      ]
+      for (const [start, end] of attempts) {
+        const attempt = new ThresholdLoggingSpan(
+          'couchbase.kv.v1.KvService/Get',
+          tracer,
+          parentSpan,
+          createHiResTime(0, start)
+        )
+        attempt.markDispatch()
+        attempt.setAttribute(DispatchAttributeName.ServerAddress, 'gateway')
+        attempt.setAttribute(DispatchAttributeName.ServerPort, 18098)
+        attempt.end(createHiResTime(0, end))
+      }
+
+      parentSpan.end(createHiResTime(0, 1_000_000))
+
+      const record = reportOf(tracer).kv.top_requests[0]
+      expect(record.operation_name).toBe('get')
+      expect(record.last_dispatch_duration_us).toBe(500.0)
+      expect(record.total_dispatch_duration_us).toBe(700.0)
+      expect(record.last_remote_socket).toBe('gateway:18098')
+    })
+  })
+
   describe('#exceeding-sample-size', () => {
     it('should keep only top N items sorted by duration descending', () => {
       const tracer = newTracer(CONFIG_SMALL_SAMPLE)
@@ -267,6 +307,32 @@ describe('Threshold Logging', () => {
       span.end(createHiResTime(0, 1_000_000))
 
       expect(Object.keys(reportOf(tracer))).toHaveLength(0)
+    })
+  })
+
+  describe('#serialize', () => {
+    it('should serialize its settings while its reporter runs', () => {
+      const tracer = new ThresholdLoggingTracer(
+        new CouchbaseLogger(new NoOpLogger()),
+        TRACING_CONFIG
+      )
+      try {
+        expect(JSON.parse(JSON.stringify(tracer))).toEqual({
+          emitInterval: 10000,
+          sampleSize: 10,
+          serviceThresholds: {
+            kv: 0.5,
+            query: 0.5,
+            search: 1000,
+            analytics: 1000,
+            views: 1000,
+            mgmt: 1000,
+            eventing: 1000,
+          },
+        })
+      } finally {
+        tracer.cleanup()
+      }
     })
   })
 })

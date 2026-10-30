@@ -12,6 +12,7 @@ type ErrorContextTypes =
   | SearchErrorContext
   | AnalyticsErrorContext
   | HttpErrorContext
+  | GenericErrorContext
 
 /**
  * Generic base class for all known error context types.
@@ -334,5 +335,85 @@ export class HttpErrorContext extends ErrorContext {
     this.request_path = data.request_path
     this.response_code = data.response_code
     this.response_body = data.response_body
+  }
+}
+
+/**
+ * The error context information for an operation sent to a Couchbase cloud
+ * native gateway (a `couchbase2://` connection), which answers every service
+ * with a gRPC status.
+ *
+ * @category Error Handling
+ */
+export class GenericErrorContext extends ErrorContext {
+  /**
+   * The gateway's description of the failure.
+   */
+  message: string
+
+  /**
+   * The numeric gRPC status code the operation ended with.
+   */
+  status_code: number
+
+  /**
+   * The failed precondition, such as `LOCKED`, when the gateway named one.
+   */
+  precondition_violation?: string
+
+  /**
+   * The name of the resource the failure concerns, when the gateway named
+   * one.
+   */
+  resource_name?: string
+
+  /**
+   * The type of the resource the failure concerns, such as `document` or
+   * `bucket`, when the gateway named one.
+   */
+  resource_type?: string
+
+  /**
+   * The reason the gateway gave for an aborted operation, such as
+   * `CAS_MISMATCH`.
+   */
+  reason?: string
+
+  /**
+   * The request fields the gateway rejected, and why.
+   */
+  field_violations?: { field: string; description: string }[]
+
+  /**
+   * Debugging information the gateway attached to the failure.
+   */
+  debug_info?: { detail: string; stack_entries: string[] }
+
+  /**
+   * The gateway's identifier for the request, for correlation with its logs.
+   */
+  request_info?: { request_id: string; serving_data: string }
+
+  /**
+   * The failure that caused the last retry, when the operation was retried.
+   */
+  last_error?: string
+
+  /**
+   * @internal
+   */
+  constructor(data: GenericErrorContext) {
+    super(data)
+
+    this.message = data.message
+    this.status_code = data.status_code
+    this.precondition_violation = data.precondition_violation
+    this.resource_name = data.resource_name
+    this.resource_type = data.resource_type
+    this.reason = data.reason
+    this.field_violations = data.field_violations
+    this.debug_info = data.debug_info
+    this.request_info = data.request_info
+    this.last_error = data.last_error
   }
 }

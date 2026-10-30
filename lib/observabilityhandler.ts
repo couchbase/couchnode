@@ -48,6 +48,7 @@ class ObservableRequestHandlerTracerImpl {
   private _wrappedSpan: WrappedSpan
   private _processedCoreSpan: boolean
   private _endTime: HiResTime | undefined
+  private _retries: number | undefined
   constructor(
     opType: OpType,
     observabilityInstruments: ObservabilityInstruments,
@@ -115,6 +116,9 @@ class ObservableRequestHandlerTracerImpl {
    * @internal
    */
   end(): void {
+    if (!this._processedCoreSpan && this._retries !== undefined) {
+      this._wrappedSpan.setRetryAttribute(this._retries)
+    }
     this._endTime = timeInputToHiResTime()
     this._wrappedSpan.end(this._endTime)
   }
@@ -123,10 +127,13 @@ class ObservableRequestHandlerTracerImpl {
    * @internal
    */
   endWithError(error?: any): void {
-    if (!this._processedCoreSpan && this._getClusterLabelsFn) {
-      const clusterLabels = this._getClusterLabelsFn()
-      this._wrappedSpan.setClusterLabels(clusterLabels)
-      this._wrappedSpan.setRetryAttribute(0)
+    // Without a core span the request either failed before reaching the core
+    // or retries outside it, so its retries are the ones recorded here.
+    if (!this._processedCoreSpan) {
+      if (this._getClusterLabelsFn) {
+        this._wrappedSpan.setClusterLabels(this._getClusterLabelsFn())
+      }
+      this._wrappedSpan.setRetryAttribute(this._retries ?? 0)
     }
     if (error) {
       this._wrappedSpan.setStatus({
@@ -174,6 +181,13 @@ class ObservableRequestHandlerTracerImpl {
     }
     this._wrappedSpan.processCoreSpan(coreSpan)
     this._processedCoreSpan = true
+  }
+
+  /**
+   * @internal
+   */
+  recordRetries(count: number): void {
+    this._retries = count
   }
 
   /**
@@ -288,6 +302,11 @@ class ObservableRequestHandlerNoOpTracerImpl {
    * @internal
    */
   processCoreSpan(_coreSpan?: CppWrapperSdkSpan): void {}
+
+  /**
+   * @internal
+   */
+  recordRetries(_count: number): void {}
 
   /**
    * @internal
@@ -702,6 +721,17 @@ export class ObservableRequestHandler {
   }
 
   /**
+   * Records how many times a request that retries outside the core, as a
+   * couchbase2 request does, has retried so far. The span reports the last
+   * count recorded when it ends.
+   *
+   * @internal
+   */
+  recordRetries(count: number): void {
+    this._tracerImpl.recordRetries(count)
+  }
+
+  /**
    * @internal
    */
   setRequestHttpAttributes(options?: HttpOpAttributesOptions): void {
@@ -800,6 +830,13 @@ export class WrappedSpan implements RequestSpan {
    */
   get requestSpan(): RequestSpan {
     return this._requestSpan
+  }
+
+  /**
+   * @internal
+   */
+  isRecording(): boolean {
+    return this._isRecording
   }
 
   /**
@@ -1058,6 +1095,38 @@ export class WrappedSpan implements RequestSpan {
     if (coreSpan.children) {
       this._buildCoreSpans(coreSpan.children, this)
     }
+  }
+
+  /**
+   * Starts a child span for one dispatch made outside the core, as each
+   * attempt of a couchbase2 request is. The threshold logging tracer counts
+   * it as a dispatch whatever its name.
+   *
+   * @internal
+   */
+  startDispatchSpan(name: string): RequestSpan {
+    const span = this._createRequestSpan(
+      name,
+      timeInputToHiResTime(),
+      this._requestSpan
+    )
+    ;(span as { markDispatch?: () => void }).markDispatch?.()
+    return span
+  }
+
+  /**
+   * Ends a span from {@link startDispatchSpan}, marking it failed if the
+   * dispatch failed.
+   *
+   * @internal
+   */
+  endDispatchSpan(span: RequestSpan, failed: boolean): void {
+    if (failed) {
+      span.setStatus({ code: SpanStatusCode.ERROR })
+    }
+    const endTime = timeInputToHiResTime()
+    this.maybeUpdateEndTimeWatermark(endTime)
+    span.end(endTime)
   }
 
   /**

@@ -271,6 +271,13 @@ class ThresholdLoggingReporter {
       }
     }
   }
+
+  /**
+   * @internal
+   */
+  toJSON(): Record<string, any> {
+    return {}
+  }
 }
 
 /* eslint-enable jsdoc/require-jsdoc */
@@ -314,6 +321,7 @@ function serviceTypeFromString(serviceType: string): ServiceType {
 export class ThresholdLoggingSpan implements RequestSpan {
   readonly _name: string
   readonly _tracer: ThresholdLoggingTracer
+  _isDispatch: boolean
   _parentSpan: ThresholdLoggingSpan | undefined
   _startTime: HiResTime
   _endTime: HiResTime | undefined
@@ -351,6 +359,7 @@ export class ThresholdLoggingSpan implements RequestSpan {
   ) {
     this._name = name
     this._tracer = tracer
+    this._isDispatch = name === OpAttributeName.DispatchSpanName
     this._parentSpan = parentSpan
     this._startTime = this._getTime(startTime)
     this._totalDuration = 0
@@ -576,6 +585,16 @@ export class ThresholdLoggingSpan implements RequestSpan {
   addEvent(): void {}
 
   /**
+   * Counts the span as a dispatch whatever its name, as a couchbase2 span
+   * named for its RPC is.
+   *
+   * @internal
+   */
+  markDispatch(): void {
+    this._isDispatch = true
+  }
+
+  /**
    * Always returns true — threshold logging spans must record every operation
    * to evaluate against configured thresholds.
    */
@@ -614,7 +633,7 @@ export class ThresholdLoggingSpan implements RequestSpan {
 
     if (this._name == OpAttributeName.EncodingSpanName) {
       this.encodeDuration = this._totalDuration
-    } else if (this._name == OpAttributeName.DispatchSpanName) {
+    } else if (this._isDispatch) {
       this.dispatchDuration = this._totalDuration
     } else if (
       this._parentSpan &&
@@ -729,6 +748,20 @@ export class ThresholdLoggingTracer implements RequestTracer {
    */
   cleanup(): void {
     this._reporter.stop()
+  }
+
+  /**
+   * The tracer's settings alone. The reporter holds the timer, which does not
+   * serialize.
+   *
+   * @internal
+   */
+  toJSON(): Record<string, any> {
+    return {
+      emitInterval: this._emitInterval,
+      sampleSize: this._sampleSize,
+      serviceThresholds: Object.fromEntries(this._serviceThresholds),
+    }
   }
 
   /**

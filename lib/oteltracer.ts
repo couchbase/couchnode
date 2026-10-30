@@ -109,6 +109,19 @@ export class OTelWrapperSpan implements RequestSpan {
   isRecording(): boolean {
     return this._otelSpan.isRecording()
   }
+
+  /**
+   * Writes the span's trace context into `carrier` with OpenTelemetry's
+   * global propagator, so that a request sent with it continues the trace.
+   *
+   * @internal
+   */
+  _injectTraceContext(carrier: Record<string, string>): void {
+    otelApi!.propagation.inject(
+      otelApi!.trace.setSpan(otelApi!.context.active(), this._otelSpan),
+      carrier
+    )
+  }
 }
 
 /**

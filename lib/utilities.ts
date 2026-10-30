@@ -1,5 +1,6 @@
 import { DurabilityLevel } from './generaltypes'
 import { InvalidArgumentError } from './errors'
+import type { ObservableRequestHandler } from './observabilityhandler'
 import * as qs from 'querystring'
 
 /**
@@ -120,6 +121,29 @@ export class PromiseHelper {
 
     return prom
   }
+}
+
+/**
+ * Runs a request on the cluster's backend, ending the operation's span
+ * with its outcome.
+ *
+ * @internal
+ */
+export function runOnBackend<T>(
+  obsReqHandler: ObservableRequestHandler | null,
+  run: () => Promise<T>,
+  callback?: NodeCallback<T>
+): Promise<T> {
+  return PromiseHelper.wrapAsync(async () => {
+    try {
+      const result = await run()
+      obsReqHandler?.end()
+      return result
+    } catch (e) {
+      obsReqHandler?.endWithError(e)
+      throw e
+    }
+  }, callback)
 }
 
 /**

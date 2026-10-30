@@ -7,6 +7,7 @@ import {
   SearchErrorContext,
   AnalyticsErrorContext,
   HttpErrorContext,
+  GenericErrorContext,
 } from './errorcontexts'
 
 /**
@@ -32,6 +33,7 @@ export class CouchbaseError extends Error {
     | SearchErrorContext
     | AnalyticsErrorContext
     | HttpErrorContext
+    | GenericErrorContext
     | undefined
 
   constructor(message: string, cause?: Error, context?: ErrorContext) {
@@ -179,6 +181,21 @@ export class InternalServerFailureError extends CouchbaseError {
 export class AuthenticationFailureError extends CouchbaseError {
   constructor(cause?: Error, context?: ErrorContext) {
     super('authentication failure', cause, context)
+  }
+}
+
+/**
+ * Indicates that the user authenticated but is not permitted to access the
+ * resource the operation needs. Raised only over a `couchbase2://`
+ * connection; it extends {@link AuthenticationFailureError}, so a check for
+ * that error still catches it.
+ *
+ * @category Error Handling
+ */
+export class AuthorizationFailureError extends AuthenticationFailureError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super(cause, context)
+    this.message = 'authorization failure'
   }
 }
 
@@ -615,6 +632,21 @@ export class PathTooBigError extends CouchbaseError {
 export class PathTooDeepError extends CouchbaseError {
   constructor(cause?: Error, context?: ErrorContext) {
     super('path too deep', cause, context)
+  }
+}
+
+/**
+ * Indicates that a sub-document operation met a document with too many
+ * levels to parse. Raised only over a `couchbase2://` connection; it extends
+ * {@link PathTooDeepError}, which a classic connection raises for the same
+ * condition, so a check for that error still catches it.
+ *
+ * @category Error Handling
+ */
+export class DocumentTooDeepError extends PathTooDeepError {
+  constructor(cause?: Error, context?: ErrorContext) {
+    super(cause, context)
+    this.message = 'document too deep'
   }
 }
 
