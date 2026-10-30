@@ -15,6 +15,41 @@ import { CompoundTimeout } from './utilities'
 
 const ALL_SERVICE_TYPES = Object.values(ServiceType)
 
+/**
+ * Checks the arguments every protocol takes alike, and says whether there is
+ * anything to wait for: an empty list of service types asks for nothing.
+ *
+ * @internal
+ */
+export function checkWaitUntilReadyArgs(
+  timeout: number,
+  options: WaitUntilReadyOptions
+): boolean {
+  if (typeof timeout !== 'number' || !isFinite(timeout) || timeout <= 0) {
+    throw new InvalidArgumentError(
+      new Error('timeout must be a positive finite number')
+    )
+  }
+
+  if (options.desiredState === ClusterState.Offline) {
+    throw new InvalidArgumentError(
+      new Error('ClusterState.Offline is not a valid desired state')
+    )
+  }
+
+  if (options.serviceTypes) {
+    for (const st of options.serviceTypes) {
+      if (!ALL_SERVICE_TYPES.includes(st)) {
+        throw new InvalidArgumentError(new Error(`Invalid service type: ${st}`))
+      }
+    }
+    if (options.serviceTypes.length === 0) {
+      return false
+    }
+  }
+  return true
+}
+
 const BACKOFF_BASE_MS = 50
 const BACKOFF_CAP_MS = 500
 const BACKOFF_MAX_EXP = 4
@@ -137,31 +172,10 @@ export class WaitUntilReadyExecutor {
     timeout: number,
     options: WaitUntilReadyOptions
   ): Promise<void> {
-    if (typeof timeout !== 'number' || !isFinite(timeout) || timeout <= 0) {
-      throw new InvalidArgumentError(
-        new Error('timeout must be a positive finite number')
-      )
+    if (!checkWaitUntilReadyArgs(timeout, options)) {
+      return
     }
-
     const desiredState = options.desiredState ?? ClusterState.Online
-    if (desiredState === ClusterState.Offline) {
-      throw new InvalidArgumentError(
-        new Error('ClusterState.Offline is not a valid desired state')
-      )
-    }
-
-    if (options.serviceTypes) {
-      for (const st of options.serviceTypes) {
-        if (!ALL_SERVICE_TYPES.includes(st)) {
-          throw new InvalidArgumentError(
-            new Error(`Invalid service type: ${st}`)
-          )
-        }
-      }
-      if (options.serviceTypes.length === 0) {
-        return
-      }
-    }
 
     const deadline = new CompoundTimeout(timeout)
     const waitSet = await this._resolveWaitSet(options.serviceTypes, deadline)

@@ -143,6 +143,7 @@ describe('#cluster callbacks', () => {
     expect(methods.sort()).toEqual([
       'Cluster._cancelQueryStreams',
       'Cluster._connect',
+      'Cluster._connectCouchbase2',
     ])
   })
 })

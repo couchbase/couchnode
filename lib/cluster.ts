@@ -11,6 +11,7 @@ import {
   CertificateAuthenticator,
   JwtAuthenticator,
 } from './authenticators'
+import type { ImplementedBackend } from './backends'
 import binding, { CppClusterCredentials, CppConnection } from './binding'
 import { errorFromCpp } from './bindingutilities'
 import { Bucket } from './bucket'
@@ -26,7 +27,10 @@ import {
   PingResult,
   WaitUntilReadyOptions,
 } from './diagnosticstypes'
-import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
+import {
+  WaitUntilReadyExecutor,
+  checkWaitUntilReadyArgs,
+} from './waituntilreadyexecutor'
 import { EventingFunctionManager } from './eventingfunctionmanager'
 import {
   CouchbaseLogger,
@@ -456,6 +460,7 @@ export class Cluster {
   private _logger: CouchbaseLogger
   private _closing: boolean
   private _openQueryStreams: Set<OpenQueryStream>
+  private _backend: ImplementedBackend | undefined
 
   /**
    * @internal
@@ -467,6 +472,16 @@ export class Cluster {
       )
     }
     return this._conn
+  }
+
+  /**
+   * The protocol backend, set only on a couchbase2 cluster. A facade method
+   * that finds one hands the resolved request to it.
+   *
+   * @internal
+   */
+  get backend(): ImplementedBackend | undefined {
+    return this._backend
   }
 
   /**
@@ -1008,6 +1023,10 @@ export class Cluster {
    * Waits until the cluster reaches the desired state or the timeout elapses.
    * The default desired state is ClusterState.Online.
    *
+   * On a couchbase2:// cluster this waits for the gateway's health check,
+   * which covers the whole cluster, and does not use `serviceTypes` or
+   * `desiredState`.
+   *
    * @param timeout The time in milliseconds to wait for the cluster to become ready.
    * @param options Optional parameters for this operation.
    * @param callback A callback to be invoked after execution.
@@ -1021,10 +1040,18 @@ export class Cluster {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new WaitUntilReadyExecutor(this)
-
     const timeout_ = timeout
     const options_ = options
+    const backend = this._backend
+    if (backend) {
+      return PromiseHelper.wrapAsync(async () => {
+        if (checkWaitUntilReadyArgs(timeout_, options_)) {
+          await backend.waitUntilReady(timeout_, options_)
+        }
+      }, callback)
+    }
+
+    const exec = new WaitUntilReadyExecutor(this)
     return PromiseHelper.wrapAsync(
       () => exec.waitUntilReady(timeout_, options_),
       callback
@@ -1055,6 +1082,10 @@ export class Cluster {
         this._meter.cleanup()
       }
 
+      if (this._backend) {
+        await this._backend.close()
+      }
+
       const conn = this._conn
       if (!conn) {
         return
@@ -1083,6 +1114,10 @@ export class Cluster {
    * @param auth The new credentials to use.
    */
   updateCredentials(auth: Authenticator): void {
+    if (this._backend) {
+      this._backend.updateCredentials(auth)
+      return
+    }
     const cppErr = this.conn.updateCredentials(this._getCppCredentials(auth))
     if (cppErr) {
       const err = errorFromCpp(cppErr)
@@ -1189,9 +1224,8 @@ export class Cluster {
   private async _connect() {
     const conn = this._conn
     if (!conn) {
-      throw new FeatureNotAvailableError(
-        new Error('couchbase2:// connections are not supported yet.')
-      )
+      await this._connectCouchbase2()
+      return
     }
 
     return new Promise((resolve, reject) => {
@@ -1263,5 +1297,43 @@ export class Cluster {
         }
       )
     })
+  }
+
+  /**
+   * Opens the couchbase2 backend. Nothing is sent: the channel connects on
+   * the first call.
+   */
+  private async _connectCouchbase2(): Promise<void> {
+    // grpc-js loads only here, so a classic cluster never loads it. A require
+    // rather than an import(), so a module loader that installs no dynamic
+    // import callback can still connect.
+    const { Couchbase2Backend } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      require('./couchbase2/backend') as typeof import('./couchbase2/backend.js')
+
+    const ignoredConnectOptions: string[] = []
+    const unused: [string, unknown][] = [
+      ['timeouts.bootstrapTimeout', this._bootstrapTimeout],
+      ['timeouts.connectTimeout', this._connectTimeout],
+      ['timeouts.resolveTimeout', this._resolveTimeout],
+      ['dnsConfig', this._dnsConfig],
+      ['preferredServerGroup', this._preferredServerGroup],
+      ['appTelemetryConfig', this._appTelemetryConfig],
+    ]
+    for (const [name, value] of unused) {
+      if (value !== undefined && value !== null) {
+        ignoredConnectOptions.push(name)
+      }
+    }
+
+    this._backend = new Couchbase2Backend({
+      connStr: this._connStr,
+      auth: this._auth,
+      trustStorePath: this._trustStorePath,
+      logger: this._logger,
+      ignoredConnectOptions,
+      logRedaction: this._logRedaction,
+    })
+    this._setupObservability()
   }
 }

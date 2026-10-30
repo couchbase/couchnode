@@ -537,3 +537,17 @@ export interface Backend {
   updateCredentials(auth: Authenticator): void
   close(): Promise<void>
 }
+
+/**
+ * The part of {@link Backend} the couchbase2 backend implements so far, the
+ * one list both that backend and `Cluster` read. It grows until it is
+ * `Backend`, and is then removed.
+ *
+ * @internal
+ */
+export type ImplementedBackend = Pick<
+  Backend,
+  | 'waitUntilReady'
+  | 'updateCredentials'
+  | 'close'
+>

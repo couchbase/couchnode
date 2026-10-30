@@ -1,4 +1,5 @@
 import { join } from 'path'
+import type { Plugin } from 'vite'
 import { defineConfig } from 'vitest/config'
 
 // Four projects, one per scheduling need:
@@ -27,6 +28,29 @@ import { defineConfig } from 'vitest/config'
 // interop settings; do not add them speculatively.
 
 const REPO_ROOT = join(import.meta.dirname, '..')
+
+/**
+ * The SDK loads its couchbase2 backend with a require, which runs anywhere a
+ * compiled CommonJS module does, a loader with no dynamic import callback
+ * included. Vitest runs `lib/` from source instead, where Node's require
+ * cannot load a `.ts` file, so here alone that one require becomes the
+ * import() Vitest resolves. The require itself is tested outside Vitest, by
+ * the unit suite's own module loader and the addon-free check.
+ */
+const backendRequire: Plugin = {
+  name: 'couchbase2-backend-require',
+  transform(code, id) {
+    if (!id.endsWith('/lib/cluster.ts')) {
+      return undefined
+    }
+    const pattern = /require\((['"])\.\/couchbase2\/backend\1\)/
+    if (!pattern.test(code)) {
+      throw new Error('lib/cluster.ts no longer requires ./couchbase2/backend')
+    }
+    return code.replace(pattern, "(await import('./couchbase2/backend.js'))")
+  },
+}
+const plugins = [backendRequire]
 
 const TESTS = 'test'
 
@@ -88,6 +112,7 @@ export default defineConfig({
     },
     projects: [
       {
+        plugins,
         test: {
           ...base,
           name: 'unit',
@@ -101,6 +126,7 @@ export default defineConfig({
         },
       },
       {
+        plugins,
         test: {
           ...base,
           name: 'integration',
@@ -128,6 +154,7 @@ export default defineConfig({
         },
       },
       {
+        plugins,
         test: {
           ...base,
           name: 'exclusive',
@@ -141,6 +168,7 @@ export default defineConfig({
         },
       },
       {
+        plugins,
         test: {
           ...base,
           name: 'periodic',

@@ -38,9 +38,9 @@ runExitFixture(async () => {
   couchbase.MutateInSpec.remove('')
   const refusedOnSpecs = refused.length - refusedOnImport
 
-  // A couchbase2:// cluster, and the objects under it, never create the
-  // addon's connection. Connecting is not supported yet, and asking for the
-  // classic connection fails with the SDK's own error.
+  // A couchbase2:// cluster and the objects under it never create the addon's
+  // connection; asking for it fails with the SDK's own error. Connecting
+  // sends nothing, so it connects and closes with no gateway.
   const errorOf = async (fn: () => unknown) => {
     try {
       await fn()
@@ -50,14 +50,18 @@ runExitFixture(async () => {
     return undefined
   }
   const beforeCouchbase2 = refused.length
-  const cluster = new couchbase.Cluster('couchbase2://localhost')
-  const collection = cluster.bucket('b').scope('s').collection('c')
+  let cluster: { bucket(name: string): any; close(): Promise<void> } | undefined
   const couchbase2 = {
-    connectError: await errorOf(() =>
-      couchbase.connect('couchbase2://localhost')
+    connectError: await errorOf(async () => {
+      cluster = await couchbase.connect('couchbase2://localhost', {
+        username: 'u',
+        password: 'p',
+      })
+    }),
+    connError: await errorOf(
+      () => cluster?.bucket('b').scope('s').collection('c').conn
     ),
-    connError: await errorOf(() => collection.conn),
-    closeError: await errorOf(() => cluster.close()),
+    closeError: await errorOf(() => cluster?.close()),
     refused: 0,
   }
   couchbase2.refused = refused.length - beforeCouchbase2

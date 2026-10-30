@@ -4306,6 +4306,15 @@ function loadBinding(member: string): CppBinding {
   return loadedBinding as CppBinding
 }
 
+/**
+ * Whether the addon has been loaded. Asking does not load it.
+ *
+ * @internal
+ */
+export function bindingLoaded(): boolean {
+  return loadedBinding !== undefined
+}
+
 // Importing the SDK does not load the addon; using a member of this object
 // does. So a couchbase2 connection, which never uses one, runs without it.
 // A member defined or replaced here lands on the addon, as it would on the

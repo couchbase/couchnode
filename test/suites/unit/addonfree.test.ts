@@ -5,7 +5,7 @@ import { describe, expect, it } from 'vitest'
 import { expectProcessExits } from '../../infra/exit'
 
 // A couchbase2 connection never touches the native addon, so the SDK must
-// import, build sub-document specs, and create and close a couchbase2://
+// import, build sub-document specs, and connect and close a couchbase2://
 // cluster without it. Only a read of an addon value may load it, and that read
 // must fail with an error naming what needed it.
 
@@ -40,7 +40,7 @@ describe('#addon-free import', () => {
       expect(outcome.refusedOnImport).toBe(0)
       expect(outcome.refusedOnSpecs).toBe(0)
       expect(outcome.couchbase2).toEqual({
-        connectError: 'FeatureNotAvailableError',
+        connectError: undefined,
         connError: 'FeatureNotAvailableError',
         closeError: undefined,
         refused: 0,

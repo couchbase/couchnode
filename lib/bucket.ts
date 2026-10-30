@@ -8,7 +8,10 @@ import {
   PingResult,
   WaitUntilReadyOptions,
 } from './diagnosticstypes'
-import { WaitUntilReadyExecutor } from './waituntilreadyexecutor'
+import {
+  WaitUntilReadyExecutor,
+  checkWaitUntilReadyArgs,
+} from './waituntilreadyexecutor'
 import { Scope } from './scope'
 import { StreamableRowPromise } from './streamablepromises'
 import { Transcoder } from './transcoders'
@@ -189,6 +192,11 @@ export class Bucket {
   /**
    * Waits until the bucket reaches the desired state or the timeout elapses.
    *
+   * On a couchbase2:// cluster this is the same as
+   * {@link Cluster.waitUntilReady}: it waits for the gateway's health check,
+   * which covers the whole cluster rather than this bucket, and does not use
+   * `serviceTypes` or `desiredState`.
+   *
    * @param timeout The time in milliseconds to wait for the bucket to become ready.
    * @param options Optional parameters.
    * @param callback A callback to be invoked after execution.
@@ -202,10 +210,19 @@ export class Bucket {
     callback = callbackOf(options, callback)
     options = optionsOf(options)
 
-    const exec = new WaitUntilReadyExecutor(this._cluster, this.name)
-
     const timeout_ = timeout
     const options_ = options
+    // The gateway's health covers the whole cluster, buckets included.
+    const backend = this._cluster.backend
+    if (backend) {
+      return PromiseHelper.wrapAsync(async () => {
+        if (checkWaitUntilReadyArgs(timeout_, options_)) {
+          await backend.waitUntilReady(timeout_, options_)
+        }
+      }, callback)
+    }
+
+    const exec = new WaitUntilReadyExecutor(this._cluster, this.name)
     return PromiseHelper.wrapAsync(
       () => exec.waitUntilReady(timeout_, options_),
       callback

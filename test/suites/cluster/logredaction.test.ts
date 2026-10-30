@@ -1,6 +1,6 @@
 import { expect } from 'vitest'
 
-import binding from '../../../lib/binding'
+import { metaData } from '../../../lib/redaction'
 import { withCtx } from '../../asserts/ctx'
 import { ServerFeature } from '../../infra/capabilities'
 import { CollectionStrategy } from '../../infra/requirements'
@@ -22,15 +22,15 @@ defineSuite(
     }) => {
       await env.openCluster()
       expect(
-        binding.isLogRedactionEnabled(),
+        metaData('default'),
         withCtx('redaction after a connection without logRedaction')
-      ).toBe(false)
+      ).toBe('default')
 
       await env.openCluster({}, { logRedaction: true })
       expect(
-        binding.isLogRedactionEnabled(),
+        metaData('default'),
         withCtx('redaction after a connection with logRedaction')
-      ).toBe(true)
+      ).toBe('<md>default</md>')
     })
   }
 )
