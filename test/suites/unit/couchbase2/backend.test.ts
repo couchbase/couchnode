@@ -12,7 +12,11 @@ import {
   PasswordAuthenticator,
 } from '../../../../lib/authenticators'
 import { Cluster, ConnectOptions } from '../../../../lib/cluster'
-import { Couchbase2Backend } from '../../../../lib/couchbase2/backend'
+import {
+  Couchbase2Backend,
+  WAIT_UNTIL_READY,
+} from '../../../../lib/couchbase2/backend'
+import { mapStatus } from '../../../../lib/couchbase2/errormapping'
 import {
   ClusterState,
   WaitUntilReadyOptions,
@@ -38,6 +42,18 @@ function capture(): { logger: CouchbaseLogger; warnings: string[] } {
     },
   })
   return { logger, warnings }
+}
+
+type Line = [string, string]
+
+function captureAll(): { logger: CouchbaseLogger; lines: Line[] } {
+  const lines: Line[] = []
+  const logger = new CouchbaseLogger({
+    debug: (m: string) => lines.push(['debug', m]),
+    info: (m: string) => lines.push(['info', m]),
+    warn: (m: string) => lines.push(['warn', m]),
+  })
+  return { logger, lines }
 }
 
 function contextOf(err: unknown): GenericErrorContext {
@@ -92,6 +108,78 @@ describe('#couchbase2 backend construction', () => {
     expect(backend.target).toBe('localhost:1')
     await backend.close()
     expect(warnings).toEqual([])
+  })
+
+  it('should log how it connects, and its close, at info', async () => {
+    const { logger, lines } = captureAll()
+    const backend = new Couchbase2Backend({
+      connStr: 'couchbase2://localhost:1',
+      auth: PASSWORD,
+      logger,
+    })
+    backend.streams.add({ cancel: () => undefined })
+    await backend.close()
+    const info = lines.filter(([l]) => l === 'info').map(([, m]) => m)
+    expect(info).toHaveLength(2)
+    expect(info[0]).toMatch(
+      new RegExp(
+        '^couchbase2: open cluster, SDK version: "\\S+", grpc-js ' +
+          'version: "\\d+\\.\\d+\\.\\d+", Node version: "v\\S+", ' +
+          'gateway: "localhost:1", tls verification: "Capella and Mozilla ' +
+          'roots", client certificate: false, authentication: "password", ' +
+          'log redaction: false$'
+      )
+    )
+    expect(info[0]).not.toContain('password@')
+    expect(info[0]).not.toContain(
+      Buffer.from('Administrator:password').toString('base64')
+    )
+    expect(info[1]).toBe(
+      'couchbase2: closing the connection to localhost:1, ' +
+        'canceling 1 open stream(s)'
+    )
+  })
+
+  it('should log new credentials by kind alone', async () => {
+    const { logger, lines } = captureAll()
+    const backend = new Couchbase2Backend({
+      connStr: 'couchbase2://localhost:1',
+      auth: new JwtAuthenticator('one'),
+      logger,
+    })
+    backend.updateCredentials(new JwtAuthenticator('two'))
+    await backend.close()
+    expect(lines).toContainEqual([
+      'info',
+      "couchbase2: updated the cluster's JWT credentials",
+    ])
+    expect(lines.some(([, m]) => m.includes('two'))).toBe(false)
+  })
+
+  it('should warn once for each value the SDK does not recognize', async () => {
+    const { logger, lines } = captureAll()
+    const backend = new Couchbase2Backend({
+      connStr: 'couchbase2://localhost:1',
+      auth: PASSWORD,
+      logger,
+    })
+    const fail = (value: string) =>
+      backend.context(WAIT_UNTIL_READY, 5000).onFailure({
+        ...mapStatus(grpc.status.DATA_LOSS, 'lost', undefined, true),
+        unrecognized: value,
+      })
+    fail('gRPC status DATA_LOSS')
+    fail('gRPC status DATA_LOSS')
+    fail('precondition violation "NEW"')
+    await backend.close()
+    expect(lines.filter(([l]) => l === 'warn').map(([, m]) => m)).toEqual([
+      'couchbase2: the gateway sent gRPC status DATA_LOSS, which this SDK ' +
+        'version does not recognize, so the error raised for it is a ' +
+        'general one. A newer SDK may map it.',
+      'couchbase2: the gateway sent precondition violation "NEW", which ' +
+        'this SDK version does not recognize, so the error raised for it ' +
+        'is a general one. A newer SDK may map it.',
+    ])
   })
 
   test('should show a cluster with no credentials or channel', async ({
@@ -322,6 +410,62 @@ describe.skipIf(!certificateDir)('#couchbase2 backend against a server', () => {
       expect(context.last_error).toContain('the gateway reports NOT_SERVING')
       expect(context.last_dispatched_to).toBe(`localhost:${port}`)
     } finally {
+      await b.close()
+    }
+  })
+
+  it('should log the connection, and warn when the gateway goes away', async () => {
+    // A server of its own, so that shutting it down leaves the others alone.
+    const own = new grpc.Server()
+    own.addService(loadSchema().grpc.health.v1.Health.service, {
+      Check: (
+        _call: grpc.ServerUnaryCall<unknown, unknown>,
+        callback: grpc.sendUnaryData<unknown>
+      ) => callback(null, { status: 'SERVING' }),
+      Watch: () => undefined,
+    })
+    const ownPort = await new Promise<number>((resolve, reject) =>
+      own.bindAsync(
+        'localhost:0',
+        grpc.ServerCredentials.createSsl(
+          null,
+          [
+            {
+              private_key: readFileSync(join(dir, 'localhost.key')),
+              cert_chain: readFileSync(ca),
+            },
+          ],
+          false
+        ),
+        (err, p) => (err ? reject(err) : resolve(p))
+      )
+    )
+    const { logger, lines } = captureAll()
+    const b = new Couchbase2Backend({
+      connStr: `couchbase2://localhost:${ownPort}?trust_certificate=${ca}`,
+      auth: PASSWORD,
+      logger,
+    })
+    try {
+      await b.waitUntilReady(5000)
+      expect(lines).toContainEqual([
+        'info',
+        `couchbase2: connected to the gateway at localhost:${ownPort}`,
+      ])
+      own.forceShutdown()
+      const deadline = Date.now() + 5000
+      while (!lines.some(([l]) => l === 'warn') && Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 20))
+      }
+      expect(lines.filter(([l]) => l === 'warn')).toEqual([
+        [
+          'warn',
+          `couchbase2: lost the connection to the gateway at ` +
+            `localhost:${ownPort}; reconnecting on the next request`,
+        ],
+      ])
+    } finally {
+      own.forceShutdown()
       await b.close()
     }
   })

@@ -115,6 +115,11 @@ export interface MappedError {
    * Set when the failure is worth retrying.
    */
   retryReason: RetryReason | undefined
+
+  /**
+   * A value from the gateway that has no mapping here, for the log.
+   */
+  unrecognized?: string
 }
 
 /**
@@ -273,7 +278,7 @@ export function mapStatus(
     }
   }
 
-  return {
+  const mapped: MappedError = {
     errorClass: errorClassFor(
       code,
       resource?.resource_type ?? '',
@@ -283,6 +288,51 @@ export function mapStatus(
     ),
     fields,
     retryReason: retryReasonFor(code, violation),
+  }
+  const unrecognized = unrecognizedValue(
+    code,
+    resource?.resource_type ?? '',
+    violation,
+    reason
+  )
+  if (unrecognized !== undefined) {
+    mapped.unrecognized = unrecognized
+  }
+  return mapped
+}
+
+/**
+ * Names the value in a failure that {@link errorClassFor} has no mapping
+ * for, or returns undefined when every value is mapped.
+ */
+function unrecognizedValue(
+  code: grpc.status,
+  resourceType: string,
+  violation: string | undefined,
+  reason: string | undefined
+): string | undefined {
+  switch (code) {
+    case grpc.status.NOT_FOUND:
+    case grpc.status.ALREADY_EXISTS: {
+      const table = code === grpc.status.NOT_FOUND ? NOT_FOUND : ALREADY_EXISTS
+      return resourceType === '' || resourceType in table
+        ? undefined
+        : `${statusName(code)} resource type "${resourceType}"`
+    }
+    case grpc.status.FAILED_PRECONDITION:
+      return violation === undefined || violation in PRECONDITION_FAILED
+        ? undefined
+        : `precondition violation "${violation}"`
+    case grpc.status.ABORTED:
+      return reason === undefined || reason === 'CAS_MISMATCH'
+        ? undefined
+        : `ABORTED reason "${reason}"`
+    case grpc.status.PERMISSION_DENIED:
+    case grpc.status.DEADLINE_EXCEEDED:
+    case grpc.status.UNKNOWN:
+      return undefined
+    default:
+      return code in BY_CODE ? undefined : `gRPC status ${statusName(code)}`
   }
 }
 

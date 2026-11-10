@@ -303,9 +303,40 @@ describe('#couchbase2 request context', () => {
     expectRetry(ctx.onFailure(unavailable()))
     expectRetry(ctx.onFailure(locked()))
     expect(debug.mock.calls.map((c) => c[0])).toEqual([
-      `Retrying get request ${ctx.identifier} for service_not_available, attempt 1`,
-      `Retrying get request ${ctx.identifier} for key_value_locked, attempt 2`,
+      `Retrying get request ${ctx.identifier} for service_not_available, ` +
+        'attempt 1, after gRPC status UNAVAILABLE (down)',
+      `Retrying get request ${ctx.identifier} for key_value_locked, ` +
+        'attempt 2, after gRPC status FAILED_PRECONDITION (locked)',
     ])
+  })
+
+  it("should log the gateway's request id with a retry", () => {
+    const debug = vi.fn()
+    const ctx = new RequestContext(GET, 5000, {
+      now: new Clock().now,
+      logger: new CouchbaseLogger({ debug }),
+    })
+    const mapped = unavailable()
+    mapped.fields.request_info = { request_id: 'req-7', serving_data: '' }
+    expectRetry(ctx.onFailure(mapped))
+    expect(debug.mock.calls[0][0]).toBe(
+      `Retrying get request ${ctx.identifier} for service_not_available, ` +
+        'attempt 1, after gRPC status UNAVAILABLE (down), gateway request ' +
+        'id req-7'
+    )
+  })
+
+  it('should report each unrecognized value, retried or raised', () => {
+    const unrecognized = vi.fn()
+    const ctx = new RequestContext(GET, 5000, {
+      now: new Clock().now,
+      unrecognized,
+    })
+    expectRetry(ctx.onFailure({ ...unavailable(), unrecognized: 'first' }))
+    expectError(ctx.onFailure({ ...notFound(), unrecognized: 'second' }))
+    ctx.onStreamFailure({ ...notFound(), unrecognized: 'third' })
+    expectError(ctx.onFailure(notFound()))
+    expect(unrecognized.mock.calls).toEqual([['first'], ['second'], ['third']])
   })
 })
 

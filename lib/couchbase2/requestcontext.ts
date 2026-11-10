@@ -11,6 +11,7 @@ import {
 } from '../errors'
 import type { CouchbaseLogger } from '../logger'
 import type { ObservableRequestHandler } from '../observabilityhandler'
+import { userData } from '../redaction'
 import {
   ErrorClass,
   errorFromMapped,
@@ -51,6 +52,15 @@ export interface Couchbase2Op {
    * once.
    */
   readonly idempotent: boolean
+}
+
+/**
+ * The gateway's id for the failed request, as the retry log appends it, so
+ * that a log line can be matched to the gateway's own logs.
+ */
+function requestId(mapped: MappedError): string {
+  const id = mapped.fields.request_info?.request_id
+  return id ? `, gateway request id ${id}` : ''
 }
 
 /**
@@ -125,6 +135,12 @@ export interface RequestContextOptions {
    * The gateway's address, as each attempt's span reports it.
    */
   address?: GatewayAddress
+
+  /**
+   * Told of each failure value the SDK has no mapping for; see
+   * {@link MappedError.unrecognized}.
+   */
+  unrecognized?: (value: string) => void
 }
 
 /**
@@ -170,6 +186,7 @@ export class RequestContext implements RetryRequest {
   private readonly _target: string
   private readonly _obs: ObservableRequestHandler | null | undefined
   private readonly _interceptor: grpc.Interceptor | undefined
+  private readonly _unrecognized: ((value: string) => void) | undefined
 
   constructor(
     op: Couchbase2Op,
@@ -183,6 +200,7 @@ export class RequestContext implements RetryRequest {
     this._logger = options.logger
     this._target = options.target ?? ''
     this._obs = options.obs
+    this._unrecognized = options.unrecognized
     this._interceptor = attemptInterceptor(
       options.obs,
       options.address ?? { host: '', port: 0 }
@@ -262,6 +280,7 @@ export class RequestContext implements RetryRequest {
    * What to do after an attempt failed with `mapped`.
    */
   onFailure(mapped: MappedError): FailureDecision {
+    this._noteUnrecognized(mapped)
     const reason = mapped.retryReason
     if (reason === undefined) {
       return { retry: false, error: this._error(mapped) }
@@ -285,7 +304,10 @@ export class RequestContext implements RetryRequest {
       `${errorName}(${mapped.fields.message}), ` +
       `caused by gRPC status ${statusName(mapped.fields.status_code)}`
     this._logger?.debug(
-      `Retrying ${this.op.name} request ${this.identifier} for ${reason}, attempt ${this.retryAttempts}`
+      `Retrying ${this.op.name} request ${this.identifier} for ${reason}, ` +
+        `attempt ${this.retryAttempts}, after gRPC status ` +
+        `${statusName(mapped.fields.status_code)} ` +
+        `(${userData(mapped.fields.message)})${requestId(mapped)}`
     )
     if (this._closed()) {
       return { retry: false, error: this._canceled() }
@@ -302,6 +324,7 @@ export class RequestContext implements RetryRequest {
    * other is raised as it maps.
    */
   onStreamFailure(mapped: MappedError): CouchbaseError {
+    this._noteUnrecognized(mapped)
     if (mapped.retryReason === undefined) {
       return this._error(mapped)
     }
@@ -313,6 +336,12 @@ export class RequestContext implements RetryRequest {
         'its stream began, and a stream is not retried once it has ' +
         'returned a message'
     )
+  }
+
+  private _noteUnrecognized(mapped: MappedError): void {
+    if (mapped.unrecognized !== undefined) {
+      this._unrecognized?.(mapped.unrecognized)
+    }
   }
 
   private _history(): RequestErrorFields {

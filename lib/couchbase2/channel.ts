@@ -52,6 +52,16 @@ export const MAX_RECEIVE_MESSAGE_LENGTH = 25 * 1024 * 1024
 export const IP_TARGET_SERVER_NAME = 'gateway.invalid'
 
 /**
+ * How long the channel stays connected with no call in flight before it
+ * closes the connection, in milliseconds. It is grpc-js's own default, set
+ * explicitly so that the connectivity log can tell this from a lost
+ * connection.
+ *
+ * @internal
+ */
+export const CLIENT_IDLE_TIMEOUT_MS = 30 * 60 * 1000
+
+/**
  * The Capella root, which a couchbase2 channel trusts by default as a classic
  * connection does.
  *
@@ -317,8 +327,9 @@ export function channelCredentials(
 }
 
 /**
- * The channel's options: keepalive, the receive limit and the user agent, and
- * for an IP target the server name to send instead of the IP.
+ * The channel's options: keepalive, the idle timeout, the receive limit and
+ * the user agent, and for an IP target the server name to send instead of
+ * the IP.
  *
  * @internal
  */
@@ -327,12 +338,39 @@ export function channelOptions(settings: ChannelSettings): grpc.ChannelOptions {
     'grpc.keepalive_time_ms': KEEPALIVE_TIME_MS,
     'grpc.keepalive_timeout_ms': KEEPALIVE_TIMEOUT_MS,
     'grpc.keepalive_permit_without_calls': 1,
+    'grpc.client_idle_timeout_ms': CLIENT_IDLE_TIMEOUT_MS,
     'grpc.max_receive_message_length': MAX_RECEIVE_MESSAGE_LENGTH,
     'grpc.primary_user_agent': settings.userAgent,
     ...(targetIp(settings.target)
       ? { 'grpc.ssl_target_name_override': IP_TARGET_SERVER_NAME }
       : {}),
   }
+}
+
+/**
+ * How the channel connects, as the `key: value` pairs of the log line written
+ * when a cluster opens. It never includes a credential.
+ *
+ * @internal
+ */
+export function describeChannel(
+  settings: ChannelSettings,
+  auth: ReturnType<typeof authenticatorKind>
+): string {
+  let roots: string
+  if (!settings.verifyPeer) {
+    roots = 'none'
+  } else if (settings.trustCertificatePath) {
+    roots = 'trust certificate'
+  } else if (settings.includeMozillaRoots) {
+    roots = 'Capella and Mozilla roots'
+  } else {
+    roots = 'Capella root'
+  }
+  return (
+    `tls verification: "${roots}", client certificate: ` +
+    `${!!settings.clientCertificatePath}, authentication: "${auth ?? 'none'}"`
+  )
 }
 
 /**

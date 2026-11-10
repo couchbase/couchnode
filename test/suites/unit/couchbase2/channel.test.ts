@@ -13,12 +13,15 @@ import {
   PasswordAuthenticator,
 } from '../../../../lib/authenticators'
 import {
+  authenticatorKind,
   authorizationHeader,
   callMetadata,
   CAPELLA_ROOT_CA,
   channelOptions,
   channelSettings,
   ChannelSettings,
+  CLIENT_IDLE_TIMEOUT_MS,
+  describeChannel,
   IP_TARGET_SERVER_NAME,
   MAX_RECEIVE_MESSAGE_LENGTH,
   openChannel,
@@ -119,6 +122,7 @@ describe('#couchbase2 channel settings', () => {
       'grpc.keepalive_time_ms': 30000,
       'grpc.keepalive_timeout_ms': 5000,
       'grpc.keepalive_permit_without_calls': 1,
+      'grpc.client_idle_timeout_ms': CLIENT_IDLE_TIMEOUT_MS,
       'grpc.max_receive_message_length': MAX_RECEIVE_MESSAGE_LENGTH,
       'grpc.primary_user_agent': s.userAgent,
     })
@@ -142,6 +146,36 @@ describe('#couchbase2 channel settings', () => {
     ['gateway.example.com:443', undefined],
   ])('should read the IP of the target %s', (target, ip) => {
     expect(targetIp(target)).toBe(ip)
+  })
+
+  it.each([
+    [
+      'couchbase2://h',
+      PASSWORD,
+      'tls verification: "Capella and Mozilla roots", client ' +
+        'certificate: false, authentication: "password"',
+    ],
+    [
+      'couchbase2://h?disable_mozilla_ca_certificates=true',
+      new JwtAuthenticator('t'),
+      'tls verification: "Capella root", client certificate: false, ' +
+        'authentication: "JWT"',
+    ],
+    [
+      'couchbase2://h?trust_certificate=/ca.pem',
+      new CertificateAuthenticator('c.pem', 'k.pem'),
+      'tls verification: "trust certificate", client certificate: ' +
+        'true, authentication: "certificate"',
+    ],
+    [
+      'couchbase2://h?tls_verify=none',
+      undefined,
+      'tls verification: "none", client certificate: false, ' +
+        'authentication: "none"',
+    ],
+  ])('should describe %s without its credentials', (connStr, auth, text) => {
+    const s = channelSettings(parseConnStr(connStr), auth)
+    expect(describeChannel(s, authenticatorKind(auth))).toBe(text)
   })
 })
 

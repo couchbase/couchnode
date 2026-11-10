@@ -7,14 +7,17 @@ import type { WaitUntilReadyOptions } from '../diagnosticstypes'
 import { FeatureNotAvailableError, InvalidArgumentError } from '../errors'
 import type { CouchbaseLogger } from '../logger'
 import type { ObservableRequestHandler } from '../observabilityhandler'
-import { enableLogRedaction } from '../redaction'
+import { enableLogRedaction, systemData } from '../redaction'
+import { SDK_VERSION } from '../version'
 import {
   authenticatorKind,
   authorizationHeader,
   callMetadata,
   channelSettings,
+  describeChannel,
   openChannel,
 } from './channel'
+import { watchConnectivity } from './connectivity'
 import { Couchbase2Buckets } from './buckets'
 import { Couchbase2Collections } from './collections'
 import { parseConnStr } from './connstr'
@@ -117,6 +120,20 @@ function notServing(status: string): grpc.ServiceError {
 }
 
 /**
+ * The version of grpc-js in use, or `unknown` where its package file cannot
+ * be read, as under a bundler.
+ */
+function grpcVersion(): string {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    return (require('@grpc/grpc-js/package.json') as { version: string })
+      .version
+  } catch {
+    return 'unknown'
+  }
+}
+
+/**
  * An authenticator kind as an error message names it.
  */
 function describeAuth(kind: ReturnType<typeof authenticatorKind>): string {
@@ -200,12 +217,15 @@ export class Couchbase2Backend implements ImplementedBackend {
   private readonly _logger: CouchbaseLogger
   private readonly _health: HealthClient
   private readonly _authKind: ReturnType<typeof authenticatorKind>
+  private readonly _unrecognized = new Set<string>()
+  private _lastActivity: number | undefined
   private _closed = false
 
   /**
    * Reads the connection string and opens the channel. A connection string
    * or a TLS setting that cannot be used throws `InvalidArgumentError`.
-   * Options that are read and not used are logged once, at warn.
+   * Options that are read and not used are logged once, at warn, and how
+   * the channel connects is logged at info.
    */
   constructor(options: Couchbase2BackendOptions) {
     const connStr = parseConnStr(options.connStr)
@@ -246,6 +266,18 @@ export class Couchbase2Backend implements ImplementedBackend {
     // before the channel is opened, leaving nothing open when it does.
     const schema = loadSchema()
     this._channel = openChannel(settings, this._logger)
+    // Shaped like the C++ core's "open cluster" line.
+    this._logger.info(
+      `couchbase2: open cluster, SDK version: "${SDK_VERSION}", grpc-js ` +
+        `version: "${grpcVersion()}", Node version: "${process.version}", ` +
+        `gateway: "${systemData(this.target)}", ` +
+        `${describeChannel(settings, this._authKind)}, log redaction: ` +
+        `${!!(options.logRedaction ?? connStr.logRedaction)}`
+    )
+    watchConnectivity(this._channel, this._logger, {
+      target: this.target,
+      lastActivity: () => this._lastActivity,
+    })
     // Every stub shares the channel, which carries the real credentials.
     const stubOptions = { channelOverride: this._channel }
     const insecure = grpc.credentials.createInsecure()
@@ -325,13 +357,31 @@ export class Couchbase2Backend implements ImplementedBackend {
     timeoutMs: number,
     obs?: ObservableRequestHandler | null
   ): RequestContext {
+    this._lastActivity = Date.now()
     return new RequestContext(op, timeoutMs, {
       closed: () => this._closed,
       logger: this._logger,
       target: this.target,
       obs,
       address: this._address,
+      unrecognized: (value) => this._warnUnrecognized(value),
     })
+  }
+
+  /**
+   * Logs a failure value the SDK has no mapping for, once per value for the
+   * life of the cluster.
+   */
+  private _warnUnrecognized(value: string): void {
+    if (this._unrecognized.has(value)) {
+      return
+    }
+    this._unrecognized.add(value)
+    this._logger.warn(
+      `couchbase2: the gateway sent ${value}, which this SDK version does ` +
+        'not recognize, so the error raised for it is a general one. A ' +
+        'newer SDK may map it.'
+    )
   }
 
   /**
@@ -404,6 +454,7 @@ export class Couchbase2Backend implements ImplementedBackend {
     const authorization = authorizationHeader(auth)
     if (authorization) {
       this.metadata.set('authorization', authorization)
+      this._logger.info(`couchbase2: updated the cluster's ${next} credentials`)
     }
   }
 
@@ -416,6 +467,10 @@ export class Couchbase2Backend implements ImplementedBackend {
       return
     }
     this._closed = true
+    this._logger.info(
+      `couchbase2: closing the connection to ${systemData(this.target)}, ` +
+        `canceling ${this.streams.size} open stream(s)`
+    )
     this.streams.cancelAll()
     this._channel.close()
   }

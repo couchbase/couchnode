@@ -309,6 +309,55 @@ describe('#couchbase2 error mapping', () => {
     ).toBe('gRPC status DATA_LOSS')
   })
 
+  it.each([
+    [
+      grpc.status.NOT_FOUND,
+      [resourceInfo('widget')],
+      'NOT_FOUND resource type "widget"',
+    ],
+    [
+      grpc.status.ALREADY_EXISTS,
+      [resourceInfo('widget')],
+      'ALREADY_EXISTS resource type "widget"',
+    ],
+    [
+      grpc.status.FAILED_PRECONDITION,
+      [violation('POISONED_CAS')],
+      'precondition violation "POISONED_CAS"',
+    ],
+    [grpc.status.ABORTED, [errorInfo('OTHER')], 'ABORTED reason "OTHER"'],
+    [grpc.status.DATA_LOSS, [], 'gRPC status DATA_LOSS'],
+  ])(
+    'should name what it does not recognize for code %i',
+    (code, details, value) => {
+      expect(
+        mapServiceError(
+          serviceError(code, 'bare', trailer(statusBytes(code, 'm', details))),
+          false
+        ).unrecognized
+      ).toBe(value)
+    }
+  )
+
+  it.each([
+    [grpc.status.NOT_FOUND, [resourceInfo('bucket')]],
+    [grpc.status.NOT_FOUND, []],
+    [grpc.status.FAILED_PRECONDITION, [violation('LOCKED')]],
+    [grpc.status.FAILED_PRECONDITION, []],
+    [grpc.status.ABORTED, [errorInfo('CAS_MISMATCH')]],
+    [grpc.status.ABORTED, []],
+    [grpc.status.PERMISSION_DENIED, [resourceInfo('widget')]],
+    [grpc.status.UNAVAILABLE, []],
+    [grpc.status.UNKNOWN, []],
+  ])('should recognize code %i with %j', (code, details) => {
+    expect(
+      mapServiceError(
+        serviceError(code, 'bare', trailer(statusBytes(code, 'm', details))),
+        false
+      )
+    ).not.toHaveProperty('unrecognized')
+  })
+
   it('should retry UNAVAILABLE and nothing else by code', () => {
     expect(
       mapStatus(grpc.status.UNAVAILABLE, '', undefined, false).retryReason
