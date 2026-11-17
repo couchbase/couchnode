@@ -5,7 +5,7 @@ import { Cas } from './utilities'
  *
  * @category Error Handling
  */
-type ErrorContextTypes =
+export type ErrorContextTypes =
   | KeyValueErrorContext
   | ViewErrorContext
   | QueryErrorContext

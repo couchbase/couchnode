@@ -129,4 +129,10 @@ export * from './viewexecutor'
 export * from './viewindexmanager'
 export * from './viewtypes'
 
+export {
+  AttributeValue,
+  SpanStatus,
+  SpanStatusCode,
+  TimeInput,
+} from './observabilitytypes'
 export { Cas, CasInput, NodeCallback } from './utilities'

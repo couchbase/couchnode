@@ -22,5 +22,8 @@
     "Error Handling",
     "Logging"
   ],
-  "intentionallyNotExported": ["lib/rangeScan.ts:ScanType"]
+  "intentionallyNotExported": [
+    "lib/streamablepromises.ts:ListenerFunc",
+    "lib/binding.ts:HiResTime"
+  ]
 }

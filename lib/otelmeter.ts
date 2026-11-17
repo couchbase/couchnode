@@ -2,13 +2,11 @@ import { Meter, ValueRecorder } from './metrics'
 import { SDK_NAME, SDK_VERSION } from './version'
 
 // This block is completely erased when compiled to JavaScript.
-/* eslint-disable n/no-missing-import */
 import type {
   Histogram as OTelHistogram,
   Meter as OTelMeter,
   MeterProvider as OTelMeterProvider,
 } from '@opentelemetry/api'
-/* eslint-enable n/no-missing-import */
 
 // Dynamic Runtime Require (Bundler-safe)
 let otelApi: typeof import('@opentelemetry/api') | null = null
