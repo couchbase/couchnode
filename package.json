@@ -45,7 +45,7 @@
     "@types/node": "^22.14.1",
     "@typescript-eslint/eslint-plugin": "^8.54.0",
     "@typescript-eslint/parser": "^8.54.0",
-    "@vitest/coverage-v8": "^4.1.11",
+    "@vitest/coverage-v8": "^4.1.12",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-jsdoc": "^50.6.2",
@@ -59,7 +59,7 @@
     "typedoc": "^0.28.3",
     "typescript": "~5.4.5",
     "typescript-eslint": "^8.54.0",
-    "vitest": "^4.1.11",
+    "vitest": "^4.1.12",
     "why-is-node-running": "^3.2.2"
   },
   "repository": {
