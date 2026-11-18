@@ -34,7 +34,11 @@ import type { StorageBackend__Output as StorageBackendPb } from './generated/cou
 import type { UpdateBucketRequest as UpdateBucketRequestPb } from './generated/couchbase/admin/bucket/v1/UpdateBucketRequest'
 import type { UpdateBucketResponse__Output as UpdateBucketResponsePb } from './generated/couchbase/admin/bucket/v1/UpdateBucketResponse'
 import type { DurabilityLevel__Output as DurabilityLevelPb } from './generated/couchbase/kv/v1/DurabilityLevel'
-import type { Couchbase2Channel, Couchbase2Op } from './requestcontext'
+import type {
+  Couchbase2Channel,
+  Couchbase2Op,
+  RequestContext,
+} from './requestcontext'
 import { unary } from './retry'
 
 /**
@@ -305,6 +309,30 @@ export function updateBucketRequestToProto(
 }
 
 /**
+ * Throws `FeatureNotAvailableError` if `bucketName` is listed with a minimum
+ * durability level. The gateway has no level for none and keeps a bucket's
+ * level when an update leaves it out (ING-2862), so an update asking for none
+ * would succeed and leave the level in place. A bucket with no level, or one
+ * not listed, is left to the update itself.
+ *
+ * @internal
+ */
+export function checkNoDurabilityToClear(
+  resp: ListBucketsResponsePb,
+  bucketName: string
+): void {
+  const bucket = resp.buckets.find((b) => b.bucket_name === bucketName)
+  if (bucket?.minimum_durability_level !== undefined) {
+    throw new FeatureNotAvailableError(
+      new Error(
+        "A bucket's minimum durability level cannot be cleared over " +
+          'couchbase2: the gateway keeps the current level.'
+      )
+    )
+  }
+}
+
+/**
  * One listed bucket's settings, read as a classic connection reads them. No
  * minimum durability level means none. History settings are read for magma
  * only: the gateway lists zeros for couchstore, which the server refuses if
@@ -384,14 +412,25 @@ export class Couchbase2Buckets implements BucketManagementBackend {
   }
 
   /**
-   * Updates a bucket with `BucketAdminService.UpdateBucket`.
+   * Updates a bucket with `BucketAdminService.UpdateBucket`. An update asking
+   * for no minimum durability level lists the buckets first, to refuse it
+   * for a bucket that has one; see {@link checkNoDurabilityToClear}. The
+   * listing is a request of its own, a read, and the update is given what is
+   * left of the timeout after it, so that running out of time before the
+   * update is sent is not ambiguous.
    */
   async updateBucket(
     settings: Partial<IBucketSettings> & Pick<IBucketSettings, 'name'>,
     req: BackendRequest
   ): Promise<void> {
     const message = updateBucketRequestToProto(settings)
-    const ctx = this._channel.context(BUCKET_UPDATE, req.timeout, req.obs)
+    let timeout = req.timeout
+    if (minimumDurabilityOf(settings) === DurabilityLevel.None) {
+      const listCtx = this._channel.context(BUCKET_GET, timeout, req.obs)
+      checkNoDurabilityToClear(await this._list(listCtx), settings.name)
+      timeout = listCtx.remaining()
+    }
+    const ctx = this._channel.context(BUCKET_UPDATE, timeout, req.obs)
     await unary<UpdateBucketResponsePb>(ctx, (options, callback) =>
       this._client.UpdateBucket(
         message,
@@ -426,7 +465,9 @@ export class Couchbase2Buckets implements BucketManagementBackend {
     bucketName: string,
     req: BackendRequest
   ): Promise<BucketSettings> {
-    const resp = await this._list(BUCKET_GET, req)
+    const resp = await this._list(
+      this._channel.context(BUCKET_GET, req.timeout, req.obs)
+    )
     const bucket = resp.buckets.find((b) => b.bucket_name === bucketName)
     if (!bucket) {
       throw new BucketNotFoundError(
@@ -440,7 +481,9 @@ export class Couchbase2Buckets implements BucketManagementBackend {
    * Lists every bucket's settings with `BucketAdminService.ListBuckets`.
    */
   async getAllBuckets(req: BackendRequest): Promise<BucketSettings[]> {
-    const resp = await this._list(BUCKET_GET_ALL, req)
+    const resp = await this._list(
+      this._channel.context(BUCKET_GET_ALL, req.timeout, req.obs)
+    )
     return resp.buckets.map(bucketSettingsFromProto)
   }
 
@@ -461,13 +504,9 @@ export class Couchbase2Buckets implements BucketManagementBackend {
   }
 
   /**
-   * Lists every bucket with `BucketAdminService.ListBuckets`, as `op`.
+   * Lists every bucket with `BucketAdminService.ListBuckets`, under `ctx`.
    */
-  private _list(
-    op: Couchbase2Op,
-    req: BackendRequest
-  ): Promise<ListBucketsResponsePb> {
-    const ctx = this._channel.context(op, req.timeout, req.obs)
+  private _list(ctx: RequestContext): Promise<ListBucketsResponsePb> {
     return unary<ListBucketsResponsePb>(ctx, (options, callback) =>
       this._client.ListBuckets({}, this._channel.metadata, options, callback)
     )

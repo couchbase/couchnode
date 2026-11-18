@@ -149,47 +149,15 @@ export function keyspaceToProto(keyspace: QueryIndexKeyspace): KeyspacePb {
 }
 
 /**
- * Whether `key` opens with a backtick and closes with the backtick that
- * ends its identifier. Inside it, a backslash escapes the character after
- * it and a backtick is escaped or doubled.
- */
-function isEscapedIdentifier(key: string): boolean {
-  if (key.length < 2 || key[0] !== '`' || key[key.length - 1] !== '`') {
-    return false
-  }
-  const last = key.length - 1
-  let i = 1
-  while (i < last) {
-    if (key[i] === '\\') {
-      // A backslash just before the closing backtick escapes it, and the
-      // identifier runs on past the end of the key.
-      if (i + 1 >= last) {
-        return false
-      }
-      i += 2
-    } else if (key[i] === '`') {
-      if (i + 1 < last && key[i + 1] === '`') {
-        i += 2
-      } else {
-        return false
-      }
-    } else {
-      i += 1
-    }
-  }
-  return true
-}
-
-/**
- * One index key as exactly one identifier. The gateway splices keys into the
- * statement verbatim, so a key that closed its own quoting would change the
- * statement. A key that already is one escaped identifier, as the listing
- * reports it, is sent as is.
+ * One index key as the gateway is sent it. A key wrapped in backticks is
+ * taken as already escaped, which lets a nested path like `` `a`.`b` `` through,
+ * and is sent as written, as on a classic connection. Any other key is quoted
+ * as one identifier, so that it cannot close its own quoting.
  *
  * @internal
  */
 export function escapeIndexKey(key: string): string {
-  if (isEscapedIdentifier(key)) {
+  if (key.length >= 2 && key.startsWith('`') && key.endsWith('`')) {
     return key
   }
   return '`' + key.replace(/[\\`]/g, '\\$&') + '`'

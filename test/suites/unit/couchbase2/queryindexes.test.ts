@@ -53,18 +53,20 @@ describe('#couchbase2 query index keys', () => {
     ['a key with spaces', 'two words', '`two words`'],
     ['a backtick', 'a`b', '`a\\`b`'],
     ['a backslash', 'a\\b', '`a\\\\b`'],
-    ['an escaped identifier', '`name`', '`name`'],
-    ['an identifier with a doubled backtick', '`a``b`', '`a``b`'],
-    ['an identifier with an escaped backtick', '`a\\`b`', '`a\\`b`'],
+    ['a lone backtick', '`', '`\\``'],
+    ['a key that only opens with a backtick', '`a', '`\\`a`'],
   ])('should send %s as one identifier', (_name, key, sent) => {
     expect(escapeIndexKey(key)).toBe(sent)
   })
 
   it.each([
-    ['closes early', '`a`,`b`', '`\\`a\\`,\\`b\\``'],
-    ['escapes its closing backtick', '`a\\`', '`\\`a\\\\\\``'],
-  ])('should escape a quoted key that %s', (_name, key, sent) => {
-    expect(escapeIndexKey(key)).toBe(sent)
+    ['an escaped identifier', '`name`'],
+    ['an escaped nested path', '`a`.`b`'],
+    ['an identifier with a doubled backtick', '`a``b`'],
+    ['an identifier with an escaped backtick', '`a\\`b`'],
+    ['an escaped expression', '`a`,`b`'],
+  ])('should send %s as written', (_name, key) => {
+    expect(escapeIndexKey(key)).toBe(key)
   })
 })
 

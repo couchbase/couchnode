@@ -24,6 +24,7 @@ import {
   BucketNotFoundError,
   FeatureNotAvailableError,
   InvalidArgumentError,
+  UnambiguousTimeoutError,
 } from '../../../../lib/errors'
 import { DurabilityLevel } from '../../../../lib/generaltypes'
 
@@ -301,6 +302,148 @@ describe('#couchbase2 buckets client', () => {
     await expect(buckets.getBucket('missing', req)).rejects.toBeInstanceOf(
       BucketNotFoundError
     )
+  })
+
+  /**
+   * A client that answers `ListBuckets` with `listed` and `UpdateBucket`
+   * with nothing, and records the calls made.
+   */
+  function recording(listed: ListedBucketPb[]) {
+    const calls: { method: string; message: unknown }[] = []
+    const answer =
+      (method: string, resp: unknown) =>
+      (...args: unknown[]) => {
+        calls.push({ method, message: args[0] })
+        const callback = args[args.length - 1] as grpc.requestCallback<unknown>
+        callback(null, resp)
+      }
+    const client = {
+      ListBuckets: answer('ListBuckets', { buckets: listed }),
+      UpdateBucket: answer('UpdateBucket', {}),
+    } as unknown as BucketAdminServiceClient
+    return { client, calls }
+  }
+
+  it.each([
+    [
+      'minimumDurabilityLevel',
+      { minimumDurabilityLevel: DurabilityLevel.None },
+    ],
+    ['the deprecated durabilityMinLevel', { durabilityMinLevel: 'none' }],
+  ])(
+    'should refuse clearing a minimum durability level with %s',
+    async (_name, durability) => {
+      const { client, calls } = recording([
+        { ...LISTED, bucket_name: 'a', minimum_durability_level: undefined },
+        LISTED,
+      ])
+      const buckets = new Couchbase2Buckets(channel, client)
+      await expect(
+        buckets.updateBucket({ name: 'b', ...durability }, req)
+      ).rejects.toBeInstanceOf(FeatureNotAvailableError)
+      expect(calls.map((c) => c.method)).toEqual(['ListBuckets'])
+    }
+  )
+
+  it.each([
+    ['has none', [{ ...LISTED, minimum_durability_level: undefined }]],
+    ['is not listed', [{ ...LISTED, bucket_name: 'a' }]],
+  ])(
+    'should update to no minimum durability level a bucket that %s',
+    async (_name, listed) => {
+      const { client, calls } = recording(listed)
+      const buckets = new Couchbase2Buckets(channel, client)
+      await buckets.updateBucket(
+        { name: 'b', minimumDurabilityLevel: DurabilityLevel.None },
+        req
+      )
+      expect(calls).toEqual([
+        { method: 'ListBuckets', message: {} },
+        { method: 'UpdateBucket', message: { bucket_name: 'b' } },
+      ])
+    }
+  )
+
+  it.each([
+    ['no minimum durability level given', {}],
+    [
+      'a minimum durability level',
+      { minimumDurabilityLevel: DurabilityLevel.Majority },
+    ],
+  ])('should not list the buckets for %s', async (_name, durability) => {
+    const { client, calls } = recording([LISTED])
+    const buckets = new Couchbase2Buckets(channel, client)
+    await buckets.updateBucket({ name: 'b', ...durability }, req)
+    expect(calls.map((c) => c.method)).toEqual(['UpdateBucket'])
+  })
+
+  /**
+   * A channel on a fake clock that records each context it makes, and a
+   * client whose `ListBuckets` takes `listMs` on that clock and then answers
+   * with `listErr`, or with `LISTED` when it is null.
+   */
+  function timed(listMs: number, listErr: grpc.ServiceError | null) {
+    let clock = 0
+    const contexts: { op: string; timeoutMs: number }[] = []
+    const timedChannel = {
+      metadata: new grpc.Metadata(),
+      context: (op: Couchbase2Op, timeoutMs: number) => {
+        contexts.push({ op: op.name, timeoutMs })
+        return new RequestContext(op, timeoutMs, { now: () => clock })
+      },
+    }
+    const calls: string[] = []
+    const client = {
+      ListBuckets: (...args: unknown[]) => {
+        calls.push('ListBuckets')
+        clock += listMs
+        const callback = args[args.length - 1] as grpc.requestCallback<unknown>
+        callback(listErr, { buckets: [LISTED] })
+      },
+      UpdateBucket: (...args: unknown[]) => {
+        calls.push('UpdateBucket')
+        const callback = args[args.length - 1] as grpc.requestCallback<unknown>
+        callback(null, {})
+      },
+    } as unknown as BucketAdminServiceClient
+    return {
+      buckets: new Couchbase2Buckets(timedChannel, client),
+      contexts,
+      calls,
+    }
+  }
+
+  const clearing = { name: 'a', minimumDurabilityLevel: DurabilityLevel.None }
+
+  it('should list the buckets as a read, and update in the time left', async () => {
+    const { buckets, contexts, calls } = timed(1000, null)
+    await buckets.updateBucket(clearing, req)
+    expect(contexts).toEqual([
+      { op: 'bucket_get', timeoutMs: 2500 },
+      { op: 'bucket_update', timeoutMs: 1500 },
+    ])
+    expect(calls).toEqual(['ListBuckets', 'UpdateBucket'])
+  })
+
+  it('should raise UnambiguousTimeoutError when the listing times out', async () => {
+    const deadline = Object.assign(new Error('deadline exceeded'), {
+      code: grpc.status.DEADLINE_EXCEEDED,
+      details: 'deadline exceeded',
+      metadata: new grpc.Metadata(),
+    })
+    const { buckets, calls } = timed(2500, deadline)
+    await expect(buckets.updateBucket(clearing, req)).rejects.toBeInstanceOf(
+      UnambiguousTimeoutError
+    )
+    expect(calls).toEqual(['ListBuckets'])
+  })
+
+  it('should raise UnambiguousTimeoutError without updating when the listing takes all the time', async () => {
+    const { buckets, calls } = timed(2500, null)
+    await expect(buckets.updateBucket(clearing, req)).rejects.toBeInstanceOf(
+      UnambiguousTimeoutError
+    )
+    expect(calls).toEqual(['ListBuckets'])
   })
 
   it('should leave an invalid argument as it is', async () => {
