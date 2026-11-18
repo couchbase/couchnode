@@ -637,16 +637,14 @@ export class PathTooDeepError extends CouchbaseError {
 
 /**
  * Indicates that a sub-document operation met a document with too many
- * levels to parse. Raised only over a `couchbase2://` connection; it extends
- * {@link PathTooDeepError}, which a classic connection raises for the same
- * condition, so a check for that error still catches it.
+ * levels to parse. Raised only over a `couchbase2://` connection; a classic
+ * connection raises {@link PathTooDeepError} for the same condition.
  *
  * @category Error Handling
  */
-export class DocumentTooDeepError extends PathTooDeepError {
+export class DocumentTooDeepError extends CouchbaseError {
   constructor(cause?: Error, context?: ErrorContext) {
-    super(cause, context)
-    this.message = 'document too deep'
+    super('document too deep', cause, context)
   }
 }
 

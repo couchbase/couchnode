@@ -43,7 +43,6 @@ import { unary } from './retry'
 export const BUCKET_GET_ALL: Couchbase2Op = {
   name: 'bucket_get_all',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -52,7 +51,6 @@ export const BUCKET_GET_ALL: Couchbase2Op = {
 export const BUCKET_GET: Couchbase2Op = {
   name: 'bucket_get',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -61,7 +59,6 @@ export const BUCKET_GET: Couchbase2Op = {
 export const BUCKET_CREATE: Couchbase2Op = {
   name: 'bucket_create',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -70,7 +67,6 @@ export const BUCKET_CREATE: Couchbase2Op = {
 export const BUCKET_UPDATE: Couchbase2Op = {
   name: 'bucket_update',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -79,7 +75,6 @@ export const BUCKET_UPDATE: Couchbase2Op = {
 export const BUCKET_DROP: Couchbase2Op = {
   name: 'bucket_drop',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -88,7 +83,6 @@ export const BUCKET_DROP: Couchbase2Op = {
 export const BUCKET_FLUSH: Couchbase2Op = {
   name: 'bucket_flush',
   readOnly: false,
-  idempotent: false,
 }
 
 /**

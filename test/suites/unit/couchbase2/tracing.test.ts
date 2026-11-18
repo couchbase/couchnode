@@ -31,7 +31,7 @@ import {
 import { OTelWrapperTracer } from '../../../../lib/oteltracer'
 import { RequestSpan, RequestTracer } from '../../../../lib/tracing'
 
-const GET: Couchbase2Op = { name: 'get', readOnly: true, idempotent: true }
+const GET: Couchbase2Op = { name: 'get', readOnly: true }
 const CHECK = 'grpc.health.v1.Health/Check'
 const WATCH = 'grpc.health.v1.Health/Watch'
 

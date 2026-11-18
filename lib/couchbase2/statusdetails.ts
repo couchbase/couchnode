@@ -1,7 +1,6 @@
 import type * as grpc from '@grpc/grpc-js'
 
 import type { Any__Output as AnyOutputPb } from './generated/google/protobuf/Any'
-import type { BadRequest__Output as BadRequestOutputPb } from './generated/google/rpc/BadRequest'
 import type { DebugInfo__Output as DebugInfoOutputPb } from './generated/google/rpc/DebugInfo'
 import type { ErrorInfo__Output as ErrorInfoOutputPb } from './generated/google/rpc/ErrorInfo'
 import type { PreconditionFailure__Output as PreconditionFailureOutputPb } from './generated/google/rpc/PreconditionFailure'
@@ -45,11 +44,6 @@ export interface StatusDetails {
    * The preconditions that failed.
    */
   preconditionFailure?: PreconditionFailureOutputPb
-
-  /**
-   * The request fields that were rejected.
-   */
-  badRequest?: BadRequestOutputPb
 
   /**
    * Debugging information from the gateway.
@@ -112,7 +106,6 @@ export function statusDetailsFromProto(
       'PreconditionFailure',
       rpc.PreconditionFailure
     ),
-    badRequest: unpackFirst(details, 'BadRequest', rpc.BadRequest),
     debugInfo: unpackFirst(details, 'DebugInfo', rpc.DebugInfo),
     requestInfo: unpackFirst(details, 'RequestInfo', rpc.RequestInfo),
   }

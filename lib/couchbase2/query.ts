@@ -53,7 +53,7 @@ const UINT32_MAX = 2 ** 32 - 1
  */
 export function queryOp(options: QueryOptions): Couchbase2Op {
   const readOnly = options.readOnly || false
-  return { name: 'query', readOnly, idempotent: readOnly }
+  return { name: 'query', readOnly }
 }
 
 /**

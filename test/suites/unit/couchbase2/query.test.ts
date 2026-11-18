@@ -173,7 +173,6 @@ describe('#couchbase2 query request', () => {
     expect(queryOp({ readOnly: true })).toEqual({
       name: 'query',
       readOnly: true,
-      idempotent: true,
     })
     expect(queryOp({}).readOnly).toBe(false)
   })

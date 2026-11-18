@@ -36,7 +36,9 @@ export interface RetryRequest {
   readonly identifier: string
 
   /**
-   * Whether sending the request twice has the same effect as sending it once.
+   * Whether the request may be sent again whatever the reason. Only
+   * read-only operations are idempotent, so this is the operation's
+   * `readOnly`.
    */
   readonly idempotent: boolean
 
@@ -52,8 +54,8 @@ export interface RetryRequest {
 }
 
 /**
- * Decides whether, and after how long, a request is retried for a reason
- * that does not always retry.
+ * Decides whether, and after how long, a request is retried. Neither
+ * couchbase2 reason always retries, so every retry is put to the strategy. It only proposes a delay: the request's deadline still caps it.
  *
  * @internal
  */
@@ -65,31 +67,12 @@ export interface RetryStrategy {
 }
 
 /**
- * The reasons that retry with controlled backoff without asking the
- * strategy.
- */
-const ALWAYS_RETRY: ReadonlySet<RetryReason> = new Set<RetryReason>([
-  'service_not_available',
-  'key_value_locked',
-])
-
-/**
  * The reasons that may retry a request that is not idempotent. Both
  * couchbase2 reasons say the gateway did not apply the request, so retrying
  * a write cannot apply it twice.
  */
 const ALLOWS_NON_IDEMPOTENT_RETRY: ReadonlySet<RetryReason> =
   new Set<RetryReason>(['service_not_available', 'key_value_locked'])
-
-/**
- * Whether `reason` retries with controlled backoff without asking the
- * strategy.
- *
- * @internal
- */
-export function alwaysRetries(reason: RetryReason): boolean {
-  return ALWAYS_RETRY.has(reason)
-}
 
 /**
  * Whether a request that is not idempotent may be retried for `reason`.

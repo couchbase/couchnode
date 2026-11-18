@@ -33,7 +33,6 @@ import { unary } from './retry'
 export const SCOPE_GET_ALL: Couchbase2Op = {
   name: 'scope_get_all',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -42,7 +41,6 @@ export const SCOPE_GET_ALL: Couchbase2Op = {
 export const SCOPE_CREATE: Couchbase2Op = {
   name: 'scope_create',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -51,7 +49,6 @@ export const SCOPE_CREATE: Couchbase2Op = {
 export const SCOPE_DROP: Couchbase2Op = {
   name: 'scope_drop',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -60,7 +57,6 @@ export const SCOPE_DROP: Couchbase2Op = {
 export const COLLECTION_CREATE: Couchbase2Op = {
   name: 'collection_create',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -69,7 +65,6 @@ export const COLLECTION_CREATE: Couchbase2Op = {
 export const COLLECTION_UPDATE: Couchbase2Op = {
   name: 'collection_update',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -78,7 +73,6 @@ export const COLLECTION_UPDATE: Couchbase2Op = {
 export const COLLECTION_DROP: Couchbase2Op = {
   name: 'collection_drop',
   readOnly: false,
-  idempotent: false,
 }
 
 /**

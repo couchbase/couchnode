@@ -53,7 +53,6 @@ import {
 export const SEARCH: Couchbase2Op = {
   name: 'search',
   readOnly: true,
-  idempotent: true,
 }
 
 const UINT32_MAX = 2 ** 32 - 1

@@ -46,6 +46,7 @@ import {
   CouchbaseError,
   DeltaInvalidError,
   DocumentNotJsonError,
+  DocumentTooDeepError,
   FeatureNotAvailableError,
   InternalServerFailureError,
   InvalidArgumentError,
@@ -54,7 +55,6 @@ import {
   PathExistsError,
   PathMismatchError,
   PathNotFoundError,
-  PathTooDeepError,
   ValueInvalidError,
 } from '../errors'
 import { DurabilityLevel, StoreSemantics } from '../generaltypes'
@@ -125,7 +125,6 @@ import { statusDetailsFromProto } from './statusdetails'
 export const GET: Couchbase2Op = {
   name: 'get',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -134,7 +133,6 @@ export const GET: Couchbase2Op = {
 export const UPSERT: Couchbase2Op = {
   name: 'upsert',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -143,7 +141,6 @@ export const UPSERT: Couchbase2Op = {
 export const INSERT: Couchbase2Op = {
   name: 'insert',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -152,7 +149,6 @@ export const INSERT: Couchbase2Op = {
 export const REPLACE: Couchbase2Op = {
   name: 'replace',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -161,7 +157,6 @@ export const REPLACE: Couchbase2Op = {
 export const REMOVE: Couchbase2Op = {
   name: 'remove',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -170,7 +165,6 @@ export const REMOVE: Couchbase2Op = {
 export const EXISTS: Couchbase2Op = {
   name: 'exists',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -179,7 +173,6 @@ export const EXISTS: Couchbase2Op = {
 export const GET_AND_TOUCH: Couchbase2Op = {
   name: 'getAndTouch',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -188,7 +181,6 @@ export const GET_AND_TOUCH: Couchbase2Op = {
 export const TOUCH: Couchbase2Op = {
   name: 'touch',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -197,7 +189,6 @@ export const TOUCH: Couchbase2Op = {
 export const GET_AND_LOCK: Couchbase2Op = {
   name: 'getAndLock',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -206,7 +197,6 @@ export const GET_AND_LOCK: Couchbase2Op = {
 export const UNLOCK: Couchbase2Op = {
   name: 'unlock',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -215,7 +205,6 @@ export const UNLOCK: Couchbase2Op = {
 export const INCREMENT: Couchbase2Op = {
   name: 'increment',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -224,7 +213,6 @@ export const INCREMENT: Couchbase2Op = {
 export const DECREMENT: Couchbase2Op = {
   name: 'decrement',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -233,7 +221,6 @@ export const DECREMENT: Couchbase2Op = {
 export const APPEND: Couchbase2Op = {
   name: 'append',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -242,7 +229,6 @@ export const APPEND: Couchbase2Op = {
 export const PREPEND: Couchbase2Op = {
   name: 'prepend',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -251,7 +237,6 @@ export const PREPEND: Couchbase2Op = {
 export const LOOKUP_IN: Couchbase2Op = {
   name: 'lookupIn',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -260,7 +245,6 @@ export const LOOKUP_IN: Couchbase2Op = {
 export const MUTATE_IN: Couchbase2Op = {
   name: 'mutateIn',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -861,7 +845,7 @@ const SUBDOC_STATUSES: ReadonlyArray<[ErrorClass, SubdocStatus]> = [
   [PathNotFoundError, 'path_not_found'],
   [PathExistsError, 'path_exists'],
   [PathMismatchError, 'path_mismatch'],
-  [PathTooDeepError, 'doc_too_deep'],
+  [DocumentTooDeepError, 'doc_too_deep'],
   [DocumentNotJsonError, 'doc_not_json'],
   [NumberTooBigError, 'num_range_error'],
   [ValueInvalidError, 'value_cannot_insert'],

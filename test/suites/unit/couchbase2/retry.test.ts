@@ -35,19 +35,17 @@ import { STATUS_DETAILS_KEY } from '../../../../lib/couchbase2/statusdetails'
 
 const rpc = loadSchema().google.rpc
 
-const GET: Couchbase2Op = { name: 'get', readOnly: true, idempotent: true }
+const GET: Couchbase2Op = { name: 'get', readOnly: true }
 const UPSERT: Couchbase2Op = {
   name: 'upsert',
   readOnly: false,
-  idempotent: true,
 }
 const INSERT: Couchbase2Op = {
   name: 'insert',
   readOnly: false,
-  idempotent: false,
 }
 
-// A reason that does not always retry, so that the strategy is asked.
+// A reason the best effort strategy retries only for a read.
 const ASKED = 'asked' as RetryReason
 
 class Clock {
@@ -74,7 +72,20 @@ function locked(): MappedError {
 }
 
 function notFound(): MappedError {
-  return mapStatus(grpc.status.NOT_FOUND, 'gone', undefined, true)
+  return mapStatus(
+    grpc.status.NOT_FOUND,
+    'gone',
+    {
+      message: '',
+      resourceInfo: {
+        resource_type: 'document',
+        resource_name: 'k',
+        owner: '',
+        description: '',
+      },
+    },
+    true
+  )
 }
 
 function asked(): MappedError {
@@ -275,7 +286,7 @@ describe('#couchbase2 request context', () => {
     expect(ctx.check()).toBeInstanceOf(RequestCanceledError)
   })
 
-  it('should ask the strategy only for a reason that does not always retry', () => {
+  it('should ask the strategy for every reason', () => {
     const retryAfter = vi.fn<RetryStrategy['retryAfter']>(() => ({
       delayMs: 7,
     }))
@@ -283,15 +294,22 @@ describe('#couchbase2 request context', () => {
       now: new Clock().now,
       strategy: { retryAfter },
     })
-    expect(expectRetry(ctx.onFailure(unavailable()))).toBe(1)
-    expect(retryAfter).not.toHaveBeenCalled()
+    expect(expectRetry(ctx.onFailure(unavailable()))).toBe(7)
+    expect(retryAfter).toHaveBeenLastCalledWith(ctx, 'service_not_available')
+    expect(expectRetry(ctx.onFailure(locked()))).toBe(7)
+    expect(retryAfter).toHaveBeenLastCalledWith(ctx, 'key_value_locked')
     expect(expectRetry(ctx.onFailure(asked()))).toBe(7)
-    expect(retryAfter).toHaveBeenCalledWith(ctx, ASKED)
+    expect(retryAfter).toHaveBeenLastCalledWith(ctx, ASKED)
 
     retryAfter.mockReturnValue(DO_NOT_RETRY)
-    const err = expectError(ctx.onFailure(asked()))
+    const err = expectError(ctx.onFailure(unavailable()))
     expect(err).toBeInstanceOf(ServiceNotAvailableError)
-    expect(contextOf(err).retry_attempts).toBe(2)
+    expect(contextOf(err).retry_attempts).toBe(3)
+  })
+
+  it('should read a request as idempotent only when it is read-only', () => {
+    expect(new RequestContext(GET, 5000).idempotent).toBe(true)
+    expect(new RequestContext(UPSERT, 5000).idempotent).toBe(false)
   })
 
   it('should log each retry at debug', () => {
@@ -476,7 +494,8 @@ describe('#couchbase2 retry over a call', () => {
     const err = await run([{ code: grpc.status.NOT_FOUND }], ctx).catch(
       (e: unknown) => e
     )
-    expect(err).toBeInstanceOf(DocumentNotFoundError)
+    expect(err).toBeInstanceOf(CouchbaseError)
+    expect(err).not.toBeInstanceOf(DocumentNotFoundError)
     expect(calls).toBe(1)
     expect(contextOf(err as CouchbaseError).retry_attempts).toBe(0)
   })

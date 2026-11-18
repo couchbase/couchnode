@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import { GenericErrorContext } from '../../../../lib/errorcontexts'
 import {
   CouchbaseError,
-  DocumentNotFoundError,
+  InvalidArgumentError,
   RequestCanceledError,
 } from '../../../../lib/errors'
 import { mapStatus } from '../../../../lib/couchbase2/errormapping'
@@ -15,7 +15,7 @@ import {
 import { loadSchema } from '../../../../lib/couchbase2/schema'
 import { OpenStreams, retryStream } from '../../../../lib/couchbase2/streaming'
 
-const QUERY: Couchbase2Op = { name: 'query', readOnly: true, idempotent: true }
+const QUERY: Couchbase2Op = { name: 'query', readOnly: true }
 
 const SERVING = { status: 'SERVING' }
 const NOT_SERVING = { status: 'NOT_SERVING' }
@@ -53,9 +53,9 @@ describe('#couchbase2 request context after a stream began', () => {
   it('should raise any other failure as it maps', () => {
     const ctx = new RequestContext(QUERY, 5000)
     const err = ctx.onStreamFailure(
-      mapStatus(grpc.status.NOT_FOUND, 'gone', undefined, true)
+      mapStatus(grpc.status.INVALID_ARGUMENT, 'bad', undefined, true)
     )
-    expect(err).toBeInstanceOf(DocumentNotFoundError)
+    expect(err).toBeInstanceOf(InvalidArgumentError)
   })
 })
 
@@ -189,10 +189,10 @@ describe('#couchbase2 streaming over a call', () => {
   it('should raise a failure after the first message as it maps', async () => {
     const ctx = new RequestContext(QUERY, 5000)
     const { read, error } = await collect(
-      [{ messages: [SERVING], end: grpc.status.NOT_FOUND }],
+      [{ messages: [SERVING], end: grpc.status.INVALID_ARGUMENT }],
       ctx
     )
-    expect(error).toBeInstanceOf(DocumentNotFoundError)
+    expect(error).toBeInstanceOf(InvalidArgumentError)
     expect(read).toEqual([SERVING])
     expect(calls).toBe(1)
   })

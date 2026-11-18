@@ -374,15 +374,10 @@ export class GenericErrorContext extends ErrorContext {
   resource_type?: string
 
   /**
-   * The reason the gateway gave for an aborted operation, such as
-   * `CAS_MISMATCH`.
+   * The reason the gateway gave for the failure, such as `CAS_MISMATCH`,
+   * when it named one.
    */
   reason?: string
-
-  /**
-   * The request fields the gateway rejected, and why.
-   */
-  field_violations?: { field: string; description: string }[]
 
   /**
    * Debugging information the gateway attached to the failure.
@@ -411,7 +406,6 @@ export class GenericErrorContext extends ErrorContext {
     this.resource_name = data.resource_name
     this.resource_type = data.resource_type
     this.reason = data.reason
-    this.field_violations = data.field_violations
     this.debug_info = data.debug_info
     this.request_info = data.request_info
     this.last_error = data.last_error

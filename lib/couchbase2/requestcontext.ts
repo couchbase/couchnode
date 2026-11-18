@@ -20,13 +20,7 @@ import {
   RetryReason,
   statusName,
 } from './errormapping'
-import {
-  alwaysRetries,
-  BestEffortRetryStrategy,
-  controlledBackoff,
-  RetryRequest,
-  RetryStrategy,
-} from './retry'
+import { BestEffortRetryStrategy, RetryRequest, RetryStrategy } from './retry'
 import { attemptInterceptor, GatewayAddress } from './tracing'
 
 /**
@@ -42,16 +36,11 @@ export interface Couchbase2Op {
 
   /**
    * Whether the operation changes nothing, so that running out of time leaves
-   * no doubt about its outcome. An upsert is idempotent and still not
-   * read-only.
+   * no doubt about its outcome and any retry strategy may send it again.
+   * This is what makes an operation idempotent; an upsert, which has the
+   * same effect when sent twice, is not.
    */
   readonly readOnly: boolean
-
-  /**
-   * Whether sending the operation twice has the same effect as sending it
-   * once.
-   */
-  readonly idempotent: boolean
 }
 
 /**
@@ -217,11 +206,11 @@ export class RequestContext implements RetryRequest {
   }
 
   /**
-   * Whether the operation may be sent twice; see
-   * {@link Couchbase2Op.idempotent}.
+   * Whether the operation may be sent again whatever the reason; see
+   * {@link Couchbase2Op.readOnly}.
    */
   get idempotent(): boolean {
-    return this.op.idempotent
+    return this.op.readOnly
   }
 
   /**
@@ -285,9 +274,7 @@ export class RequestContext implements RetryRequest {
     if (reason === undefined) {
       return { retry: false, error: this._error(mapped) }
     }
-    const delayMs = alwaysRetries(reason)
-      ? controlledBackoff(this.retryAttempts)
-      : this._strategy.retryAfter(this, reason).delayMs
+    const delayMs = this._strategy.retryAfter(this, reason).delayMs
     if (delayMs === undefined) {
       return { retry: false, error: this._error(mapped) }
     }

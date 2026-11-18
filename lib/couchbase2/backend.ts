@@ -42,7 +42,6 @@ import type { GatewayAddress } from './tracing'
 export const WAIT_UNTIL_READY: Couchbase2Op = {
   name: 'wait_until_ready',
   readOnly: true,
-  idempotent: true,
 }
 
 /**

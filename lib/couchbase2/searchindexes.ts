@@ -25,7 +25,6 @@ import { unary } from './retry'
 export const SEARCH_INDEX_GET: Couchbase2Op = {
   name: 'search_index_get',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -34,7 +33,6 @@ export const SEARCH_INDEX_GET: Couchbase2Op = {
 export const SEARCH_INDEX_GET_ALL: Couchbase2Op = {
   name: 'search_index_get_all',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -43,7 +41,6 @@ export const SEARCH_INDEX_GET_ALL: Couchbase2Op = {
 export const SEARCH_INDEX_UPSERT: Couchbase2Op = {
   name: 'search_index_upsert',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -52,7 +49,6 @@ export const SEARCH_INDEX_UPSERT: Couchbase2Op = {
 export const SEARCH_INDEX_DROP: Couchbase2Op = {
   name: 'search_index_drop',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -61,7 +57,6 @@ export const SEARCH_INDEX_DROP: Couchbase2Op = {
 export const SEARCH_INDEX_GET_DOCUMENTS_COUNT: Couchbase2Op = {
   name: 'search_index_get_documents_count',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -73,7 +68,6 @@ export const SEARCH_INDEX_GET_DOCUMENTS_COUNT: Couchbase2Op = {
 export const SEARCH_INDEX_CONTROL_INGEST: Couchbase2Op = {
   name: 'search_index_control_ingest',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -82,7 +76,6 @@ export const SEARCH_INDEX_CONTROL_INGEST: Couchbase2Op = {
 export const SEARCH_INDEX_CONTROL_QUERY: Couchbase2Op = {
   name: 'search_index_control_query',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -91,7 +84,6 @@ export const SEARCH_INDEX_CONTROL_QUERY: Couchbase2Op = {
 export const SEARCH_INDEX_CONTROL_PLAN_FREEZE: Couchbase2Op = {
   name: 'search_index_control_plan_freeze',
   readOnly: false,
-  idempotent: true,
 }
 
 /**
@@ -100,7 +92,6 @@ export const SEARCH_INDEX_CONTROL_PLAN_FREEZE: Couchbase2Op = {
 export const SEARCH_INDEX_ANALYZE_DOCUMENT: Couchbase2Op = {
   name: 'search_index_analyze_document',
   readOnly: true,
-  idempotent: true,
 }
 
 /**

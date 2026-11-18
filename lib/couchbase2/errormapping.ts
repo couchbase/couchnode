@@ -29,7 +29,6 @@ import {
   PathExistsError,
   PathMismatchError,
   PathNotFoundError,
-  RateLimitedError,
   RequestCanceledError,
   ScopeExistsError,
   ScopeNotFoundError,
@@ -72,7 +71,6 @@ export type GatewayErrorFields = Pick<
   | 'resource_name'
   | 'resource_type'
   | 'reason'
-  | 'field_violations'
   | 'debug_info'
   | 'request_info'
 >
@@ -102,7 +100,8 @@ export type RequestErrorFields = Pick<
 export interface MappedError {
   /**
    * The class to raise, or undefined for a plain {@link CouchbaseError}
-   * carrying the gateway's message.
+   * carrying the gateway's message, for a failure with no more specific
+   * error.
    */
   errorClass: ErrorClass | undefined
 
@@ -154,7 +153,8 @@ export const ALREADY_EXISTS: Readonly<Record<string, ErrorClass>> = {
 
 /**
  * The error classes for `FAILED_PRECONDITION`, by the first violation's
- * type. A type missing here is an internal server failure.
+ * type. A type missing here has no SDK error of its own and is a plain
+ * {@link CouchbaseError}.
  *
  * @internal
  */
@@ -174,7 +174,8 @@ export const PRECONDITION_FAILED: Readonly<Record<string, ErrorClass>> = {
 
 /**
  * The error classes for codes no detail refines. `DEADLINE_EXCEEDED`
- * depends on the operation and is decided in {@link mapStatus}.
+ * depends on the operation and is decided in {@link mapStatus}; a code
+ * missing from both is a plain {@link CouchbaseError}.
  *
  * @internal
  */
@@ -185,8 +186,21 @@ export const BY_CODE: Readonly<Partial<Record<grpc.status, ErrorClass>>> = {
   [grpc.status.UNAUTHENTICATED]: AuthenticationFailureError,
   [grpc.status.CANCELLED]: RequestCanceledError,
   [grpc.status.UNAVAILABLE]: ServiceNotAvailableError,
-  [grpc.status.RESOURCE_EXHAUSTED]: RateLimitedError,
   [grpc.status.INTERNAL]: InternalServerFailureError,
+}
+
+/**
+ * Looks up `key` in `table`, ignoring inherited properties such as `constructor`.
+ *
+ * @internal
+ */
+function lookup(
+  table: Readonly<Record<string, ErrorClass>>,
+  key: string
+): ErrorClass | undefined {
+  return Object.prototype.hasOwnProperty.call(table, key)
+    ? table[key]
+    : undefined
 }
 
 /**
@@ -224,7 +238,9 @@ export function mapServiceError(err: unknown, readOnly: boolean): MappedError {
 
 /**
  * Maps a failure's `code` and `message`, refined by whatever `details` the
- * gateway sent. A missing detail falls back to the code alone.
+ * gateway sent. A missing detail falls back to the code alone. Every detail
+ * the gateway sent goes into the context whatever the code, while the code
+ * decides which of them choose the error class.
  *
  * @internal
  */
@@ -236,13 +252,8 @@ export function mapStatus(
 ): MappedError {
   const resource = details?.resourceInfo
   const violation =
-    code === grpc.status.FAILED_PRECONDITION
-      ? details?.preconditionFailure?.violations[0]?.type || undefined
-      : undefined
-  const reason =
-    code === grpc.status.ABORTED
-      ? details?.errorInfo?.reason || undefined
-      : undefined
+    details?.preconditionFailure?.violations[0]?.type || undefined
+  const reason = details?.errorInfo?.reason || undefined
 
   const fields: GatewayErrorFields = {
     message: details?.message || message || `gRPC status ${statusName(code)}`,
@@ -257,13 +268,6 @@ export function mapStatus(
   }
   if (reason !== undefined) {
     fields.reason = reason
-  }
-  const fieldViolations = details?.badRequest?.field_violations
-  if (fieldViolations && fieldViolations.length > 0) {
-    fields.field_violations = fieldViolations.map((v) => ({
-      field: v.field,
-      description: v.description,
-    }))
   }
   if (details?.debugInfo) {
     fields.debug_info = {
@@ -315,12 +319,12 @@ function unrecognizedValue(
     case grpc.status.NOT_FOUND:
     case grpc.status.ALREADY_EXISTS: {
       const table = code === grpc.status.NOT_FOUND ? NOT_FOUND : ALREADY_EXISTS
-      return resourceType === '' || resourceType in table
+      return resourceType === '' || lookup(table, resourceType)
         ? undefined
         : `${statusName(code)} resource type "${resourceType}"`
     }
     case grpc.status.FAILED_PRECONDITION:
-      return violation === undefined || violation in PRECONDITION_FAILED
+      return violation === undefined || lookup(PRECONDITION_FAILED, violation)
         ? undefined
         : `precondition violation "${violation}"`
     case grpc.status.ABORTED:
@@ -392,11 +396,11 @@ function errorClassFor(
 ): ErrorClass | undefined {
   switch (code) {
     case grpc.status.NOT_FOUND:
-      return NOT_FOUND[resourceType] ?? DocumentNotFoundError
+      return lookup(NOT_FOUND, resourceType)
     case grpc.status.ALREADY_EXISTS:
-      return ALREADY_EXISTS[resourceType] ?? DocumentExistsError
+      return lookup(ALREADY_EXISTS, resourceType)
     case grpc.status.FAILED_PRECONDITION:
-      return PRECONDITION_FAILED[violation ?? ''] ?? InternalServerFailureError
+      return lookup(PRECONDITION_FAILED, violation ?? '')
     case grpc.status.ABORTED:
       return reason === 'CAS_MISMATCH' ? CasMismatchError : undefined
     case grpc.status.PERMISSION_DENIED:
@@ -428,7 +432,7 @@ function retryReasonFor(
   if (code === grpc.status.UNAVAILABLE) {
     return 'service_not_available'
   }
-  if (violation === 'LOCKED') {
+  if (code === grpc.status.FAILED_PRECONDITION && violation === 'LOCKED') {
     return 'key_value_locked'
   }
   return undefined

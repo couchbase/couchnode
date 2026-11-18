@@ -11,7 +11,6 @@ import { GenericErrorContext } from '../errorcontexts'
 import {
   AmbiguousTimeoutError,
   CouchbaseError,
-  InternalServerFailureError,
   UnambiguousTimeoutError,
 } from '../errors'
 import { QueryIndexMgmtOp } from '../observabilitytypes'
@@ -38,7 +37,6 @@ import { unary } from './retry'
 export const QUERY_INDEX_CREATE: Couchbase2Op = {
   name: 'query_index_create',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -47,7 +45,6 @@ export const QUERY_INDEX_CREATE: Couchbase2Op = {
 export const QUERY_INDEX_DROP: Couchbase2Op = {
   name: 'query_index_drop',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -56,7 +53,6 @@ export const QUERY_INDEX_DROP: Couchbase2Op = {
 export const QUERY_INDEX_GET_ALL: Couchbase2Op = {
   name: 'query_index_get_all',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -65,7 +61,6 @@ export const QUERY_INDEX_GET_ALL: Couchbase2Op = {
 export const QUERY_INDEX_BUILD_DEFERRED: Couchbase2Op = {
   name: 'query_index_build_deferred',
   readOnly: false,
-  idempotent: false,
 }
 
 /**
@@ -77,7 +72,6 @@ export const QUERY_INDEX_BUILD_DEFERRED: Couchbase2Op = {
 export const QUERY_INDEX_WAIT_FOR_ONLINE: Couchbase2Op = {
   name: 'query_index_wait_for_online',
   readOnly: true,
-  idempotent: true,
 }
 
 /**
@@ -235,12 +229,12 @@ function watchTimedOut(): CouchbaseError {
 
 /**
  * Whether `err` is the gateway refusing to wait on an index that has not
- * been built. The SDK has no error of its own for it, so it arrives as an
- * internal server failure naming the precondition.
+ * been built. The SDK has no error of its own for it, so it arrives as a
+ * plain {@link CouchbaseError} naming the precondition.
  */
 function stillDeferred(err: unknown): boolean {
   return (
-    err instanceof InternalServerFailureError &&
+    err instanceof CouchbaseError &&
     err.context instanceof GenericErrorContext &&
     err.context.precondition_violation === NOT_BUILDING
   )

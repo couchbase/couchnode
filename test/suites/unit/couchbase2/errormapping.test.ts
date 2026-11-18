@@ -20,7 +20,6 @@ import {
   InvalidArgumentError,
   PathNotFoundError,
   PathTooDeepError,
-  RateLimitedError,
   RequestCanceledError,
   ServiceNotAvailableError,
   UnambiguousTimeoutError,
@@ -192,22 +191,40 @@ describe('#couchbase2 error mapping', () => {
     ['queryindex', IndexNotFoundError],
     ['searchindex', IndexNotFoundError],
     ['path', PathNotFoundError],
-    ['unheard of', DocumentNotFoundError],
   ])('should map NOT_FOUND on %s', (type, cls) => {
     expect(mapped(grpc.status.NOT_FOUND, [resourceInfo(type)])).toBeInstanceOf(
       cls
     )
   })
 
-  it('should map NOT_FOUND without a resource to DocumentNotFoundError', () => {
-    expect(bare(grpc.status.NOT_FOUND)).toBeInstanceOf(DocumentNotFoundError)
-  })
+  it.each([
+    [grpc.status.NOT_FOUND, 'unheard of'],
+    [grpc.status.NOT_FOUND, 'constructor'],
+    [grpc.status.ALREADY_EXISTS, 'unheard of'],
+    [grpc.status.ALREADY_EXISTS, 'toString'],
+  ])(
+    'should map code %i on an unknown resource type %s to a plain CouchbaseError',
+    (code, type) => {
+      const err = mapped(code, [resourceInfo(type)])
+      expect(err.constructor).toBe(CouchbaseError)
+      expect(err.message).toBe('from the status')
+    }
+  )
+
+  it.each([grpc.status.NOT_FOUND, grpc.status.ALREADY_EXISTS])(
+    'should map code %i without a resource to a plain CouchbaseError',
+    (code) => {
+      expect(bare(code).constructor).toBe(CouchbaseError)
+    }
+  )
 
   it('should map ALREADY_EXISTS by resource type', () => {
     expect(
       mapped(grpc.status.ALREADY_EXISTS, [resourceInfo('bucket')])
     ).toBeInstanceOf(BucketExistsError)
-    expect(bare(grpc.status.ALREADY_EXISTS)).toBeInstanceOf(DocumentExistsError)
+    expect(
+      mapped(grpc.status.ALREADY_EXISTS, [resourceInfo('document')])
+    ).toBeInstanceOf(DocumentExistsError)
   })
 
   it('should map ABORTED on CAS_MISMATCH and nothing else', () => {
@@ -240,19 +257,44 @@ describe('#couchbase2 error mapping', () => {
       violation('DOC_TOO_DEEP'),
     ])
     expect(deep).toBeInstanceOf(DocumentTooDeepError)
-    expect(deep).toBeInstanceOf(PathTooDeepError)
+    expect(deep).not.toBeInstanceOf(PathTooDeepError)
     expect((deep.context as GenericErrorContext).precondition_violation).toBe(
       'DOC_TOO_DEEP'
     )
   })
 
-  it('should map an unknown or missing violation to an internal failure', () => {
-    expect(
-      mapped(grpc.status.FAILED_PRECONDITION, [violation('POISONED_CAS')])
-    ).toBeInstanceOf(InternalServerFailureError)
-    expect(bare(grpc.status.FAILED_PRECONDITION)).toBeInstanceOf(
-      InternalServerFailureError
+  it('should map an unknown or missing violation to a plain CouchbaseError', () => {
+    for (const type of ['POISONED_CAS', 'constructor']) {
+      expect(
+        mapped(grpc.status.FAILED_PRECONDITION, [violation(type)]).constructor
+      ).toBe(CouchbaseError)
+    }
+    expect(bare(grpc.status.FAILED_PRECONDITION).constructor).toBe(
+      CouchbaseError
     )
+  })
+
+  it('should keep a violation and a reason in the context under any code', () => {
+    const err = mapped(grpc.status.INTERNAL, [
+      violation('LOCKED'),
+      errorInfo('CAS_MISMATCH'),
+    ])
+    expect(err).toBeInstanceOf(InternalServerFailureError)
+    const ctx = err.context as GenericErrorContext
+    expect(ctx.precondition_violation).toBe('LOCKED')
+    expect(ctx.reason).toBe('CAS_MISMATCH')
+  })
+
+  it('should retry LOCKED only on FAILED_PRECONDITION', () => {
+    for (const code of [grpc.status.ABORTED, grpc.status.INTERNAL]) {
+      const details: StatusDetails = {
+        message: 'm',
+        preconditionFailure: {
+          violations: [{ type: 'LOCKED', subject: '', description: '' }],
+        },
+      }
+      expect(mapStatus(code, '', details, false).retryReason).toBeUndefined()
+    }
   })
 
   it('should separate authentication from authorization', () => {
@@ -291,10 +333,15 @@ describe('#couchbase2 error mapping', () => {
     [grpc.status.UNAUTHENTICATED, AuthenticationFailureError],
     [grpc.status.CANCELLED, RequestCanceledError],
     [grpc.status.UNAVAILABLE, ServiceNotAvailableError],
-    [grpc.status.RESOURCE_EXHAUSTED, RateLimitedError],
     [grpc.status.INTERNAL, InternalServerFailureError],
   ])('should map code %i by code alone', (code, cls) => {
     expect(bare(code)).toBeInstanceOf(cls)
+  })
+
+  it('should map RESOURCE_EXHAUSTED to a plain CouchbaseError', () => {
+    expect(bare(grpc.status.RESOURCE_EXHAUSTED).constructor).toBe(
+      CouchbaseError
+    )
   })
 
   it('should map any other code to a plain CouchbaseError', () => {
@@ -325,8 +372,14 @@ describe('#couchbase2 error mapping', () => {
       [violation('POISONED_CAS')],
       'precondition violation "POISONED_CAS"',
     ],
+    [
+      grpc.status.FAILED_PRECONDITION,
+      [violation('constructor')],
+      'precondition violation "constructor"',
+    ],
     [grpc.status.ABORTED, [errorInfo('OTHER')], 'ABORTED reason "OTHER"'],
     [grpc.status.DATA_LOSS, [], 'gRPC status DATA_LOSS'],
+    [grpc.status.RESOURCE_EXHAUSTED, [], 'gRPC status RESOURCE_EXHAUSTED'],
   ])(
     'should name what it does not recognize for code %i',
     (code, details, value) => {
@@ -388,16 +441,6 @@ describe('#couchbase2 error mapping', () => {
         owner: '',
         description: '',
       },
-      badRequest: {
-        field_violations: [
-          {
-            field: 'key',
-            description: 'too long',
-            reason: '',
-            localized_message: null,
-          },
-        ],
-      },
       debugInfo: { detail: 'd', stack_entries: ['a', 'b'] },
       requestInfo: { request_id: 'r1', serving_data: 's' },
     }
@@ -418,7 +461,6 @@ describe('#couchbase2 error mapping', () => {
       resource_name: 'b/s/c/k',
       resource_type: 'document',
       reason: undefined,
-      field_violations: [{ field: 'key', description: 'too long' }],
       debug_info: { detail: 'd', stack_entries: ['a', 'b'] },
       request_info: { request_id: 'r1', serving_data: 's' },
     })
