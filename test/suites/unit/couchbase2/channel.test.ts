@@ -3,7 +3,7 @@ import { execFileSync } from 'child_process'
 import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { rootCertificates as mozillaRootCertificates } from 'tls'
+import * as tls from 'tls'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 import {
@@ -26,6 +26,7 @@ import {
   MAX_RECEIVE_MESSAGE_LENGTH,
   openChannel,
   rootCertificates,
+  systemRootCertificates,
   targetIp,
 } from '../../../../lib/couchbase2/channel'
 import { parseConnStr } from '../../../../lib/couchbase2/connstr'
@@ -33,6 +34,10 @@ import { InvalidArgumentError } from '../../../../lib/errors'
 import { CouchbaseLogger } from '../../../../lib/logger'
 
 const PASSWORD = new PasswordAuthenticator('Administrator', 'password')
+
+// Stands in for a certificate from the system store; only its text matters.
+const SYSTEM_ROOT =
+  '-----BEGIN CERTIFICATE-----\nU1lTVEVN\n-----END CERTIFICATE-----\n'
 
 function settings(
   connStr: string,
@@ -152,6 +157,41 @@ describe('#couchbase2 channel settings', () => {
     [
       'couchbase2://h',
       PASSWORD,
+      'tls verification: "Capella, system and Mozilla roots", client ' +
+        'certificate: false, authentication: "password"',
+    ],
+    [
+      'couchbase2://h?disable_mozilla_ca_certificates=true',
+      undefined,
+      'tls verification: "Capella and system roots", client ' +
+        'certificate: false, authentication: "none"',
+    ],
+    [
+      'couchbase2://h?trust_certificate=/ca.pem',
+      new CertificateAuthenticator('c.pem', 'k.pem'),
+      'tls verification: "trust certificate", client certificate: ' +
+        'true, authentication: "certificate"',
+    ],
+    [
+      'couchbase2://h?tls_verify=none',
+      undefined,
+      'tls verification: "none", client certificate: false, ' +
+        'authentication: "none"',
+    ],
+  ])(
+    'should describe %s with system roots, without its credentials',
+    (connStr, auth, text) => {
+      const s = channelSettings(parseConnStr(connStr), auth)
+      expect(describeChannel(s, authenticatorKind(auth), [SYSTEM_ROOT])).toBe(
+        text
+      )
+    }
+  )
+
+  it.each([
+    [
+      'couchbase2://h',
+      PASSWORD,
       'tls verification: "Capella and Mozilla roots", client ' +
         'certificate: false, authentication: "password"',
     ],
@@ -173,10 +213,13 @@ describe('#couchbase2 channel settings', () => {
       'tls verification: "none", client certificate: false, ' +
         'authentication: "none"',
     ],
-  ])('should describe %s without its credentials', (connStr, auth, text) => {
-    const s = channelSettings(parseConnStr(connStr), auth)
-    expect(describeChannel(s, authenticatorKind(auth))).toBe(text)
-  })
+  ])(
+    'should describe %s with no system roots, without its credentials',
+    (connStr, auth, text) => {
+      const s = channelSettings(parseConnStr(connStr), auth)
+      expect(describeChannel(s, authenticatorKind(auth), [])).toBe(text)
+    }
+  )
 })
 
 describe('#couchbase2 root certificates', () => {
@@ -191,19 +234,54 @@ describe('#couchbase2 root certificates', () => {
   })
 
   it('should trust the Capella root and the Mozilla roots by default', () => {
-    const roots = rootCertificates(settings('couchbase2://h')).toString()
+    const roots = rootCertificates(settings('couchbase2://h'), []).toString()
     expect(roots.startsWith(CAPELLA_ROOT_CA)).toBe(true)
-    expect(roots).toContain(mozillaRootCertificates[0])
+    expect(roots).toContain(tls.rootCertificates[0])
     expect(roots.match(/BEGIN CERTIFICATE/g)).toHaveLength(
-      mozillaRootCertificates.length + 1
+      tls.rootCertificates.length + 1
     )
   })
 
-  it('should keep the Capella root without the Mozilla roots', () => {
-    const roots = rootCertificates(
-      settings('couchbase2://h?disable_mozilla_ca_certificates=true')
+  it('should add the system store, each certificate once', () => {
+    // A system store usually holds some of the Mozilla roots too.
+    const roots = rootCertificates(settings('couchbase2://h'), [
+      SYSTEM_ROOT,
+      `${tls.rootCertificates[0]}\n`,
+    ]).toString()
+    expect(roots).toContain(SYSTEM_ROOT)
+    expect(roots.match(/BEGIN CERTIFICATE/g)).toHaveLength(
+      tls.rootCertificates.length + 2
     )
-    expect(roots.toString()).toBe(CAPELLA_ROOT_CA)
+  })
+
+  it('should keep the Capella root and the system store without the Mozilla roots', () => {
+    const noMozilla = settings(
+      'couchbase2://h?disable_mozilla_ca_certificates=true'
+    )
+    expect(rootCertificates(noMozilla, []).toString()).toBe(CAPELLA_ROOT_CA)
+    expect(rootCertificates(noMozilla, [SYSTEM_ROOT]).toString()).toBe(
+      CAPELLA_ROOT_CA + SYSTEM_ROOT
+    )
+  })
+
+  it("should trust the machine's system store by default", () => {
+    const system = systemRootCertificates()
+    const s = settings('couchbase2://h')
+    const roots = rootCertificates(s).toString()
+    for (const pem of system) {
+      expect(roots).toContain(pem.trim())
+    }
+    const unique = new Set(
+      [CAPELLA_ROOT_CA, ...system, ...tls.rootCertificates].map((pem) =>
+        pem.trim()
+      )
+    )
+    expect(roots.match(/BEGIN CERTIFICATE/g)).toHaveLength(unique.size)
+    expect(describeChannel(s, 'password')).toContain(
+      system.length > 0
+        ? '"Capella, system and Mozilla roots"'
+        : '"Capella and Mozilla roots"'
+    )
   })
 
   it('should replace both with a trust store', () => {

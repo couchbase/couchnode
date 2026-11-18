@@ -125,8 +125,8 @@ describe('#couchbase2 backend construction', () => {
       new RegExp(
         '^couchbase2: open cluster, SDK version: "\\S+", grpc-js ' +
           'version: "\\d+\\.\\d+\\.\\d+", Node version: "v\\S+", ' +
-          'gateway: "localhost:1", tls verification: "Capella and Mozilla ' +
-          'roots", client certificate: false, authentication: "password", ' +
+          'gateway: "localhost:1", tls verification: "Capella(, system)? ' +
+          'and Mozilla roots", client certificate: false, authentication: "password", ' +
           'log redaction: false$'
       )
     )
@@ -414,7 +414,7 @@ describe.skipIf(!certificateDir)('#couchbase2 backend against a server', () => {
     }
   })
 
-  it('should log the connection, and warn when the gateway goes away', async () => {
+  it('should log the connection, and its loss at info', async () => {
     // A server of its own, so that shutting it down leaves the others alone.
     const own = new grpc.Server()
     own.addService(loadSchema().grpc.health.v1.Health.service, {
@@ -453,17 +453,20 @@ describe.skipIf(!certificateDir)('#couchbase2 backend against a server', () => {
         `couchbase2: connected to the gateway at localhost:${ownPort}`,
       ])
       own.forceShutdown()
+      const lost = [
+        'info',
+        `couchbase2: lost the connection to the gateway at ` +
+          `localhost:${ownPort}; reconnecting on the next request`,
+      ]
       const deadline = Date.now() + 5000
-      while (!lines.some(([l]) => l === 'warn') && Date.now() < deadline) {
+      while (
+        !lines.some(([l, m]) => l === lost[0] && m === lost[1]) &&
+        Date.now() < deadline
+      ) {
         await new Promise((r) => setTimeout(r, 20))
       }
-      expect(lines.filter(([l]) => l === 'warn')).toEqual([
-        [
-          'warn',
-          `couchbase2: lost the connection to the gateway at ` +
-            `localhost:${ownPort}; reconnecting on the next request`,
-        ],
-      ])
+      expect(lines).toContainEqual(lost)
+      expect(lines.filter(([l]) => l === 'warn')).toEqual([])
     } finally {
       own.forceShutdown()
       await b.close()

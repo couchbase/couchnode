@@ -1,10 +1,7 @@
 import * as grpc from '@grpc/grpc-js'
 import { readFileSync } from 'fs'
 import { isIP } from 'net'
-import {
-  checkServerIdentity,
-  rootCertificates as mozillaRootCertificates,
-} from 'tls'
+import * as tls from 'tls'
 
 import type {
   Authenticator,
@@ -113,7 +110,7 @@ export interface ChannelSettings {
 
   /**
    * Whether the default roots include Node's bundled Mozilla roots beside
-   * the Capella root.
+   * the system store and the Capella root.
    */
   includeMozillaRoots: boolean
 
@@ -256,21 +253,53 @@ function readRequired(path: string, what: string): Buffer {
 }
 
 /**
- * The roots a verifying channel trusts, as one PEM. A trust store replaces the
- * default set, which is the Capella root plus, unless disabled, Node's bundled
- * Mozilla roots.
+ * The certificates in the operating system's trust store, which a classic
+ * connection also trusts. Empty where the running Node version cannot read the
+ * store, or reading it fails.
  *
  * @internal
  */
-export function rootCertificates(settings: ChannelSettings): Buffer {
+export function systemRootCertificates(): string[] {
+  // Node 22.15 and 23.10 added this; @types/node does not declare it yet.
+  const getCACertificates = (
+    tls as { getCACertificates?: (type: 'system') => string[] }
+  ).getCACertificates
+  if (typeof getCACertificates !== 'function') {
+    return []
+  }
+  try {
+    return getCACertificates('system')
+  } catch {
+    return []
+  }
+}
+
+/**
+ * The roots a verifying channel trusts, as one PEM. A trust store replaces the
+ * default set, which is the Capella root, the system store and, unless
+ * disabled, Node's bundled Mozilla roots. A certificate in more than one of
+ * them appears once.
+ *
+ * @internal
+ */
+export function rootCertificates(
+  settings: ChannelSettings,
+  systemRoots: readonly string[] = systemRootCertificates()
+): Buffer {
   if (settings.trustCertificatePath) {
     return readRequired(settings.trustCertificatePath, 'trust store')
   }
-  const pems = [CAPELLA_ROOT_CA]
-  if (settings.includeMozillaRoots) {
-    pems.push(...mozillaRootCertificates.map((pem) => `${pem}\n`))
+  const pems = new Set([CAPELLA_ROOT_CA])
+  const add = (certs: readonly string[]) => {
+    for (const pem of certs) {
+      pems.add(`${pem.trim()}\n`)
+    }
   }
-  return Buffer.from(pems.join(''))
+  add(systemRoots)
+  if (settings.includeMozillaRoots) {
+    add(tls.rootCertificates)
+  }
+  return Buffer.from([...pems].join(''))
 }
 
 /**
@@ -321,7 +350,7 @@ export function channelCredentials(
     privateKey,
     certChain,
     ip
-      ? { checkServerIdentity: (_, cert) => checkServerIdentity(ip, cert) }
+      ? { checkServerIdentity: (_, cert) => tls.checkServerIdentity(ip, cert) }
       : {}
   )
 }
@@ -355,17 +384,27 @@ export function channelOptions(settings: ChannelSettings): grpc.ChannelOptions {
  */
 export function describeChannel(
   settings: ChannelSettings,
-  auth: ReturnType<typeof authenticatorKind>
+  auth: ReturnType<typeof authenticatorKind>,
+  systemRoots: readonly string[] = systemRootCertificates()
 ): string {
   let roots: string
   if (!settings.verifyPeer) {
     roots = 'none'
   } else if (settings.trustCertificatePath) {
     roots = 'trust certificate'
-  } else if (settings.includeMozillaRoots) {
-    roots = 'Capella and Mozilla roots'
   } else {
-    roots = 'Capella root'
+    const sources = ['Capella']
+    if (systemRoots.length > 0) {
+      sources.push('system')
+    }
+    if (settings.includeMozillaRoots) {
+      sources.push('Mozilla')
+    }
+    const last = sources.pop()
+    roots =
+      sources.length > 0
+        ? `${sources.join(', ')} and ${last} roots`
+        : `${last} root`
   }
   return (
     `tls verification: "${roots}", client certificate: ` +

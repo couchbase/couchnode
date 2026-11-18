@@ -114,7 +114,7 @@ describe('#couchbase2 connectivity log', () => {
     ])
   })
 
-  it('should warn when a connection in use is lost, once per outage', () => {
+  it('should log a lost connection at info and warn if reconnecting fails', () => {
     const { lines, channel, advance } = setup()
     channel.set(connectivityState.CONNECTING)
     channel.set(connectivityState.READY)
@@ -122,14 +122,21 @@ describe('#couchbase2 connectivity log', () => {
     channel.set(connectivityState.IDLE)
     channel.set(connectivityState.CONNECTING)
     channel.set(connectivityState.TRANSIENT_FAILURE)
+    channel.set(connectivityState.CONNECTING)
+    channel.set(connectivityState.TRANSIENT_FAILURE)
     advance(1500)
     channel.set(connectivityState.CONNECTING)
     channel.set(connectivityState.READY)
     expect(lines.filter(([l]) => l !== 'debug')).toEqual([
       [
-        'warn',
+        'info',
         'couchbase2: lost the connection to the gateway at gw:18098; ' +
           'reconnecting on the next request',
+      ],
+      [
+        'warn',
+        'couchbase2: unable to connect to the gateway at gw:18098; retrying ' +
+          'with backoff. A request that fails meanwhile reports the cause.',
       ],
       [
         'info',
@@ -137,6 +144,31 @@ describe('#couchbase2 connectivity log', () => {
           'after the connection was lost',
       ],
     ])
+  })
+
+  it('should not warn for a lost connection that reconnects at once', () => {
+    const { lines, channel } = setup()
+    channel.set(connectivityState.CONNECTING)
+    channel.set(connectivityState.READY)
+    lines.length = 0
+    channel.set(connectivityState.IDLE)
+    channel.set(connectivityState.CONNECTING)
+    channel.set(connectivityState.READY)
+    expect(levels(lines).filter((l) => l !== 'debug')).toEqual(['info', 'info'])
+  })
+
+  it('should warn again in a later outage', () => {
+    const { lines, channel } = setup()
+    for (let i = 0; i < 2; i++) {
+      channel.set(connectivityState.CONNECTING)
+      channel.set(connectivityState.TRANSIENT_FAILURE)
+      channel.set(connectivityState.CONNECTING)
+      channel.set(connectivityState.TRANSIENT_FAILURE)
+      channel.set(connectivityState.CONNECTING)
+      channel.set(connectivityState.READY)
+      channel.set(connectivityState.IDLE)
+    }
+    expect(levels(lines).filter((l) => l === 'warn')).toHaveLength(2)
   })
 
   it('should take going idle after the idle timeout as no outage', () => {

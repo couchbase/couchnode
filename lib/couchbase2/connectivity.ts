@@ -53,9 +53,10 @@ export interface ConnectivityLogOptions {
 /**
  * Logs the channel's connection to the gateway as it changes, until the
  * channel shuts down. A healthy connection logs once, at info, when it first
- * connects. Losing it, or failing to make it, logs at warn once per outage,
- * and reconnecting logs at info with how long it was down. Everything else
- * is debug.
+ * connects. Losing a connection in use logs at info, since the next request
+ * reconnects. Failing to connect logs at warn once per outage, including the
+ * first failed reconnect after a lost connection, and connecting again logs
+ * at info with how long it was down. Everything else is debug.
  *
  * The channel has one connection, so its state is that connection's. When
  * the connection closes the channel goes idle and reconnects on the next
@@ -78,6 +79,7 @@ export function watchConnectivity(
   let previous = channel.getConnectivityState(false)
   let connected = false
   let downSince: number | undefined
+  let warned = false
 
   const log = (state: grpc.connectivityState) => {
     switch (state) {
@@ -95,16 +97,20 @@ export function watchConnectivity(
         }
         connected = true
         downSince = undefined
+        warned = false
         return
       case connectivityState.TRANSIENT_FAILURE:
         if (downSince === undefined) {
           downSince = now()
+        }
+        if (warned) {
+          logger.debug(`couchbase2: still unable to connect to ${gateway}`)
+        } else {
+          warned = true
           logger.warn(
             `couchbase2: unable to connect to ${gateway}; retrying with ` +
               'backoff. A request that fails meanwhile reports the cause.'
           )
-        } else {
-          logger.debug(`couchbase2: still unable to connect to ${gateway}`)
         }
         return
       case connectivityState.IDLE: {
@@ -115,7 +121,7 @@ export function watchConnectivity(
           now() - last < CLIENT_IDLE_TIMEOUT_MS
         ) {
           downSince = now()
-          logger.warn(
+          logger.info(
             `couchbase2: lost the connection to ${gateway}; reconnecting ` +
               'on the next request'
           )
